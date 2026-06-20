@@ -1,0 +1,41 @@
+# Tomcat
+server:
+  port: 9998
+
+# Spring
+spring:
+  application:
+    # 应用名称
+    name: mall-chat-rag
+  profiles:
+    # 环境配置
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册地址
+        server-addr: 127.0.0.1:8848
+      config:
+        # 配置中心地址
+        server-addr: 127.0.0.1:8848
+  config:
+    # 配置文件格式
+    file-extension: yml
+    import:
+      - nacos:application-${spring.profiles.active}.${spring.config.file-extension}
+      - nacos:${spring.application.name}-${spring.profiles.active}.${spring.config.file-extension}
+  ai:
+    vectorstore:
+      weaviate:
+        host: 127.0.0.1:18080
+        scheme: http
+        api-key: WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih
+    model:
+      embedding: openai
+    openai:
+      # 本地 llama-server 的地址（不要带后面的 /v1/embeddings，框架会自动拼）
+      base-url: http://127.0.0.1:8080
+      api-key: 123456
+      embedding:
+        options:
+          model: Qwen3-Embedding-8B-Q5_K_M

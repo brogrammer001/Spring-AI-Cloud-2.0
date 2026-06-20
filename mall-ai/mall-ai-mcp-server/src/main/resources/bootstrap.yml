@@ -1,0 +1,50 @@
+# Tomcat
+server:
+  port: 9995
+
+# Spring
+spring:
+  main:
+    banner-mode: off
+  application:
+    # 应用名称
+    name: mall-chat-mcp-server
+  profiles:
+    # 环境配置
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册地址
+        server-addr: 127.0.0.1:8848
+      config:
+        # 配置中心地址
+        server-addr: 127.0.0.1:8848
+  config:
+    # 配置文件格式
+    file-extension: yml
+    import:
+      - nacos:application-${spring.profiles.active}.${spring.config.file-extension}
+      - nacos:${spring.application.name}-${spring.profiles.active}.${spring.config.file-extension}
+  ai:
+    mcp:
+      server:
+        name: ${spring.application.name}
+        version: 1.0.0
+        type: ASYNC  # Recommended for reactive applications
+        instructions: "asddasdad"
+        protocol: STREAMABLE
+        request-timeout: 20s
+        streamable-http:
+          mcp-endpoint: /mcp
+          keep-alive-interval: 30s
+          disallow-delete: false
+    alibaba:
+      mcp:
+        nacos:
+          server-addr: 127.0.0.1:8848
+          username: nacos
+          password: nacos
+          register:
+            enabled: true
+            service-name: ${spring.application.name}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.mall</groupId>
+        <artifactId>SpringAi-Cloud</artifactId>
+        <version>3.6.8</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <modules>
+        <module>mall-common-log</module>
+        <module>mall-common-core</module>
+        <module>mall-common-redis</module>
+        <module>mall-common-seata</module>
+        <module>mall-common-swagger</module>
+        <module>mall-common-security</module>
+        <module>mall-common-sensitive</module>
+        <module>mall-common-datascope</module>
+        <module>mall-common-datasource</module>
+    </modules>
+
+    <artifactId>mall-common</artifactId>
+    <packaging>pom</packaging>
+
+    <description>
+        mall-common通用模块
+    </description>
+
+</project>

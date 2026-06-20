@@ -1,0 +1,2 @@
+com.mall.common.redis.configure.RedisConfig
+com.mall.common.redis.service.RedisService

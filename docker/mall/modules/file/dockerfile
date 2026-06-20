@@ -1,0 +1,15 @@
+# 基础镜像
+FROM  openjdk:17
+# author
+MAINTAINER mall
+
+# 挂载目录
+VOLUME /home/mall
+# 创建目录
+RUN mkdir -p /home/mall
+# 指定路径
+WORKDIR /home/mall
+# 复制jar文件到路径
+COPY ./jar/mall-modules-file.jar /home/mall/mall-modules-file.jar
+# 启动文件服务
+ENTRYPOINT ["java","-jar","mall-modules-file.jar"]

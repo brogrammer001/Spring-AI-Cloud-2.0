@@ -1,0 +1,43 @@
+# Tomcat
+server:
+  port: 9994
+  servlet:
+    encoding:
+      mapping:
+        CHINESE: "UTF-8"
+
+# Spring
+spring:
+  application:
+    # 应用名称
+    name: mall-ai-chat
+  ai:
+    openai:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${aliQwen-api}
+      chat:
+        model: qwen3.7-max
+  profiles:
+    # 环境配置
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册地址
+        server-addr: 127.0.0.1:8848
+      config:
+        # 配置中心地址
+        server-addr: 127.0.0.1:8848
+  config:
+    # 配置文件格式
+    file-extension: yml
+    import:
+      - nacos:application-${spring.profiles.active}.${spring.config.file-extension}
+      - nacos:${spring.application.name}-${spring.profiles.active}.${spring.config.file-extension}
+
+logging:
+  level:
+    org.springframework.ai.mcp.client: DEBUG
+    org.springframework.web.client: DEBUG
+    org.springframework.ai.mcp: DEBUG
+    org.springframework.http.client: DEBUG

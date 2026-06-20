@@ -1,0 +1,13 @@
+# 基础镜像
+FROM redis
+# author
+MAINTAINER mall
+
+# 挂载目录
+VOLUME /home/mall/redis
+# 创建目录
+RUN mkdir -p /home/mall/redis
+# 指定路径
+WORKDIR /home/mall/redis
+# 复制conf文件到路径
+COPY ./conf/redis.conf /home/mall/redis/redis.conf

@@ -1,0 +1,25 @@
+package com.mall.chatmcp.config;
+
+import com.mall.chatmcp.sevice.ChatMcpService;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.tool.method.MethodToolCallbackProvider;
+//import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class McpServerConfig {
+
+    @Bean
+    public ToolCallbackProvider weatherTools(ChatMcpService chatMcpService)
+    {
+        return MethodToolCallbackProvider.builder()
+            .toolObjects(chatMcpService)
+            .build();
+    }
+
+//    @Bean
+//    public HttpMessageConverters httpMessageConverters() {
+//        return new HttpMessageConverters();
+//    }
+}
