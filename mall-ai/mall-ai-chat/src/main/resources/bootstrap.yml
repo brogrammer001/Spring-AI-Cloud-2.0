@@ -1,10 +1,6 @@
 # Tomcat
 server:
   port: 9994
-  servlet:
-    encoding:
-      mapping:
-        CHINESE: "UTF-8"
 
 # Spring
 spring:
