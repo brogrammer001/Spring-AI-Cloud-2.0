@@ -1,10 +1,14 @@
-package com.mall.chatmcp;
+package com.mall.aichat;
 
+import com.mall.common.security.annotation.EnableCustomConfig;
+import com.mall.common.security.annotation.EnableRyFeignClients;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 
 @SpringBootApplication
+@EnableRyFeignClients
+@EnableCustomConfig
 public class MallAiChatApplication {
     public static void main(String[] args) {
         SpringApplication.run(MallAiChatApplication.class, args);

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.aichat.mapper.SpringAiChatMemoryMapper">
+    
+    <resultMap type="SpringAiChatMemory" id="SpringAiChatMemoryResult">
+        <result property="conversationId"    column="conversation_id"    />
+        <result property="content"    column="content"    />
+        <result property="type"    column="type"    />
+        <result property="timestamp"    column="timestamp"    />
+        <result property="sequenceId"    column="sequence_id"    />
+    </resultMap>
+
+    <sql id="selectSpringAiChatMemoryVo">
+        select conversation_id, content, type, timestamp, sequence_id from SPRING_AI_CHAT_MEMORY
+    </sql>
+
+    <select id="selectSpringAiChatMemoryList" parameterType="SpringAiChatMemory" resultMap="SpringAiChatMemoryResult">
+        <include refid="selectSpringAiChatMemoryVo"/>
+        <where>  
+            <if test="conversationId != null  and conversationId != ''"> and conversation_id = #{conversationId}</if>
+            <if test="content != null  and content != ''"> and content = #{content}</if>
+            <if test="type != null  and type != ''"> and type = #{type}</if>
+            <if test="timestamp != null "> and timestamp = #{timestamp}</if>
+            <if test="sequenceId != null "> and sequence_id = #{sequenceId}</if>
+        </where>
+    </select>
+    
+    <select id="selectSpringAiChatMemoryByConversationId" parameterType="String" resultMap="SpringAiChatMemoryResult">
+        <include refid="selectSpringAiChatMemoryVo"/>
+        where conversation_id = #{conversationId}
+    </select>
+
+    <insert id="insertSpringAiChatMemory" parameterType="SpringAiChatMemory">
+        insert into SPRING_AI_CHAT_MEMORY
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="conversationId != null and conversationId != ''">conversation_id,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="type != null and type != ''">type,</if>
+            <if test="timestamp != null">timestamp,</if>
+            <if test="sequenceId != null">sequence_id,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="conversationId != null and conversationId != ''">#{conversationId},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="type != null and type != ''">#{type},</if>
+            <if test="timestamp != null">#{timestamp},</if>
+            <if test="sequenceId != null">#{sequenceId},</if>
+         </trim>
+    </insert>
+
+    <update id="updateSpringAiChatMemory" parameterType="SpringAiChatMemory">
+        update SPRING_AI_CHAT_MEMORY
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="content != null and content != ''">content = #{content},</if>
+            <if test="type != null and type != ''">type = #{type},</if>
+            <if test="timestamp != null">timestamp = #{timestamp},</if>
+            <if test="sequenceId != null">sequence_id = #{sequenceId},</if>
+        </trim>
+        where conversation_id = #{conversationId}
+    </update>
+
+    <delete id="deleteSpringAiChatMemoryByConversationId" parameterType="String">
+        delete from SPRING_AI_CHAT_MEMORY where conversation_id = #{conversationId}
+    </delete>
+
+    <delete id="deleteSpringAiChatMemoryByConversationIds" parameterType="String">
+        delete from SPRING_AI_CHAT_MEMORY where conversation_id in 
+        <foreach item="conversationId" collection="array" open="(" separator="," close=")">
+            #{conversationId}
+        </foreach>
+    </delete>
+</mapper>

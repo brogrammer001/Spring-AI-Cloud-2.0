@@ -118,6 +118,11 @@ public class Constants
     public static final String IS_ASC = "isAsc";
 
     /**
+     * ai 默认会话id
+     */
+    public static final String EMPTY_CONVERSATION_ID = "-1";
+
+    /**
      * 验证码有效期（分钟）
      */
     public static final long CAPTCHA_EXPIRATION = 2;

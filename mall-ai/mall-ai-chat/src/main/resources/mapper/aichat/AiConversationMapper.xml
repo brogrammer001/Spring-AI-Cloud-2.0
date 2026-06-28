@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.aichat.mapper.AiConversationMapper">
+    
+    <resultMap type="AiConversation" id="AiConversationResult">
+        <result property="id"    column="id"    />
+        <result property="conversationId"    column="conversation_id"    />
+        <result property="title"    column="title"    />
+        <result property="userId"    column="user_id"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectAiConversationVo">
+        select id, conversation_id,title, user_id, create_by, create_time, update_by, update_time from ai_conversation
+    </sql>
+
+    <select id="selectAiConversationList" parameterType="AiConversation" resultMap="AiConversationResult">
+        <include refid="selectAiConversationVo"/>
+        <where>  
+            <if test="conversationId != null  and conversationId != ''"> and conversation_id = #{conversationId}</if>
+            <if test="userId != null "> and user_id = #{userId}</if>
+        </where>
+    </select>
+    
+    <select id="selectAiConversationById" parameterType="String" resultMap="AiConversationResult">
+        <include refid="selectAiConversationVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="findByConversationId" parameterType="String" resultType="long">
+        select user_id from ai_conversation
+        where conversation_id = #{id}
+    </select>
+
+    <insert id="insertAiConversation" parameterType="AiConversation">
+        insert into ai_conversation
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="conversationId != null">conversation_id,</if>
+            <if test="title != null">title,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="conversationId != null">#{conversationId},</if>
+            <if test="title != null">#{title},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateAiConversation" parameterType="AiConversation">
+        update ai_conversation
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="conversationId != null">conversation_id = #{conversationId},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAiConversationById" parameterType="String">
+        delete from ai_conversation where id = #{id}
+    </delete>
+
+    <delete id="deleteAiConversationByIds" parameterType="String">
+        delete from ai_conversation where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>
