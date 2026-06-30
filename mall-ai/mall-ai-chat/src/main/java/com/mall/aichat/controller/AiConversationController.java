@@ -106,8 +106,18 @@ public class AiConversationController extends BaseController {
      */
     @RequiresPermissions("aichat:conversation:create")
     @Log( businessType = BusinessType.INSERT)
-    @PostMapping("/create")
+    @GetMapping("/create")
     public AjaxResult create(@RequestParam String question) {
         return success(aiConversationService.createAiConversation(question));
+    }
+
+    /**
+     * 删除【请填写功能名称】
+     */
+    @RequiresPermissions("aichat:conversation:deleteByConversationId")
+    @Log(title = "删除", businessType = BusinessType.DELETE)
+    @DeleteMapping("/deleteByConversationId/{conversationIds}")
+    public AjaxResult deleteByConversationId(@PathVariable String[] conversationIds) {
+        return toAjax(aiConversationService.deleteByConversationId(conversationIds));
     }
 }

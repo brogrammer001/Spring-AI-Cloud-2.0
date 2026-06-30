@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.mall.common.core.constant.Constants;
 import com.mall.common.core.utils.StringUtils;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
@@ -34,7 +35,7 @@ public class RedisCachedMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
-        String key = "chat:mem:" + conversationId;
+        String key = Constants.CHAT_MEMORY_KEY + conversationId;
         try {
             // 1. 先查 Redis
             String cached = mallRedisTemplate.opsForValue().get(key);
@@ -58,7 +59,7 @@ public class RedisCachedMemoryRepository implements ChatMemoryRepository {
             // 1. 先落库
             jdbcChatMemoryRepository.saveAll(conversationId, messages);
             // 2. 更新缓存
-            mallRedisTemplate.opsForValue().set("chat:mem:" + conversationId,
+            mallRedisTemplate.opsForValue().set(Constants.CHAT_MEMORY_KEY + conversationId,
                 serialize(messages), TTL_DAYS, TimeUnit.DAYS);
         } catch (Exception e) {
             // 缓存更新失败不影响主流程，可打印日志
@@ -68,7 +69,7 @@ public class RedisCachedMemoryRepository implements ChatMemoryRepository {
     @Override
     public void deleteByConversationId(String conversationId) {
         jdbcChatMemoryRepository.deleteByConversationId(conversationId);
-        mallRedisTemplate.delete("chat:mem:" + conversationId);
+        mallRedisTemplate.delete(Constants.CHAT_MEMORY_KEY + conversationId);
     }
 
     // ==========================================

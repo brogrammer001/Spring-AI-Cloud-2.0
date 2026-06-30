@@ -1,6 +1,5 @@
 package com.mall.aichat.controller;
 
-import com.mall.common.core.constant.Constants;
 import com.mall.common.security.utils.SecurityUtils;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
@@ -30,7 +29,7 @@ public class ChatController {
     private org.springframework.core.io.Resource systemPromptResource;
 
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chat(@RequestParam String question, @RequestParam(required = false, defaultValue = Constants.EMPTY_CONVERSATION_ID) String conversationId) {
+    public Flux<String> chat(@RequestParam String question, @RequestParam(required = false) String conversationId) {
 
         SystemMessage systemMessage = new SystemMessage(systemPromptResource);
         UserMessage userMessage = new UserMessage(question);

@@ -3,16 +3,20 @@ package com.mall.aichat.service.impl;
 import com.mall.aichat.domain.AiConversation;
 import com.mall.aichat.mapper.AiConversationMapper;
 import com.mall.aichat.service.IAiConversationService;
+import com.mall.aichat.service.ISpringAiChatMemoryService;
+import com.mall.common.core.constant.Constants;
+import com.mall.common.core.exception.ServiceException;
 import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import com.mall.common.security.utils.SecurityUtils;
-import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * 【请填写功能名称】Service业务层处理
@@ -22,11 +26,15 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 public class AiConversationServiceImpl implements IAiConversationService {
+
     @Autowired
     private AiConversationMapper aiConversationMapper;
 
-    @Resource(name = "mallRedisTemplate")
-    private RedisTemplate<String, String> mallRedisTemplate;
+    @Autowired
+    private StringRedisTemplate mallRedisTemplate;
+
+    @Autowired
+    private ISpringAiChatMemoryService springAiChatMemoryService;
 
     /**
      * 查询【请填写功能名称】
@@ -82,7 +90,18 @@ public class AiConversationServiceImpl implements IAiConversationService {
      */
     @Override
     public int deleteAiConversationByIds(String[] ids) {
-        return aiConversationMapper.deleteAiConversationByIds(ids);
+        //获取会话id集
+        String[] conversationIds = Arrays.stream(ids).map(this::selectAiConversationById).map(AiConversation::getConversationId).toArray(String[]::new);
+
+        //删除关联
+        int i = aiConversationMapper.deleteAiConversationByIds(ids);
+
+        //删除会话
+        int j = springAiChatMemoryService.deleteSpringAiChatMemoryByConversationIds(conversationIds);
+        if (i == 0 || j == 0) {
+            throw new ServiceException("删除会话失败");
+        }
+        return i;
     }
 
     /**
@@ -98,7 +117,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
 
     @Override
     public boolean checkConversationOwner(Long userId, String conversationId) {
-        String redisKey = "chat:conv:owner:" + conversationId;
+        String redisKey = Constants.CHAT_CONVERSATION_KEY + conversationId;
 
         // 1. 先查 Redis
         String cachedUserId = mallRedisTemplate.opsForValue().get(redisKey);
@@ -134,8 +153,34 @@ public class AiConversationServiceImpl implements IAiConversationService {
         }
         this.insertAiConversation(entity);
 
-        String redisKey = "chat:conv:owner:" + entity.getConversationId();
+        String redisKey = Constants.CHAT_CONVERSATION_KEY + entity.getConversationId();
         mallRedisTemplate.opsForValue().set(redisKey, String.valueOf(userId), 7, TimeUnit.DAYS);
         return entity;
+    }
+
+    @Override
+    public int deleteByConversationId(String[] conversationIds) {
+        //根据会话id获取关联表id
+        String[] ids = Arrays.stream(conversationIds).flatMap(conversationId -> {
+            AiConversation aiConversation = new AiConversation();
+            aiConversation.setConversationId(conversationId);
+            return this.selectAiConversationList(aiConversation).stream();
+        }).map(AiConversation::getId).distinct().toArray(String[]::new);
+
+        //删除关联
+        int i = aiConversationMapper.deleteAiConversationByIds(ids);
+
+        //删除会话
+        int j = springAiChatMemoryService.deleteSpringAiChatMemoryByConversationIds(conversationIds);
+
+        //删除redis缓存
+        List<String> chatConversationKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_CONVERSATION_KEY + conversationId).collect(Collectors.toList());
+        List<String> chatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_MEMORY_KEY + conversationId).collect(Collectors.toList());
+        mallRedisTemplate.delete(chatConversationKey);
+        mallRedisTemplate.delete(chatMemoryKey);
+        if (i == 0 || j == 0) {
+            throw new ServiceException("删除会话失败");
+        }
+        return i;
     }
 }

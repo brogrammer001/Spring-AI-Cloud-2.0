@@ -29,8 +29,8 @@ export function getConversationListByUserId() {
 export function create(question) {
   return request({
     url: '/ai-chat/conversation/create',
-    method: 'post',
-    data: {question: encodeURIComponent(question)}
+    method: 'get',
+    params: {question}
   })
 }
 
@@ -56,6 +56,14 @@ export function updateConversation(data) {
 export function delConversation(id) {
   return request({
     url: '/ai-chat/conversation/' + id,
+    method: 'delete'
+  })
+}
+
+// 删除【请填写功能名称】
+export function deleteByConversationId(id) {
+  return request({
+    url: '/ai-chat/conversation/deleteByConversationId/' + id,
     method: 'delete'
   })
 }

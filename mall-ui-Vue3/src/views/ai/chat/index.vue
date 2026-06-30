@@ -6,6 +6,7 @@
     <aside :class="['flex flex-col border-r transition-colors duration-300 w-64 m-0 py-2 px-0', darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
       <!-- 侧边栏顶部：新建对话 -->
       <div class="px-4 pb-2 flex-shrink-0">
+        <!-- 点击按钮仅重置界面，不调用接口 -->
         <button @click="startNewConversation" :class="['w-full flex items-center justify-center px-4 py-2.5 rounded-lg font-medium transition-colors duration-200', darkMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white']">
           <i class="fas fa-plus mr-2"></i>
           <span>新对话</span>
@@ -65,8 +66,9 @@
         <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
           <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
             <div :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', message.role === 'user' ? (darkMode ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600') : (darkMode ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600')]">
-                <i :class="message.role === 'user' ? 'fas fa-user' : 'fas fa-robot'"></i>
+              <img v-if="message.role === 'user'" :src="userStore.avatar" @error="e => e.target.src = defAva" class="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
+              <div v-else :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', darkMode ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600']">
+                <i class="fas fa-robot"></i>
               </div>
               <div :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
                 <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-2">
@@ -91,6 +93,7 @@
         <div class="max-w-3xl mx-auto relative">
           <div class="flex items-center">
             <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage" @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse" placeholder="输入您的问题..." :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide', darkMode ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-400 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 focus:ring-blue-500 focus:border-transparent']" rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
+            <!-- 发送/停止按钮：动态切换样式和点击事件 -->
             <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading" :class="['ml-2 p-3 rounded-lg', isLoading ? (darkMode ? 'bg-red-700 hover:bg-red-800 text-red-100' : 'bg-red-500 hover:bg-red-600 text-white') : (darkMode ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-100' : 'bg-blue-500 hover:bg-blue-600 text-white'), 'disabled:opacity-50 disabled:cursor-not-allowed']">
               <i :class="isLoading ? 'fas fa-stop' : 'fas fa-paper-plane'"></i>
             </button>
@@ -104,11 +107,14 @@
 <script setup>
 import {computed, nextTick, onMounted, ref, watch} from 'vue';
 import {sendChatMessage} from '@/api/ai/chat';
-import { create as createConversationApi, getConversationListByUserId as fetchConversationListApi } from '@/api/ai/conversation';
+import { create as createConversationApi, getConversationListByUserId as fetchConversationListApi, deleteByConversationId } from '@/api/ai/conversation';
 import { getChatMemoryListByConversationId } from '@/api/ai/chatmemory';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import {parse} from 'partial-json';
+import useUserStore from '@/store/modules/user';
+
+const userStore = useUserStore();
 
 const messages = ref([]);
 const userInput = ref('');
@@ -118,7 +124,7 @@ const textarea = ref(null);
 const pageRoot = ref(null);
 const darkMode = ref(true);
 const isFlipping = ref(false);
-let controller = null;
+let controller = null; // 用于中断请求的 AbortController
 let typingInterval = null;
 
 const conversations = ref([]);
@@ -155,7 +161,6 @@ const adjustTextareaHeight = () => {
   }
 };
 
-// --- 优化：智能滚动逻辑 ---
 const scrollToBottom = () => {
   nextTick(() => {
     if (!chatContainer.value) return;
@@ -163,15 +168,8 @@ const scrollToBottom = () => {
     const currentTop = container.scrollTop;
     const scrollHeight = container.scrollHeight;
     const clientHeight = container.clientHeight;
-    
-    // 计算距离底部的距离
-    // scrollHeight 是总高度，clientHeight 是可视高度，scrollTop 是滚动条位置
-    // 底部位置 = scrollHeight - clientHeight
-    // 当前距离底部的距离 = (scrollHeight - clientHeight) - scrollTop
     const distanceToBottom = scrollHeight - clientHeight - currentTop;
 
-    // 阈值判断：如果距离底部超过 300px (大约一屏或大量新消息)，使用平滑滚动
-    // 否则（流式输出增加几行），使用瞬间滚动以跟随打字效果
     if (distanceToBottom > 300) {
       container.scrollTo({
         top: scrollHeight,
@@ -190,7 +188,7 @@ const switchConversation = async (id) => {
   if (conv) {
     if (conv.messages.length > 0) {
       messages.value = conv.messages;
-      scrollToBottom(); // 这里的距离通常很大，会触发 smooth
+      scrollToBottom();
       nextTick(() => { if(textarea.value) textarea.value.focus(); });
       return;
     }
@@ -232,19 +230,23 @@ const switchConversation = async (id) => {
       messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
     }
 
-    scrollToBottom(); // 加载历史后，必定是大距离滚动，触发 smooth
+    scrollToBottom();
     nextTick(() => { if(textarea.value) textarea.value.focus(); });
   }
 };
 
-const deleteConversation = (id) => {
-  const index = conversations.value.findIndex(c => c.id === id);
-  if (index !== -1) {
-    conversations.value.splice(index, 1);
-    if (activeId.value === id) {
-      activeId.value = null;
-      messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
+const deleteConversation = async (id) => {
+  try {
+    await deleteByConversationId(id);
+    const index = conversations.value.findIndex(c => c.id === id);
+    if (index !== -1) {
+      conversations.value.splice(index, 1);
+      if (activeId.value === id) {
+        startNewConversation();
+      }
     }
+  } catch (error) {
+    console.error('删除对话失败:', error);
   }
 };
 
@@ -285,25 +287,16 @@ const toggleDarkMode = async () => {
   animation.onfinish = () => { clone.remove(); isFlipping.value = false; };
 };
 
-const startNewConversation = async () => {
-  try {
-    const res = await createConversationApi();
-    const newId = res.data;
-    if (newId) {
-      const newConv = { id: newId, title: '新对话', messages: [] };
-      conversations.value.unshift(newConv);
-      activeId.value = newId;
-      const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false };
-      messages.value = [initialMsg];
-      nextTick(() => {
-        if(messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
-      });
-      scrollToBottom();
-      nextTick(() => { if(textarea.value) textarea.value.focus(); });
-    }
-  } catch (error) {
-    console.error("创建新会话失败:", error);
-  }
+const startNewConversation = () => {
+  activeId.value = null;
+  userInput.value = '';
+  const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false };
+  messages.value = [initialMsg];
+  nextTick(() => {
+    if(messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
+  });
+  scrollToBottom();
+  nextTick(() => { if(textarea.value) textarea.value.focus(); });
 };
 
 const sendMessage = async () => {
@@ -312,16 +305,22 @@ const sendMessage = async () => {
   
   let currentConversationId = activeId.value;
 
+  // --- 核心逻辑：用户发送请求时没有会话ID（第一次进入或点击了新对话） ---
   if (!currentConversationId) {
     try {
-      isLoading.value = true;
-      const createRes = await createConversationApi();
+      isLoading.value = true; // 防止重复发送
+      
+      // 调用 create() 接口，传入用户的问题，后端生成 ID 和标题
+      const createRes = await createConversationApi(content);
+      
       const newId = createRes.data;
       const realId = (typeof newId === 'object' && newId !== null) ? newId.conversationId : newId;
 
       if (realId) {
-        const title = content.substring(0, 15) + (content.length > 15 ? '...' : '');
+        // 生成左侧最近对话，赋值 ID
+        const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
         const newConv = { id: realId, title: title, messages: [] };
+        
         conversations.value.unshift(newConv);
         activeId.value = realId;
         currentConversationId = realId;
@@ -340,6 +339,7 @@ const sendMessage = async () => {
     }
   }
 
+  // --- 正常发送消息流程 ---
   const userMessage = { role: 'user', content, isLoading: false, visibleChars: content.length, isStreaming: false };
   messages.value.push(userMessage);
   const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
@@ -347,11 +347,17 @@ const sendMessage = async () => {
   
   userInput.value = '';
   adjustTextareaHeight();
-  scrollToBottom(); // 发送消息瞬间增加两条，如果是长对话列表，会触发 smooth
+  scrollToBottom();
+  
   isLoading.value = true;
+  
+  // --- 新增：初始化 AbortController ---
+  // 创建一个新的 AbortController，用于后续中断请求
+  controller = new AbortController();
 
   try {
-    const response = await sendChatMessage(content, currentConversationId, controller?.signal);
+    // 传递 signal 给请求函数，使其可被中断
+    const response = await sendChatMessage(content, currentConversationId, controller.signal);
 
     if (!response.ok) {
       let errorMsg = `请求失败 (状态码: ${response.status})`;
@@ -393,7 +399,7 @@ const sendMessage = async () => {
               messages.value[messageIndex].content = streamText;
               messages.value[messageIndex].visibleChars = streamText.length;
               messages.value[messageIndex].isLoading = false;
-              scrollToBottom(); // 流式输出，距离很小，触发瞬间滚动
+              scrollToBottom();
             }
           }
         } catch (e) { 
@@ -412,13 +418,16 @@ const sendMessage = async () => {
     } catch (parseError) { console.error('Final parse error:', parseError); }
 
   } catch (error) {
+    // --- 处理中断异常 ---
     if (error.name === 'AbortError') {
-      console.log('请求被中止');
+      console.log('请求被用户中止');
       const lastMessage = messages.value[messages.value.length - 1];
+      // 如果中断时还没有任何内容，显示“已停止”
       if (lastMessage.content === '') {
         lastMessage.content = '已停止';
         lastMessage.visibleChars = 4;
       }
+      // 注意：不需要弹窗提示错误，这是用户的主动行为
     } else {
       console.error('请求出错:', error);
       const lastMessage = messages.value[messages.value.length - 1];
@@ -433,7 +442,7 @@ const sendMessage = async () => {
       lastMessage.visibleChars = lastMessage.content.length;
     }
     isLoading.value = false;
-    controller = null;
+    controller = null; // 清理 controller
     if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 
     const currentConv = conversations.value.find(c => c.id === currentConversationId);
@@ -444,35 +453,19 @@ const sendMessage = async () => {
   }
 };
 
+// --- 中断回答功能 ---
+// 点击红色停止按钮时触发
 const stopResponse = () => {
   if (controller) {
-    controller.abort();
-    const lastMessage = messages.value[messages.value.length - 1];
-    if (lastMessage) {
-      lastMessage.isLoading = false;
-      lastMessage.isStreaming = false;
-      if (lastMessage.visibleChars < lastMessage.content.length) lastMessage.visibleChars = lastMessage.content.length;
-    }
-    isLoading.value = false;
-    controller = null;
-    if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
-
-    const currentConv = conversations.value.find(c => c.id === activeId.value);
-    if (currentConv) {
-      currentConv.messages = JSON.parse(JSON.stringify(messages.value));
-    }
+    controller.abort(); // 触发 AbortError
+    // 界面状态更新将在 sendMessage 的 catch 和 finally 中自动处理
   }
 };
 
 onMounted(() => {
   darkMode.value = localStorage.getItem('darkMode') === 'true' || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   initRecentConversations();
-  activeId.value = null;
-  const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false };
-  messages.value = [initialMsg];
-  nextTick(() => {
-    if(messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
-  });
+  startNewConversation();
 });
 
 watch(messages, scrollToBottom, { deep: true });

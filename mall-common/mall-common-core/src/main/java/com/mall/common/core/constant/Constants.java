@@ -118,9 +118,14 @@ public class Constants
     public static final String IS_ASC = "isAsc";
 
     /**
-     * ai 默认会话id
+     * redis ai会话与用户关联信息 key
      */
-    public static final String EMPTY_CONVERSATION_ID = "-1";
+    public static final String CHAT_CONVERSATION_KEY = "chat:conv:owner:";
+
+    /**
+     * redis存储会话数据key
+     */
+    public static final String CHAT_MEMORY_KEY = "chat:mem:";
 
     /**
      * 验证码有效期（分钟）
