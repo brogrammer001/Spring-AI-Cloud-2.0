@@ -22,12 +22,9 @@ spring:
       chat:
         model: qwen3.7-max
       embedding:
-        model: text-embedding-v3
-        api-key: ${aliQwen-api}
-        base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-#        model: Qwen3-Embedding-8B-Q5_K_M
-#        base-url: http://127.0.0.1:8889
-#        api-key: 123456
+        model: Qwen3-Embedding-8B-Q5_K_M
+        base-url: http://127.0.0.1:8889/v1 # 2.0版本需要带上 /v1 后缀
+        api-key: 123456
     vectorstore:
       weaviate:
         host: 127.0.0.1:18080
@@ -35,6 +32,7 @@ spring:
         api-key: WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih
         filter-field:
           conversationId: TEXT
+        object-class: SpringAiWeaviate
   profiles:
     # 环境配置
     active: dev
@@ -55,7 +53,6 @@ spring:
 
 logging:
   level:
-    org.springframework.ai.mcp.client: DEBUG
+    org.springframework.ai: DEBUG
     org.springframework.web.client: DEBUG
-    org.springframework.ai.mcp: DEBUG
-    org.springframework.http.client: DEBUG
+    org.springframework.http: DEBUG

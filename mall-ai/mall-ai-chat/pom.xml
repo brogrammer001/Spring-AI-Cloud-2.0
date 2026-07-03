@@ -49,14 +49,19 @@
             <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-autoconfigure-vector-store-weaviate</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.ai</groupId>-->
+<!--            <artifactId>spring-ai-autoconfigure-vector-store-weaviate</artifactId>-->
+<!--        </dependency>-->
+
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.ai</groupId>-->
+<!--            <artifactId>spring-ai-weaviate-store</artifactId>-->
+<!--        </dependency>-->
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-weaviate-store</artifactId>
+            <artifactId>spring-ai-starter-vector-store-weaviate</artifactId>
         </dependency>
 
         <!-- Mysql Connector -->
