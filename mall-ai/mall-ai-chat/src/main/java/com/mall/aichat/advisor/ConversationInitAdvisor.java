@@ -5,6 +5,7 @@ import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
+import org.springframework.ai.chat.memory.ChatMemory;
 import reactor.core.publisher.Flux;
 
 /**
@@ -13,6 +14,7 @@ import reactor.core.publisher.Flux;
  * 上下文传递：确保生成的 conversationId 能传给后续的 MessageChatMemoryAdvisor 使用。
  */
 public class ConversationInitAdvisor implements StreamAdvisor {
+
     private final IAiConversationService aiConversationService;
 
     // 构造器
@@ -23,7 +25,7 @@ public class ConversationInitAdvisor implements StreamAdvisor {
     @Override
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest chatClientRequest, StreamAdvisorChain streamAdvisorChain) {
         // 1. 获取当前登录用户ID (假设通过上下文传递，或直接调用 SecurityUtils)
-        String conversationId = (String) chatClientRequest.context().get("chat_memory_conversation_id");
+        String conversationId = (String) chatClientRequest.context().get(ChatMemory.CONVERSATION_ID);
         Long userId = (Long) chatClientRequest.context().get("userId");
 
         // --- 已有会话逻辑 ---
@@ -35,7 +37,7 @@ public class ConversationInitAdvisor implements StreamAdvisor {
 
         // 3. 更新请求上下文
         // 将确定好的 conversationId 放入上下文，后续的 ChatMemoryAdvisor 会读取这个值
-        chatClientRequest.context().put("chat_memory_conversation_id", conversationId);
+        chatClientRequest.context().put(ChatMemory.CONVERSATION_ID, conversationId);
 
         // 4. 放行请求，继续执行后续的 Advisor 和大模型调用
         return streamAdvisorChain.nextStream(chatClientRequest);

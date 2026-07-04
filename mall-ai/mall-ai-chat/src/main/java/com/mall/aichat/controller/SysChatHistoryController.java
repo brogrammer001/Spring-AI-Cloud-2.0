@@ -1,7 +1,7 @@
 package com.mall.aichat.controller;
 
-import com.mall.aichat.domain.SpringAiChatMemory;
-import com.mall.aichat.service.ISpringAiChatMemoryService;
+import com.mall.aichat.domain.SysChatHistory;
+import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.utils.poi.ExcelUtil;
 import com.mall.common.core.web.controller.BaseController;
 import com.mall.common.core.web.domain.AjaxResult;
@@ -19,81 +19,89 @@ import java.util.List;
  * 【请填写功能名称】Controller
  * 
  * @author mall
- * @date 2026-06-27
+ * @date 2026-07-04
  */
 @RestController
-@RequestMapping("/chatmemory")
-public class SpringAiChatMemoryController extends BaseController
+@RequestMapping("/history")
+public class SysChatHistoryController extends BaseController
 {
     @Autowired
-    private ISpringAiChatMemoryService springAiChatMemoryService;
+    private ISysChatHistoryService sysChatHistoryService;
 
     /**
      * 查询【请填写功能名称】列表
      */
-    @RequiresPermissions("aichat:chatmemory:list")
+    @RequiresPermissions("aichat:history:list")
     @GetMapping("/list")
-    public TableDataInfo list(SpringAiChatMemory springAiChatMemory)
+    public TableDataInfo list(SysChatHistory sysChatHistory)
     {
         startPage();
-        List<SpringAiChatMemory> list = springAiChatMemoryService.selectSpringAiChatMemoryList(springAiChatMemory);
+        List<SysChatHistory> list = sysChatHistoryService.selectSysChatHistoryList(sysChatHistory);
         return getDataTable(list);
     }
 
     /**
      * 导出【请填写功能名称】列表
      */
-    @RequiresPermissions("aichat:chatmemory:export")
+    @RequiresPermissions("aichat:history:export")
     @Log(title = "【请填写功能名称】", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, SpringAiChatMemory springAiChatMemory)
+    public void export(HttpServletResponse response, SysChatHistory sysChatHistory)
     {
-        List<SpringAiChatMemory> list = springAiChatMemoryService.selectSpringAiChatMemoryList(springAiChatMemory);
-        ExcelUtil<SpringAiChatMemory> util = new ExcelUtil<SpringAiChatMemory>(SpringAiChatMemory.class);
+        List<SysChatHistory> list = sysChatHistoryService.selectSysChatHistoryList(sysChatHistory);
+        ExcelUtil<SysChatHistory> util = new ExcelUtil<SysChatHistory>(SysChatHistory.class);
         util.exportExcel(response, list, "【请填写功能名称】数据");
     }
 
     /**
      * 获取【请填写功能名称】详细信息
      */
-    @RequiresPermissions("aichat:chatmemory:query")
+    @RequiresPermissions("aichat:history:query")
     @GetMapping(value = "/{conversationId}")
     public AjaxResult getInfo(@PathVariable("conversationId") String conversationId)
     {
-        return success(springAiChatMemoryService.selectSpringAiChatMemoryByConversationId(conversationId));
+        return success(sysChatHistoryService.selectSysChatHistoryByConversationId(conversationId));
     }
 
     /**
      * 新增【请填写功能名称】
      */
-    @RequiresPermissions("aichat:chatmemory:add")
+    @RequiresPermissions("aichat:history:add")
     @Log(title = "【请填写功能名称】", businessType = BusinessType.INSERT)
     @PostMapping
-    public AjaxResult add(@RequestBody SpringAiChatMemory springAiChatMemory)
+    public AjaxResult add(@RequestBody SysChatHistory sysChatHistory)
     {
-        return toAjax(springAiChatMemoryService.insertSpringAiChatMemory(springAiChatMemory));
+        return toAjax(sysChatHistoryService.insertSysChatHistory(sysChatHistory));
     }
 
     /**
      * 修改【请填写功能名称】
      */
-    @RequiresPermissions("aichat:chatmemory:edit")
+    @RequiresPermissions("aichat:history:edit")
     @Log(title = "【请填写功能名称】", businessType = BusinessType.UPDATE)
     @PutMapping
-    public AjaxResult edit(@RequestBody SpringAiChatMemory springAiChatMemory)
+    public AjaxResult edit(@RequestBody SysChatHistory sysChatHistory)
     {
-        return toAjax(springAiChatMemoryService.updateSpringAiChatMemory(springAiChatMemory));
+        return toAjax(sysChatHistoryService.updateSysChatHistory(sysChatHistory));
     }
 
     /**
      * 删除【请填写功能名称】
      */
-    @RequiresPermissions("aichat:chatmemory:remove")
+    @RequiresPermissions("aichat:history:remove")
     @Log(title = "【请填写功能名称】", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{conversationIds}")
     public AjaxResult remove(@PathVariable String[] conversationIds)
     {
-        return toAjax(springAiChatMemoryService.deleteSpringAiChatMemoryByConversationIds(conversationIds));
+        return toAjax(sysChatHistoryService.deleteSysChatHistoryByConversationIds(conversationIds));
     }
 
+    /**
+     * 查询会话历史
+     */
+    @RequiresPermissions("aichat:history:getConversationListByUserId")
+    @GetMapping("/getChatMemoryListByConversationId/{conversationId}")
+    public AjaxResult getConversationListByUserId(@PathVariable("conversationId") String conversationId) {
+        return success(sysChatHistoryService.selectSysChatHistoryByConversationId(conversationId));
+    }
 }

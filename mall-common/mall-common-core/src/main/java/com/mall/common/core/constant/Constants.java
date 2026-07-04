@@ -128,6 +128,11 @@ public class Constants
     public static final String CHAT_MEMORY_KEY = "chat:mem:";
 
     /**
+     * redis存储会话数据key
+     */
+    public static final String SEQ_CHAT_MEMORY_KEY_PREFIX = "chat:seq:";
+
+    /**
      * 验证码有效期（分钟）
      */
     public static final long CAPTCHA_EXPIRATION = 2;

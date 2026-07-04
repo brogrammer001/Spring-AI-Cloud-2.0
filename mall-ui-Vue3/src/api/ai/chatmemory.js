@@ -17,14 +17,6 @@ export function getChatmemory(conversationId) {
   })
 }
 
-// 查询【请填写功能名称】详细
-export function getChatMemoryListByConversationId(conversationId) {
-  return request({
-    url: '/ai-chat/chatmemory/getChatMemoryListByConversationId/' + conversationId,
-    method: 'get'
-  })
-}
-
 // 新增【请填写功能名称】
 export function addChatmemory(data) {
   return request({

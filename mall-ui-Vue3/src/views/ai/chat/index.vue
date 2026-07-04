@@ -108,7 +108,7 @@
 import {computed, nextTick, onMounted, ref, watch} from 'vue';
 import {sendChatMessage} from '@/api/ai/chat';
 import { create as createConversationApi, getConversationListByUserId as fetchConversationListApi, deleteByConversationId } from '@/api/ai/conversation';
-import { getChatMemoryListByConversationId } from '@/api/ai/chatmemory';
+import { getChatMemoryListByConversationId } from '@/api/ai/history';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import {parse} from 'partial-json';

@@ -1,150 +1,74 @@
-<p align="center">
-	<img alt="logo" src="https://oscimg.oschina.net/oscnet/up-b99b286755aef70355a7084753f89cdb7c9.png">
-</p>
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">mall v3.6.8</h1>
-<h4 align="center">基于 Vue/Element UI 和 Spring Boot/Spring Cloud & Alibaba 前后端分离的分布式微服务架构</h4>
-<p align="center">
-	<a href="https://gitee.com/y_project/mall-Cloud/stargazers"><img src="https://gitee.com/y_project/mall-Cloud/badge/star.svg?theme=dark"></a>
-	<a href="https://gitee.com/y_project/mall-Cloud"><img src="https://img.shields.io/badge/mall-v3.6.8-brightgreen.svg"></a>
-	<a href="https://gitee.com/y_project/mall-Cloud/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mashape/apistatus.svg"></a>
-</p>
-
-## 平台简介
-
-Spring AI是一套全部开源的快速开发平台，毫无保留给个人及企业免费使用。
-
-* 采用前后端分离的模式，微服务版本前端(基于 [mall-Vue](https://gitee.com/y_project/mall-Vue))。
-* 后端采用Spring Boot、Spring Cloud & Alibaba。
-* 注册中心、配置中心选型Nacos，权限认证使用Redis。
-* 流量控制框架选型Sentinel，分布式事务选型Seata。
-* 阿里云优惠券：[点我进入](http://aly.mall.vip)，腾讯云优惠券：[点我进入](http://txy.mall.vip)&nbsp;&nbsp;
-
-# 版本分支
-
-mall-Cloud 后端项目提供 Spring Boot 2.x / 3.x / 4.x 多版本分支的并行维护。
-
-| 名称              | 说明                                 | 地址                                                      |
-| :---------------- | :----------------------------------- | :-------------------------------------------------------- |
-| master 默认分支   | Spring Boot 4.x (JDK 17+、Nacos 3.x) | https://gitee.com/y_project/mall-Cloud                   |
-| springboot3 分支  | Spring Boot 3.x (JDK 17+、Nacos 3.x) | https://gitee.com/y_project/mall-Cloud/tree/springboot3  |
-| springboot2 分支  | Spring Boot 2.x (JDK 8+、 Nacos 2.x) | https://gitee.com/y_project/mall-Cloud/tree/springboot2  |
-
-mall-Cloud 前端项目提供 Vue 2.x / 3.x / JavaScript TypeScript 版本均可混用搭配
-
-| 项目名称      | **mall-Cloud** | **mall-Cloud-Vue3** | **mall-Cloud-Vue3-TypeScript**   |
-| :---          | :---            | :---                 | :---                              |
-| **前端框架**  | Vue 2           | Vue 3                | Vue 3                             |
-| **脚本语言**  | JavaScript      | JavaScript           | TypeScript                        |
-| **构建工具**  | Vue CLI         | Vite                 | Vite                              |
-| **UI 组件库** | Element UI      | Element Plus         | Element Plus                      |
-| **状态管理**  | Vuex            | Pinia                | Pinia                             |
-| **路由管理**  | Vue Router 3    | Vue Router 4         | Vue Router 4                      |
-| **核心特点**  | 1. 技术栈经典稳定<br>2. 社区资料丰富<br>3. 当前维护重心已转移 | 1. 现代前端技术栈<br>2. 开发体验与性能更优<br>3. 官方主推的活跃版本 | 1. 类型加持，减少沟通成本<br>2. 开发时有提示，效率更高<br>3. 多人协作企业级开发项目 |
-| **仓库地址**  | [mall-Cloud](https://gitee.com/y_project/mall-Cloud) | [mall-Cloud-Vue3](https://gitcode.com/yangzongzhuan/mall-Cloud-Vue3) | [mall-Cloud-Vue3-TypeScript](https://gitcode.com/yangzongzhuan/mall-Cloud-Vue3/tree/typescript) |
-
-## 系统模块
-
-~~~
-com.mall     
-├── mall-ui              // 前端框架 [80]
-├── mall-gateway         // 网关模块 [8080]
-├── mall-auth            // 认证中心 [9200]
-├── mall-api             // 接口模块
-│       └── mall-api-system                          // 系统接口
-├── mall-common          // 通用模块
-│       └── mall-common-core                         // 核心模块
-│       └── mall-common-datascope                    // 权限范围
-│       └── mall-common-datasource                   // 多数据源
-│       └── mall-common-log                          // 日志记录
-│       └── mall-common-redis                        // 缓存服务
-│       └── mall-common-seata                        // 分布式事务
-│       └── mall-common-security                     // 安全模块
-│       └── mall-common-sensitive                    // 数据脱敏
-│       └── mall-common-swagger                      // 系统接口
-├── mall-modules         // 业务模块
-│       └── mall-system                              // 系统模块 [9201]
-│       └── mall-gen                                 // 代码生成 [9202]
-│       └── mall-job                                 // 定时任务 [9203]
-│       └── mall-file                                // 文件服务 [9300]
-├── mall-visual          // 图形化管理模块
-│       └── mall-visual-monitor                      // 监控中心 [9100]
-├──pom.xml                // 公共依赖
-~~~
-
-## 架构图
-
-<img src="https://oscimg.oschina.net/oscnet/up-82e9722ecb846786405a904bafcf19f73f3.png"/>
-
-## 内置功能
-
-1.  用户管理：用户是系统操作者，该功能主要完成系统用户配置。
-2.  部门管理：配置系统组织机构（公司、部门、小组），树结构展现支持数据权限。
-3.  岗位管理：配置系统用户所属担任职务。
-4.  菜单管理：配置系统菜单，操作权限，按钮权限标识等。
-5.  角色管理：角色菜单权限分配、设置角色按机构进行数据范围权限划分。
-6.  字典管理：对系统中经常使用的一些较为固定的数据进行维护。
-7.  参数管理：对系统动态配置常用参数。
-8.  通知公告：系统通知公告信息发布维护。
-9.  操作日志：系统正常操作日志记录和查询；系统异常信息日志记录和查询。
-10. 登录日志：系统登录日志记录查询包含登录异常。
-11. 在线用户：当前系统中活跃用户状态监控。
-12. 定时任务：在线（添加、修改、删除)任务调度包含执行结果日志。
-13. 代码生成：前后端代码的生成（java、html、xml、sql）支持CRUD下载 。
-14. 系统接口：根据业务代码自动生成相关的api接口文档。
-15. 服务监控：监视当前系统CPU、内存、磁盘、堆栈等相关信息。
-16. 在线构建器：拖动表单元素生成相应的HTML代码。
-17. 连接池监视：监视当前系统数据库连接池状态，可进行分析SQL找出系统性能瓶颈。
-
-## 在线体验
-
-- admin/admin123  
-- 陆陆续续收到一些打赏，为了更好的体验已用于演示服务器升级。谢谢各位小伙伴。
-
-演示地址：http://mall.vip  
-文档地址：http://doc.mall.vip
-
-## 演示图
-
-<table>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/cd1f90be5f2684f4560c9519c0f2a232ee8.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/1cbcf0e6f257c7d3a063c0e3f2ff989e4b3.jpg"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-8074972883b5ba0622e13246738ebba237a.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-9f88719cdfca9af2e58b352a20e23d43b12.png"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-39bf2584ec3a529b0d5a3b70d15c9b37646.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-4148b24f58660a9dc347761e4cf6162f28f.png"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-b2d62ceb95d2dd9b3fbe157bb70d26001e9.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-d67451d308b7a79ad6819723396f7c3d77a.png"/></td>
-    </tr>	 
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/5e8c387724954459291aafd5eb52b456f53.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/644e78da53c2e92a95dfda4f76e6d117c4b.jpg"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-8370a0d02977eebf6dbf854c8450293c937.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-49003ed83f60f633e7153609a53a2b644f7.png"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-d4fe726319ece268d4746602c39cffc0621.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-c195234bbcd30be6927f037a6755e6ab69c.png"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-ece3fd37a3d4bb75a3926e905a3c5629055.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-92ffb7f3835855cff100fa0f754a6be0d99.png"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-ff9e3066561574aca73005c5730c6a41f15.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-5e4daac0bb59612c5038448acbcef235e3a.png"/></td>
-    </tr>
-</table>
-
-
-## Spring AI微服务交流群
-
-QQ群： [![加入QQ群](https://img.shields.io/badge/已满-42799195-blue.svg)](https://jq.qq.com/?_wv=1027&k=yqInfq0S) [![加入QQ群](https://img.shields.io/badge/已满-170157040-blue.svg)](https://jq.qq.com/?_wv=1027&k=Oy1mb3p8) [![加入QQ群](https://img.shields.io/badge/已满-130643120-blue.svg)](https://jq.qq.com/?_wv=1027&k=rvxkJtXK) [![加入QQ群](https://img.shields.io/badge/已满-225920371-blue.svg)](https://jq.qq.com/?_wv=1027&k=0Ck3PvTe) [![加入QQ群](https://img.shields.io/badge/已满-201705537-blue.svg)](https://jq.qq.com/?_wv=1027&k=FnHHP4TT) [![加入QQ群](https://img.shields.io/badge/已满-236543183-blue.svg)](https://jq.qq.com/?_wv=1027&k=qdT1Ojpz) [![加入QQ群](https://img.shields.io/badge/已满-213618602-blue.svg)](https://jq.qq.com/?_wv=1027&k=nw3OiyXs) [![加入QQ群](https://img.shields.io/badge/已满-148794840-blue.svg)](https://jq.qq.com/?_wv=1027&k=kiU5WDls) [![加入QQ群](https://img.shields.io/badge/已满-118752664-blue.svg)](https://jq.qq.com/?_wv=1027&k=MtBy6YfT) [![加入QQ群](https://img.shields.io/badge/已满-101038945-blue.svg)](https://jq.qq.com/?_wv=1027&k=FqImHgH2) [![加入QQ群](https://img.shields.io/badge/已满-128355254-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=G4jZ4EtdT50PhnMBudTnEwgonxkXOscJ&authKey=FkGHYfoTKlGE6wHdKdjH9bVoOgQjtLP9WM%2Fj7pqGY1msoqw9uxDiBo39E2mLgzYg&noverify=0&group_code=128355254) [![加入QQ群](https://img.shields.io/badge/已满-179219821-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=irnwcXhbLOQEv1g-TwGifjNTA_f4wZiA&authKey=4bpzEwhcUY%2FvsPDHvzYn6xfoS%2FtOArvZ%2BGXzfr7O0%2FEqLfkKA%2BuCDXlzHIFg8t93&noverify=0&group_code=179219821) [![加入QQ群](https://img.shields.io/badge/已满-158753145-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=lx1uEdEDuxeM7rUvF3qmlFdqKqdJ5Z-R&authKey=rgyPW9yhhh4IIURKVFa6NgP3qiqH04WAzrJ0trsgkr3pjzm6sKIOGyA58oOjoj%2FJ&noverify=0&group_code=158753145) [![加入QQ群](https://img.shields.io/badge/112869560-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Kuaw0Xdlw2Nlgn6s8h9elzuquHGxGObD&authKey=cSrQcWQ%2BzQZAFFrwxaR%2BbzcumX4WRduZnd1O6JO1dlclQMiu%2BKwxAy8t2JfNp67V&noverify=0&group_code=112869560) 点击按钮入群。
+# Spring AI 2.0 企业级 ChatBot 架构与实现指南
+## 1. 核心架构概览
+本系统基于 Spring AI 2.0 构建，采用 **"三层存储 + 双模记忆"** 架构，旨在平衡 AI 响应的上下文连贯性、语义检索准确性以及系统的存储成本与性能。
+*   **双模记忆**：结合 `WindowChatMemory`（近期上下文）与 `VectorStoreChatMemory`（长期语义记忆）。
+*   **三层存储**：Redis（热缓存） + MySQL（结构化持久化） + VectorStore（非结构化语义索引）。
+---
+## 2. 功能模块详细设计
+### 2.1 系统全局提示词
+*   **实现方式**：在构建 `ChatClient` Bean 时，通过 `defaultSystem` 统一加载。
+*   **加载时机**：应用启动时加载一次，避免每次请求重复 IO。
+*   **配置要点**：
+    *   将 System Prompt 定义为独立的 Markdown 文件（如 `system-prompt.md`），便于版本控制和热更新。
+### 2.2 会话记忆与上下文管理
+#### 2.2.1 多用户会话隔离
+*   **隔离维度**：`userId`（用户维度的数据权限） + `conversationId`（单次会话维度的上下文连续性）。
+*   **实现机制**：
+    *   当用户第一次输入内容进行请求，创建conversationId并与用户id建立关联关系
+    *   通过 `自定义Advisor-ConversationInitAdvisor` 上下文传递 `ChatMemory.CONVERSATION_ID` 和 `userId`校验是否合法。
+    *   在所有存储层（Redis, MySQL, VectorStore）的数据写入时，必须带上CONVERSATION_ID
+#### 2.2.2 上下文窗口（近期记忆 - Window Memory）
+这是 AI "正在看"的内容，决定了对话的连续性。
+*   **窗口策略**：基于 `maxMessages` 滑动窗口。
+    *   **逻辑**：仅保留最近的 N 条消息。达到上限时，自动移除最早的一轮对话。
+    *   **奇偶校验**：为了保证“一问一答”的完整性，底层会自动将奇数 `maxMessages` 向下取整为偶数（如输入 5，实际生效 4）。
+*   **存储实现（双写策略）**：
+    1.  **Redis 缓存层**：
+        *   **作用**：提供毫秒级的读写速度，支撑高并发会话。
+        *   **策略**：Key 设置 TTL（如 7天），过期自动清理。
+    2.  **MySQL 持久化层**：
+        *   **作用**：作为 Redis 的持久化备份，防止 Redis 故障丢失近期上下文，当redis数据过期，可通过查询将数据缓存到redis
+        *   **策略**：同步窗口数据，同样遵循滑动窗口截断逻辑。
+*   **重点类**：`MessageChatMemoryAdvisor`, `MessageWindowChatMemory`, `RedisCachedAndMysqlMemoryRepository` (自定义).
+#### 2.2.3 向量库全量上下文（长期记忆 - Vector Memory）
+这是 AI "能想起"的内容，实现了跨会话、长期的语义检索。
+*   **应用场景**：用户询问“我最初问了什么”，即使该对话不在当前窗口，AI 也能通过向量检索找到。
+*   **技术栈**：本地 Embedding 模型（Qwen3-Embedding） + Weaviate（向量数据库）。
+*   **检索逻辑**：基于 `VectorStoreChatMemoryAdvisor`，根据当前问题相似度检索历史。
+    *   **参数**：`defaultTopK`（例如 3），即返回相似度最高的 3 条历史片段。
+*   **重点类**：`VectorStoreChatMemoryAdvisor`。
+#### 2.2.4 全量聊天记录（业务展示）
+*   **作用**：供前端展示“历史会话列表”和“聊天详情”，支持分页、关键词搜索。
+*   **存储**：MySQL 业务表（如 `sys_chat_history`）。
+*   **特点**：**全量永久存储**（除非用户主动删除），不进行滑动窗口截断。
+*   **重点类**：`FullHistoryChatMemory`。
+---
+## 3. 关键类与组件清单
+| 组件/类名                             | 职责描述                                 | 备注                                      |
+| :------------------------------------ | :--------------------------------------- | :---------------------------------------- |
+| `ChatClient`                          | AI 交互的统一入口                        | Builder 模式构建                          |
+| `MessageChatMemoryAdvisor`            | 处理近期上下文的读/写切面                | 负责调用 ChatMemory                       |
+| `MessageWindowChatMemory`             | 窗口策略的具体实现                       | 管理 maxMessages 截断逻辑                 |
+| `VectorStoreChatMemoryAdvisor`        | 处理长期语义检索的读切面                 | 负责调用 VectorStore 搜索                 |
+| `RedisCachedAndMysqlMemoryRepository` | **自定义实现**：Redis+MySQL 双层存储     | 实现了 ChatMemoryRepository 接口          |
+| `FullHistoryChatMemory`               | **自定义包装类**：协调窗口存储与全量存储 | 在写入时同时触发窗口更新和 MySQL 全量入库 |
+| `VectorStore`                         | Spring AI 向量存储抽象接口               | 对接 Weaviate 等                          |
+---
+## 4. 注意事项与最佳实践
+### 4.1 向量库成本与清理（⚠️ 高危）
+*   **存储成本**：向量库不仅存文本，还存高维浮点数组（如 1536 维），磁盘占用是 MySQL 的 10 倍以上。
+*   **必须清理**：**切勿永久存储所有向量**。建议设置 TTL（如 180 天），或编写定时任务清理超过 1 年的向量数据，否则检索性能会随数据量增长急剧下降。
+*   **数据一致性**：向量库更新是异步的，如果消息入库后立刻查询向量库，可能查不到（延迟问题）。
+### 4.2 隐私隔离（🔒 安全）
+*   **向量检索隔离**：在调用 `VectorStore` 搜索时，**必须**在 Filter 中加入 `userId`。否则，用户 A 可能会搜索到用户 B 的隐私记录（例如：“帮我查一下订单”可能会搜到别人的订单号）。
+    *   *推荐做法：在写入 Document 时 metadata 强制加入 userId，查询时强制过滤。*
+### 4.3 System Prompt 的格式冲突
+*   如果你的 System Prompt 规定了输出格式（如纯 JSON，无 Markdown），请确保：
+    1.  模型遵守指令（通过 Prompt 约束）。
+    2.  Spring AI 的 SSE（Server-Sent Events）配置不会破坏格式。标准的 SSE 会自动在每行前加 `data:`。如果前端需要纯 JSON 流，需调整 `produces` 或前端解析逻辑。
+### 4.4 消息顺序与偶数限制
+*   AI 对话极其依赖角色顺序。`MessageWindowChatMemory` 底层之所以强制偶数，是为了防止截断后出现 `User -> User` 或 `Assistant -> Assistant` 的连续角色错误。
+*   **开发建议**：配置 `maxMessages` 时直接填写偶数（如 4, 10, 20），避免产生歧义。
+### 4.5 事务一致性
+*   MySQL 全量表（业务）与 MySQL 窗口表 可能不在同一个事务中。如果全量入库成功但窗口更新失败，用户可能看到历史记录但 AI “失忆”。
+*   **优化**：在 `FullHistoryChatMemory` 中，优先保证窗口写入成功，全量入库失败可记录日志异步重试，不要阻塞主流程。

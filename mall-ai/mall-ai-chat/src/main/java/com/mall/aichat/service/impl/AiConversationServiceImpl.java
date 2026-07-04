@@ -4,11 +4,14 @@ import com.mall.aichat.domain.AiConversation;
 import com.mall.aichat.mapper.AiConversationMapper;
 import com.mall.aichat.service.IAiConversationService;
 import com.mall.aichat.service.ISpringAiChatMemoryService;
+import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
 import com.mall.common.core.exception.ServiceException;
 import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import com.mall.common.security.utils.SecurityUtils;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,12 @@ public class AiConversationServiceImpl implements IAiConversationService {
 
     @Autowired
     private ISpringAiChatMemoryService springAiChatMemoryService;
+
+    @Autowired
+    private ISysChatHistoryService sysChatHistoryService;
+
+    @Autowired
+    private VectorStore vectorStore;
 
     /**
      * 查询【请填写功能名称】
@@ -90,18 +99,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
      */
     @Override
     public int deleteAiConversationByIds(String[] ids) {
-        //获取会话id集
-        String[] conversationIds = Arrays.stream(ids).map(this::selectAiConversationById).map(AiConversation::getConversationId).toArray(String[]::new);
-
-        //删除关联
-        int i = aiConversationMapper.deleteAiConversationByIds(ids);
-
-        //删除会话
-        int j = springAiChatMemoryService.deleteSpringAiChatMemoryByConversationIds(conversationIds);
-        if (i == 0 || j == 0) {
-            throw new ServiceException("删除会话失败");
-        }
-        return i;
+        return aiConversationMapper.deleteAiConversationByIds(ids);
     }
 
     /**
@@ -173,14 +171,36 @@ public class AiConversationServiceImpl implements IAiConversationService {
         //删除会话
         int j = springAiChatMemoryService.deleteSpringAiChatMemoryByConversationIds(conversationIds);
 
+        int z = sysChatHistoryService.deleteSysChatHistoryByConversationIds(conversationIds);
+
         //删除redis缓存
         List<String> chatConversationKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_CONVERSATION_KEY + conversationId).collect(Collectors.toList());
-        List<String> chatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_MEMORY_KEY + conversationId).collect(Collectors.toList());
+        List<String> chatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_MEMORY_KEY + conversationId).toList();
+        List<String> seqChatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId).toList();
+        chatConversationKey.addAll(chatMemoryKey);
+        chatConversationKey.addAll(seqChatMemoryKey);
+
         mallRedisTemplate.delete(chatConversationKey);
-        mallRedisTemplate.delete(chatMemoryKey);
-        if (i == 0 || j == 0) {
+
+        //删除向量库会话
+        for (int k = 0; k < conversationIds.length; k++) {
+            this.clearConversation(conversationIds[k]);
+        }
+
+        if (i == 0 || j == 0 || z == 0) {
             throw new ServiceException("删除会话失败");
         }
         return i;
     }
+
+    /**
+     * 删除指定会话的全部向量记录
+     */
+    public void clearConversation(String conversationId) {
+        // 注意：这里用 metadata 的原始 key（conversationId），
+        // WeaviateVectorStore 内部会自动加上 "meta_" 前缀去匹配物理字段 meta_conversationId
+        FilterExpressionBuilder b = new FilterExpressionBuilder();
+        vectorStore.delete(b.eq("conversationId", conversationId).build());
+    }
+
 }

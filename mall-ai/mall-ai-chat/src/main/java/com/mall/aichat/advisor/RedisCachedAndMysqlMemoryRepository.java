@@ -1,4 +1,4 @@
-package com.mall.aichat.config;
+package com.mall.aichat.advisor;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
@@ -18,12 +18,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class RedisCachedMemoryRepository implements ChatMemoryRepository {
+/**
+ * 存储聊天会话
+ * 根据maxMessages配置最多存储多少条对话
+ */
+public class RedisCachedAndMysqlMemoryRepository implements ChatMemoryRepository {
     private final JdbcChatMemoryRepository jdbcChatMemoryRepository;
     private final StringRedisTemplate mallRedisTemplate;
     public static final long TTL_DAYS = 7;  // Redis 热缓存保留 7 天
 
-    public RedisCachedMemoryRepository(JdbcChatMemoryRepository jdbcChatMemoryRepository, StringRedisTemplate mallRedisTemplate) {
+    public RedisCachedAndMysqlMemoryRepository(JdbcChatMemoryRepository jdbcChatMemoryRepository, StringRedisTemplate mallRedisTemplate) {
         this.jdbcChatMemoryRepository = jdbcChatMemoryRepository;
         this.mallRedisTemplate = mallRedisTemplate;
     }
