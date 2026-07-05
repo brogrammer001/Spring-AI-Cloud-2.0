@@ -1,4 +1,4 @@
-import { createWebHistory, createRouter } from 'vue-router'
+import {createRouter, createWebHistory} from 'vue-router'
 /* Layout */
 import Layout from '@/layout'
 
@@ -87,20 +87,6 @@ export const constantRoutes = [
         component: () => import('@/views/system/user/profile/index'),
         name: 'Profile',
         meta: { title: '个人中心', icon: 'user' }
-      }
-    ]
-  },
-  {
-    path: '/ai',
-    component: Layout,
-    redirect: '/ai/chat',
-    meta: { title: 'AI助手', icon: 'skill' },
-    children: [
-      {
-        path: 'chat',
-        component: () => import('@/views/ai/chat/index'),
-        name: 'AIChat',
-        meta: { title: 'AI对话', icon: 'chat-line-round' }
       }
     ]
   }
