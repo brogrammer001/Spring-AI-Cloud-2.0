@@ -25,11 +25,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="timestamp != null "> and timestamp = #{timestamp}</if>
             <if test="sequenceId != null "> and sequence_id = #{sequenceId}</if>
         </where>
+        order by sequence_id asc
     </select>
     
     <select id="selectSysChatHistoryByConversationId" parameterType="String" resultMap="SysChatHistoryResult">
         <include refid="selectSysChatHistoryVo"/>
         where conversation_id = #{conversationId}
+        order by sequence_id asc
     </select>
 
     <insert id="insertSysChatHistory" parameterType="SysChatHistory">

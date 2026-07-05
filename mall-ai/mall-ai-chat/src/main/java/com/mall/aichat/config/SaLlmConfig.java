@@ -69,7 +69,7 @@ public class SaLlmConfig {
             .defaultAdvisors(
                 new ConversationInitAdvisor(aiConversationService),
                 MessageChatMemoryAdvisor.builder(chatMemory).order(1).build(),
-                vectorStoreChatMemoryAdvisor,
+                //vectorStoreChatMemoryAdvisor,
                 new SimpleLoggerAdvisor()
             )
             .build();

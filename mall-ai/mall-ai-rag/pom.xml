@@ -30,7 +30,7 @@
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-autoconfigure-vector-store-weaviate</artifactId>
+            <artifactId>spring-ai-starter-vector-store-weaviate</artifactId>
         </dependency>
 
         <dependency>

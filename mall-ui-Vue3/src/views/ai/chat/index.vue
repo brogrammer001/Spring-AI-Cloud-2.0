@@ -106,6 +106,7 @@
 
 <script setup>
 import {computed, nextTick, onMounted, ref, watch} from 'vue';
+import {ElMessageBox} from 'element-plus';
 import {sendChatMessage} from '@/api/ai/aichat/chat';
 import {
   create as createConversationApi,
@@ -241,6 +242,15 @@ const switchConversation = async (id) => {
 
 const deleteConversation = async (id) => {
   try {
+    await ElMessageBox.confirm(
+      '确定要删除该会话吗？此操作不可恢复。',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
     await deleteByConversationId(id);
     const index = conversations.value.findIndex(c => c.id === id);
     if (index !== -1) {
@@ -250,7 +260,9 @@ const deleteConversation = async (id) => {
       }
     }
   } catch (error) {
-    console.error('删除对话失败:', error);
+    if (error !== 'cancel') {
+      console.error('删除对话失败:', error);
+    }
   }
 };
 
