@@ -10,6 +10,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="type"    column="type"    />
         <result property="timestamp"    column="timestamp"    />
         <result property="sequenceId"    column="sequence_id"    />
+        <result property="userName"    column="user_name"    />
     </resultMap>
 
     <sql id="selectSysChatHistoryVo">
@@ -17,17 +18,45 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </sql>
 
     <select id="selectSysChatHistoryList" parameterType="SysChatHistory" resultMap="SysChatHistoryResult">
-        <include refid="selectSysChatHistoryVo"/>
+        SELECT
+        t1.id,
+        t1.conversation_id,
+        content,
+        type,
+        TIMESTAMP,
+        sequence_id,
+        u.user_name
+        FROM
+        sys_chat_history t1
+        LEFT JOIN ai_conversation t2 ON t1.conversation_id = t2.conversation_id
+        LEFT JOIN `mall-system`.sys_user u ON t2.user_id = u.user_id
         <where>  
-            <if test="conversationId != null  and conversationId != ''"> and conversation_id = #{conversationId}</if>
-            <if test="content != null  and content != ''"> and content = #{content}</if>
-            <if test="type != null  and type != ''"> and type = #{type}</if>
-            <if test="timestamp != null "> and timestamp = #{timestamp}</if>
-            <if test="sequenceId != null "> and sequence_id = #{sequenceId}</if>
+            <if test="conversationId != null  and conversationId != ''"> and t1.conversation_id = #{conversationId}</if>
+            <if test="content != null  and content != ''"> and t1.content = #{content}</if>
+            <if test="type != null  and type != ''"> and t1.type = #{type}</if>
+            <if test="timestamp != null "> and t1.timestamp = #{timestamp}</if>
+            <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
         </where>
-        order by sequence_id asc
+        order by t1.sequence_id asc
     </select>
     
+    <select id="selectSysChatHistoryById" parameterType="String" resultMap="SysChatHistoryResult">
+        SELECT
+        t1.id,
+        t1.conversation_id,
+        content,
+        type,
+        TIMESTAMP,
+        sequence_id,
+        u.user_name
+        FROM
+        sys_chat_history t1
+        LEFT JOIN ai_conversation t2 ON t1.conversation_id = t2.conversation_id
+        LEFT JOIN `mall-system`.sys_user u ON t2.user_id = u.user_id
+        where t1.id = #{id}
+        order by sequence_id asc
+    </select>
+
     <select id="selectSysChatHistoryByConversationId" parameterType="String" resultMap="SysChatHistoryResult">
         <include refid="selectSysChatHistoryVo"/>
         where conversation_id = #{conversationId}

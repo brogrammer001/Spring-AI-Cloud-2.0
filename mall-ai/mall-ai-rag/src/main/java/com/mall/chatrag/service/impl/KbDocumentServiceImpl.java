@@ -4,6 +4,7 @@ import com.mall.chatrag.domain.KbDocument;
 import com.mall.chatrag.mapper.KbDocumentMapper;
 import com.mall.chatrag.service.IKbDocumentService;
 import com.mall.common.core.utils.DateUtils;
+import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -55,6 +56,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService
     public int insertKbDocument(KbDocument kbDocument)
     {
         kbDocument.setCreateTime(DateUtils.getNowDate());
+        kbDocument.setId(IdUtils.fastUUID());
         return kbDocumentMapper.insertKbDocument(kbDocument);
     }
 

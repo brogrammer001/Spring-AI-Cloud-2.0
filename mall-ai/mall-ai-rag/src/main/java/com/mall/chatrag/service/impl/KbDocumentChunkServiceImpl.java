@@ -4,6 +4,7 @@ import com.mall.chatrag.domain.KbDocumentChunk;
 import com.mall.chatrag.mapper.KbDocumentChunkMapper;
 import com.mall.chatrag.service.IKbDocumentChunkService;
 import com.mall.common.core.utils.DateUtils;
+import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -55,6 +56,7 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
     public int insertKbDocumentChunk(KbDocumentChunk kbDocumentChunk)
     {
         kbDocumentChunk.setCreateTime(DateUtils.getNowDate());
+        kbDocumentChunk.setId(IdUtils.fastUUID());
         return kbDocumentChunkMapper.insertKbDocumentChunk(kbDocumentChunk);
     }
 

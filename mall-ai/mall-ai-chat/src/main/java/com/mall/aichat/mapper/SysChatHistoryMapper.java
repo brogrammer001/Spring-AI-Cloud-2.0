@@ -21,6 +21,8 @@ public interface SysChatHistoryMapper extends BaseMapper<SysChatHistory>
      */
     public List<SysChatHistory> selectSysChatHistoryByConversationId(String conversationId);
 
+    public SysChatHistory selectSysChatHistoryById(String id);
+
     /**
      * 查询【请填写功能名称】列表
      * 

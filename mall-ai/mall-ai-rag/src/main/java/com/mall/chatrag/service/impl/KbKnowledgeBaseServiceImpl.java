@@ -4,6 +4,7 @@ import com.mall.chatrag.domain.KbKnowledgeBase;
 import com.mall.chatrag.mapper.KbKnowledgeBaseMapper;
 import com.mall.chatrag.service.IKbKnowledgeBaseService;
 import com.mall.common.core.utils.DateUtils;
+import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -55,6 +56,7 @@ public class KbKnowledgeBaseServiceImpl implements IKbKnowledgeBaseService
     public int insertKbKnowledgeBase(KbKnowledgeBase kbKnowledgeBase)
     {
         kbKnowledgeBase.setCreateTime(DateUtils.getNowDate());
+        kbKnowledgeBase.setId(IdUtils.fastUUID());
         return kbKnowledgeBaseMapper.insertKbKnowledgeBase(kbKnowledgeBase);
     }
 

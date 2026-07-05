@@ -57,10 +57,10 @@ public class SysChatHistoryController extends BaseController
      * 获取【请填写功能名称】详细信息
      */
     @RequiresPermissions("aichat:history:query")
-    @GetMapping(value = "/{conversationId}")
-    public AjaxResult getInfo(@PathVariable("conversationId") String conversationId)
+    @GetMapping(value = "/{id}")
+    public AjaxResult getInfo(@PathVariable("id") String id)
     {
-        return success(sysChatHistoryService.selectSysChatHistoryByConversationId(conversationId));
+        return success(sysChatHistoryService.selectSysChatHistoryById(id));
     }
 
     /**

@@ -30,12 +30,14 @@ spring:
         host: 127.0.0.1:18080
         scheme: http
         api-key: WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih
+        filter-field:
+          conversationId: TEXT
+        object-class: SpringAiWeaviate
     model:
       embedding: openai
     openai:
       # 本地 llama-server 的地址（不要带后面的 /v1/embeddings，框架会自动拼）
-      base-url: http://127.0.0.1:8080
+      base-url: http://127.0.0.1:8889/v1 # 2.0版本需要带上 /v1 后缀
       api-key: 123456
       embedding:
-        options:
-          model: Qwen3-Embedding-8B-Q5_K_M
+        model: Qwen3-Embedding-8B-Q5_K_M

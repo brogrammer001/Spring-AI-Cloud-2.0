@@ -28,7 +28,7 @@ public class KbKnowledgeBase extends BaseEntity
 
     /** 状态：1启用 0禁用 */
     @Excel(name = "状态：1启用 0禁用")
-    private Long status;
+    private String status;
 
     public void setId(String id) 
     {
@@ -60,14 +60,12 @@ public class KbKnowledgeBase extends BaseEntity
         return description;
     }
 
-    public void setStatus(Long status) 
-    {
-        this.status = status;
+    public String getStatus() {
+        return status;
     }
 
-    public Long getStatus() 
-    {
-        return status;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.mall.aichat.domain;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.mall.common.core.annotation.Excel;
 import com.mall.common.core.web.domain.BaseEntity;
@@ -37,13 +38,24 @@ public class SysChatHistory extends BaseEntity
     private String type;
 
     /** 时间戳 */
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    @Excel(name = "时间戳", width = 30, dateFormat = "yyyy-MM-dd")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss" , timezone = "GMT+8")
+    @Excel(name = "时间戳", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     private Date timestamp;
 
     /** 排序 */
     @Excel(name = "排序")
     private Long sequenceId;
+
+    @TableField(exist = false)
+    private String userName;
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
 
     public String getId() {
         return id;

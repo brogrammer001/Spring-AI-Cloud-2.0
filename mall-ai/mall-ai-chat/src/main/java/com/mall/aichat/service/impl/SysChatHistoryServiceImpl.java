@@ -33,6 +33,11 @@ public class SysChatHistoryServiceImpl extends ServiceImpl<SysChatHistoryMapper,
         return sysChatHistoryMapper.selectSysChatHistoryByConversationId(conversationId);
     }
 
+    @Override
+    public SysChatHistory selectSysChatHistoryById(String id) {
+        return sysChatHistoryMapper.selectSysChatHistoryById(id);
+    }
+
     /**
      * 查询【请填写功能名称】列表
      * 
