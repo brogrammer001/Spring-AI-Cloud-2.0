@@ -38,35 +38,41 @@
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
 
         <spring-ai.version>2.0.0</spring-ai.version>
-        <spring-ai-mcp-client.version>2.0.0</spring-ai-mcp-client.version>
-        <spring-ai-mcp-server.version>2.0.0</spring-ai-mcp-server.version>
-        <spring-ai-vector-store-weaviate.version>2.0.0</spring-ai-vector-store-weaviate.version>
-        <spring-ai-model-deepseek.version>2.0.0</spring-ai-model-deepseek.version>
-        <spring-ai-model-openai.version>2.0.0</spring-ai-model-openai.version>
-        <spring-ai-client-chat.version>2.0.0</spring-ai-client-chat.version>
         <spring-ai-ai-advisors-vector-store.version>2.0.0-M8</spring-ai-ai-advisors-vector-store.version>
+
+        <SpringAIAlibaba.version>2.0.0-M1.1</SpringAIAlibaba.version>
     </properties>
 
     <!-- 依赖声明 -->
     <dependencyManagement>
         <dependencies>
+<!--            <dependency>-->
+<!--                <groupId>com.alibaba.cloud.ai</groupId>-->
+<!--                <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>-->
+<!--                <version>${SpringAIAlibaba.version}</version>-->
+<!--            </dependency>-->
+
+            <!-- Spring AI Alibaba -->
+<!--            <dependency>-->
+<!--                <groupId>com.alibaba.cloud.ai</groupId>-->
+<!--                <artifactId>spring-ai-alibaba-bom</artifactId>-->
+<!--                <version>${SpringAIAlibaba.version}</version>-->
+<!--                <type>pom</type>-->
+<!--                <scope>import</scope>-->
+<!--            </dependency>-->
+
+
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-starter-mcp-server-webflux</artifactId>
-                <version>${spring-ai-mcp-server.version}</version>
+                <version>${spring-ai.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-client-chat</artifactId>
-                <version>${spring-ai-client-chat.version}</version>
+                <version>${spring-ai.version}</version>
             </dependency>
-
-<!--            <dependency>-->
-<!--                <groupId>org.springframework.ai</groupId>-->
-<!--                <artifactId>spring-ai-starter-model-deepseek</artifactId>-->
-<!--                <version>${spring-ai-model-deepseek.version}</version>-->
-<!--            </dependency>-->
 
             <dependency>
                 <groupId>org.springframework.ai</groupId>
@@ -77,31 +83,19 @@
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-starter-model-openai</artifactId>
-                <version>${spring-ai-model-openai.version}</version>
+                <version>${spring-ai.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-starter-vector-store-weaviate</artifactId>
-                <version>${spring-ai-vector-store-weaviate.version}</version>
+                <version>${spring-ai.version}</version>
             </dependency>
-
-            <!--<dependency>
-                <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-autoconfigure-vector-store-weaviate</artifactId>
-                <version>${spring-ai-vector-store-weaviate.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-weaviate-store</artifactId>
-                <version>${spring-ai-vector-store-weaviate.version}</version>
-            </dependency>-->
 
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
-                <version>${spring-ai-mcp-client.version}</version>
+                <version>${spring-ai.version}</version>
             </dependency>
 
             <!-- Spring AI -->

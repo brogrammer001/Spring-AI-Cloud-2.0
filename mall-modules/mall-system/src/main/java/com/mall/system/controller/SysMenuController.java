@@ -1,17 +1,5 @@
 package com.mall.system.controller;
 
-import java.util.List;
-import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import com.mall.common.core.constant.UserConstants;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.common.core.web.controller.BaseController;
@@ -22,6 +10,12 @@ import com.mall.common.security.annotation.RequiresPermissions;
 import com.mall.common.security.utils.SecurityUtils;
 import com.mall.system.domain.SysMenu;
 import com.mall.system.service.ISysMenuService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 菜单信息
@@ -162,7 +156,7 @@ public class SysMenuController extends BaseController
         }
         if (menuService.checkMenuExistRole(menuId))
         {
-            return warn("菜单已分配,不允许删除");
+            //return warn("菜单已分配,不允许删除");
         }
         return toAjax(menuService.deleteMenuById(menuId));
     }

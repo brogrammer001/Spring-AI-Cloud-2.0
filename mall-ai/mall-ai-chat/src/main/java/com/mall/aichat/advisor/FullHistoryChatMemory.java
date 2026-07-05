@@ -3,6 +3,7 @@ package com.mall.aichat.advisor;
 import com.mall.aichat.domain.SysChatHistory;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
+import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -36,6 +37,7 @@ public class FullHistoryChatMemory implements ChatMemory {
             .map(message -> {
                 Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
                 SysChatHistory sysChatHistory = new SysChatHistory();
+                sysChatHistory.setId(IdUtils.fastUUID());
                 sysChatHistory.setConversationId(conversationId);
                 sysChatHistory.setContent(message.getText());
                 sysChatHistory.setTimestamp(new Date());
@@ -60,9 +62,6 @@ public class FullHistoryChatMemory implements ChatMemory {
     @Override
     public void clear(String conversationId) {
         // 清空时，建议两边都清
-        // 注意：这里的 clear 通常只清空窗口。全量历史表的清空建议由业务层单独控制，以免误删。
-        delegateWindowMemory.clear(conversationId);
-
-        sysChatHistoryService.deleteSysChatHistoryByConversationId(conversationId);
+        //统一删除方法AiConversationServiceImpl.deleteByConversationId
     }
 }

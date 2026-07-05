@@ -72,8 +72,7 @@ public class RedisCachedAndMysqlMemoryRepository implements ChatMemoryRepository
 
     @Override
     public void deleteByConversationId(String conversationId) {
-        jdbcChatMemoryRepository.deleteByConversationId(conversationId);
-        mallRedisTemplate.delete(Constants.CHAT_MEMORY_KEY + conversationId);
+        //统一删除方法AiConversationServiceImpl.deleteByConversationId
     }
 
     // ==========================================

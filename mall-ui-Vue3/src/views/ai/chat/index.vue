@@ -106,9 +106,13 @@
 
 <script setup>
 import {computed, nextTick, onMounted, ref, watch} from 'vue';
-import {sendChatMessage} from '@/api/ai/chat';
-import { create as createConversationApi, getConversationListByUserId as fetchConversationListApi, deleteByConversationId } from '@/api/ai/conversation';
-import { getChatMemoryListByConversationId } from '@/api/ai/history';
+import {sendChatMessage} from '@/api/ai/aichat/chat';
+import {
+  create as createConversationApi,
+  deleteByConversationId,
+  getConversationListByUserId as fetchConversationListApi
+} from '@/api/ai/aichat/conversation';
+import {getChatMemoryListByConversationId} from '@/api/ai/aichat/history';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import {parse} from 'partial-json';
@@ -195,7 +199,7 @@ const switchConversation = async (id) => {
 
     try {
       messages.value = [{ role: 'assistant', content: '正在加载历史记录...', isLoading: true, visibleChars: 0, isStreaming: false }];
-      
+
       const response = await getChatMemoryListByConversationId(id);
       if (response.data && Array.isArray(response.data)) {
         const historyMsgs = response.data.map(item => {
@@ -263,11 +267,11 @@ const toggleDarkMode = async () => {
     position: fixed; top: ${rect.top}px; left: ${rect.left}px;
     width: ${rect.width}px; height: ${rect.height}px; margin: 0;
     z-index: 99999; pointer-events: none; overflow: hidden;
-    background: ${darkMode.value ? '#1f2937' : '#ffffff'}; 
+    background: ${darkMode.value ? '#1f2937' : '#ffffff'};
     transform-origin: 0% 100%;
     will-change: transform, clip-path;
   `;
-  
+
   const originalMain = rootEl.querySelector('main');
   const cloneMain = clone.querySelector('main');
   if (originalMain && cloneMain) cloneMain.scrollTop = originalMain.scrollTop;
@@ -302,17 +306,17 @@ const startNewConversation = () => {
 const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value) return;
   const content = userInput.value.trim();
-  
+
   let currentConversationId = activeId.value;
 
   // --- 核心逻辑：用户发送请求时没有会话ID（第一次进入或点击了新对话） ---
   if (!currentConversationId) {
     try {
       isLoading.value = true; // 防止重复发送
-      
+
       // 调用 create() 接口，传入用户的问题，后端生成 ID 和标题
       const createRes = await createConversationApi(content);
-      
+
       const newId = createRes.data;
       const realId = (typeof newId === 'object' && newId !== null) ? newId.conversationId : newId;
 
@@ -320,7 +324,7 @@ const sendMessage = async () => {
         // 生成左侧最近对话，赋值 ID
         const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
         const newConv = { id: realId, title: title, messages: [] };
-        
+
         conversations.value.unshift(newConv);
         activeId.value = realId;
         currentConversationId = realId;
@@ -344,13 +348,13 @@ const sendMessage = async () => {
   messages.value.push(userMessage);
   const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
   messages.value.push(assistantMessage);
-  
+
   userInput.value = '';
   adjustTextareaHeight();
   scrollToBottom();
-  
+
   isLoading.value = true;
-  
+
   // --- 新增：初始化 AbortController ---
   // 创建一个新的 AbortController，用于后续中断请求
   controller = new AbortController();
@@ -402,7 +406,7 @@ const sendMessage = async () => {
               scrollToBottom();
             }
           }
-        } catch (e) { 
+        } catch (e) {
            if (!(e instanceof Error && e.message)) {
              /* continue parsing */
            } else {

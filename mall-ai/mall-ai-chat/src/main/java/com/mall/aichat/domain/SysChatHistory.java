@@ -1,11 +1,12 @@
 package com.mall.aichat.domain;
 
-import java.util.Date;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 import com.mall.common.core.annotation.Excel;
 import com.mall.common.core.web.domain.BaseEntity;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+
+import java.util.Date;
 
 /**
  * 【请填写功能名称】对象 sys_chat_history
@@ -16,6 +17,12 @@ import com.mall.common.core.web.domain.BaseEntity;
 public class SysChatHistory extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
+
+    /**
+     * id
+     */
+    @Excel(name = "id")
+    private String id;
 
     /** 会话ID */
     @Excel(name = "会话ID")
@@ -38,7 +45,15 @@ public class SysChatHistory extends BaseEntity
     @Excel(name = "排序")
     private Long sequenceId;
 
-    public void setConversationId(String conversationId) 
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setConversationId(String conversationId)
     {
         this.conversationId = conversationId;
     }

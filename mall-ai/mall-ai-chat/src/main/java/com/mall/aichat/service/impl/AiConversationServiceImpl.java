@@ -165,21 +165,24 @@ public class AiConversationServiceImpl implements IAiConversationService {
             return this.selectAiConversationList(aiConversation).stream();
         }).map(AiConversation::getId).distinct().toArray(String[]::new);
 
-        //删除关联
+        //删除用户与会话id关联
         int i = aiConversationMapper.deleteAiConversationByIds(ids);
 
-        //删除会话
+        //删除上下文会话
         int j = springAiChatMemoryService.deleteSpringAiChatMemoryByConversationIds(conversationIds);
 
+        //删除全量会话历史
         int z = sysChatHistoryService.deleteSysChatHistoryByConversationIds(conversationIds);
 
-        //删除redis缓存
+        //用户与会话id关联缓存
         List<String> chatConversationKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_CONVERSATION_KEY + conversationId).collect(Collectors.toList());
+        //会话内容缓存
         List<String> chatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_MEMORY_KEY + conversationId).toList();
+        //保存全量会话新增顺序号缓存
         List<String> seqChatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId).toList();
         chatConversationKey.addAll(chatMemoryKey);
         chatConversationKey.addAll(seqChatMemoryKey);
-
+        //删除redis缓存
         mallRedisTemplate.delete(chatConversationKey);
 
         //删除向量库会话

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.chatrag.mapper.KbDocumentMapper">
+    
+    <resultMap type="KbDocument" id="KbDocumentResult">
+        <result property="id"    column="id"    />
+        <result property="knowledgeId"    column="knowledge_id"    />
+        <result property="fileName"    column="file_name"    />
+        <result property="filePath"    column="file_path"    />
+        <result property="fileType"    column="file_type"    />
+        <result property="status"    column="status"    />
+        <result property="chunkCount"    column="chunk_count"    />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <sql id="selectKbDocumentVo">
+        select id, knowledge_id, file_name, file_path, file_type, status, chunk_count, create_time from kb_document
+    </sql>
+
+    <select id="selectKbDocumentList" parameterType="KbDocument" resultMap="KbDocumentResult">
+        <include refid="selectKbDocumentVo"/>
+        <where>  
+            <if test="knowledgeId != null  and knowledgeId != ''"> and knowledge_id = #{knowledgeId}</if>
+            <if test="fileName != null  and fileName != ''"> and file_name like concat('%', #{fileName}, '%')</if>
+            <if test="filePath != null  and filePath != ''"> and file_path = #{filePath}</if>
+            <if test="fileType != null  and fileType != ''"> and file_type = #{fileType}</if>
+            <if test="status != null "> and status = #{status}</if>
+            <if test="chunkCount != null "> and chunk_count = #{chunkCount}</if>
+        </where>
+    </select>
+    
+    <select id="selectKbDocumentById" parameterType="String" resultMap="KbDocumentResult">
+        <include refid="selectKbDocumentVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertKbDocument" parameterType="KbDocument">
+        insert into kb_document
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="knowledgeId != null and knowledgeId != ''">knowledge_id,</if>
+            <if test="fileName != null and fileName != ''">file_name,</if>
+            <if test="filePath != null">file_path,</if>
+            <if test="fileType != null">file_type,</if>
+            <if test="status != null">status,</if>
+            <if test="chunkCount != null">chunk_count,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="knowledgeId != null and knowledgeId != ''">#{knowledgeId},</if>
+            <if test="fileName != null and fileName != ''">#{fileName},</if>
+            <if test="filePath != null">#{filePath},</if>
+            <if test="fileType != null">#{fileType},</if>
+            <if test="status != null">#{status},</if>
+            <if test="chunkCount != null">#{chunkCount},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateKbDocument" parameterType="KbDocument">
+        update kb_document
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="knowledgeId != null and knowledgeId != ''">knowledge_id = #{knowledgeId},</if>
+            <if test="fileName != null and fileName != ''">file_name = #{fileName},</if>
+            <if test="filePath != null">file_path = #{filePath},</if>
+            <if test="fileType != null">file_type = #{fileType},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="chunkCount != null">chunk_count = #{chunkCount},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteKbDocumentById" parameterType="String">
+        delete from kb_document where id = #{id}
+    </delete>
+
+    <delete id="deleteKbDocumentByIds" parameterType="String">
+        delete from kb_document where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

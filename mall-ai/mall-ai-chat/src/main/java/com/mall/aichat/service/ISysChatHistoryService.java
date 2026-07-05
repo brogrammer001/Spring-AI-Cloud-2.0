@@ -61,4 +61,6 @@ public interface ISysChatHistoryService extends IService<SysChatHistory>
      */
     public int deleteSysChatHistoryByConversationId(String conversationId);
 
+    public int deleteSysChatHistoryById(String id);
+
 }

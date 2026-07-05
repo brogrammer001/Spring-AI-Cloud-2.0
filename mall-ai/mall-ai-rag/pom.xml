@@ -42,5 +42,30 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
+
+        <!-- Mysql Connector -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+        </dependency>
+
+        <!-- mall Common DataSource -->
+        <dependency>
+            <groupId>com.mall</groupId>
+            <artifactId>mall-common-datasource</artifactId>
+        </dependency>
+
+        <!-- mall Common DataScope -->
+        <dependency>
+            <groupId>com.mall</groupId>
+            <artifactId>mall-common-datascope</artifactId>
+        </dependency>
+
+        <!-- mall Common Log -->
+        <dependency>
+            <groupId>com.mall</groupId>
+            <artifactId>mall-common-log</artifactId>
+        </dependency>
+
     </dependencies>
 </project>

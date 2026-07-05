@@ -53,6 +53,8 @@ public interface SysChatHistoryMapper extends BaseMapper<SysChatHistory>
      */
     public int deleteSysChatHistoryByConversationId(String conversationId);
 
+    public int deleteSysChatHistoryById(String id);
+
     /**
      * 批量删除【请填写功能名称】
      * 

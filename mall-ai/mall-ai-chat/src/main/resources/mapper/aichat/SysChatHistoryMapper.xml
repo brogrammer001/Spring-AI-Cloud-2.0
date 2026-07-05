@@ -13,7 +13,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectSysChatHistoryVo">
-        select conversation_id, content, type, timestamp, sequence_id from sys_chat_history
+        select id, conversation_id, content, type, timestamp, sequence_id from sys_chat_history
     </sql>
 
     <select id="selectSysChatHistoryList" parameterType="SysChatHistory" resultMap="SysChatHistoryResult">
@@ -63,6 +63,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <delete id="deleteSysChatHistoryByConversationId" parameterType="String">
         delete from sys_chat_history where conversation_id = #{conversationId}
+    </delete>
+
+    <delete id="deleteSysChatHistoryById" parameterType="String">
+        delete from sys_chat_history where id = #{id}
     </delete>
 
     <delete id="deleteSysChatHistoryByConversationIds" parameterType="String">
