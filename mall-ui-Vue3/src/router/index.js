@@ -163,6 +163,34 @@ export const dynamicRoutes = [
         meta: { title: '修改生成配置', activeMenu: '/tool/gen' }
       }
     ]
+  },
+  {
+    path: '/ai/rag/document',
+    component: Layout,
+    hidden: true,
+    permissions: ['aichat:document:list'],
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/ai/rag/document/index'),
+        name: 'RagDocument',
+        meta: { title: '知识库文档', activeMenu: '/ai/rag/base' }
+      }
+    ]
+  },
+  {
+    path: '/ai/rag/chunk',
+    component: Layout,
+    hidden: true,
+    permissions: ['aichat:chunk:list'],
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/ai/rag/chunk/index'),
+        name: 'RagChunk',
+        meta: { title: '文档切片', activeMenu: '/ai/rag/base' }
+      }
+    ]
   }
 ]
 

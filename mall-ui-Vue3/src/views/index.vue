@@ -1,4 +1,5 @@
 <template>
+  <div class="app-container">
   <!-- 高度适配 RuoYi Tab 页面 -->
   <div class="flex h-full overflow-hidden" style="position: relative;">
     
@@ -96,6 +97,7 @@
         </div>
       </footer>
     </div>
+  </div>
   </div>
 </template>
 
@@ -444,6 +446,10 @@ watch(messages, scrollToBottom, { deep: true });
 </script>
 
 <style scoped>
+.app-container {
+   padding: 0;
+  height: 100%;
+}
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
