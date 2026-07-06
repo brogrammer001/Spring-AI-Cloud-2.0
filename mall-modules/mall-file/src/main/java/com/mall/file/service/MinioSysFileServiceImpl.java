@@ -1,9 +1,5 @@
 package com.mall.file.service;
 
-import java.io.InputStream;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import com.alibaba.nacos.common.utils.IoUtils;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.file.config.MinioConfig;
@@ -11,6 +7,11 @@ import com.mall.file.utils.FileUploadUtils;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.InputStream;
 
 /**
  * Minio 文件存储
@@ -78,5 +79,10 @@ public class MinioSysFileServiceImpl implements ISysFileService
         {
             throw new RuntimeException("Minio Failed to delete file", e);
         }
+    }
+
+    @Override
+    public String getFile(String fileUrl) {
+        return "";
     }
 }

@@ -1,7 +1,7 @@
-package com.mall.chatrag.controller;
+package com.mall.aichat.controller;
 
-import com.mall.chatrag.domain.KbDocumentChunk;
-import com.mall.chatrag.service.IKbDocumentChunkService;
+import com.mall.aichat.domain.KbDocumentChunk;
+import com.mall.aichat.service.IKbDocumentChunkService;
 import com.mall.common.core.utils.poi.ExcelUtil;
 import com.mall.common.core.web.controller.BaseController;
 import com.mall.common.core.web.domain.AjaxResult;
@@ -31,7 +31,7 @@ public class KbDocumentChunkController extends BaseController
     /**
      * 查询文档切片列表
      */
-    @RequiresPermissions("chatrag:chunk:list")
+    @RequiresPermissions("aichat:chunk:list")
     @GetMapping("/list")
     public TableDataInfo list(KbDocumentChunk kbDocumentChunk)
     {
@@ -43,7 +43,7 @@ public class KbDocumentChunkController extends BaseController
     /**
      * 导出文档切片列表
      */
-    @RequiresPermissions("chatrag:chunk:export")
+    @RequiresPermissions("aichat:chunk:export")
     @Log(title = "文档切片", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, KbDocumentChunk kbDocumentChunk)
@@ -56,7 +56,7 @@ public class KbDocumentChunkController extends BaseController
     /**
      * 获取文档切片详细信息
      */
-    @RequiresPermissions("chatrag:chunk:query")
+    @RequiresPermissions("aichat:chunk:query")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@PathVariable("id") String id)
     {
@@ -66,7 +66,7 @@ public class KbDocumentChunkController extends BaseController
     /**
      * 新增文档切片
      */
-    @RequiresPermissions("chatrag:chunk:add")
+    @RequiresPermissions("aichat:chunk:add")
     @Log(title = "文档切片", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody KbDocumentChunk kbDocumentChunk)
@@ -77,7 +77,7 @@ public class KbDocumentChunkController extends BaseController
     /**
      * 修改文档切片
      */
-    @RequiresPermissions("chatrag:chunk:edit")
+    @RequiresPermissions("aichat:chunk:edit")
     @Log(title = "文档切片", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody KbDocumentChunk kbDocumentChunk)
@@ -88,7 +88,7 @@ public class KbDocumentChunkController extends BaseController
     /**
      * 删除文档切片
      */
-    @RequiresPermissions("chatrag:chunk:remove")
+    @RequiresPermissions("aichat:chunk:remove")
     @Log(title = "文档切片", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable String[] ids)

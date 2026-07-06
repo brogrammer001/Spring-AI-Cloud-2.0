@@ -1,6 +1,6 @@
-package com.mall.chatrag.service;
+package com.mall.aichat.service;
 
-import com.mall.chatrag.domain.KbDocument;
+import com.mall.aichat.domain.KbDocument;
 
 import java.util.List;
 
@@ -59,4 +59,6 @@ public interface IKbDocumentService
      * @return 结果
      */
     public int deleteKbDocumentById(String id);
+
+    int deleteKbDocumentByKnowledgeIds(String[] ids);
 }

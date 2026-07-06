@@ -1,7 +1,7 @@
-package com.mall.chatrag.controller;
+package com.mall.aichat.controller;
 
-import com.mall.chatrag.domain.KbDocument;
-import com.mall.chatrag.service.IKbDocumentService;
+import com.mall.aichat.domain.KbDocument;
+import com.mall.aichat.service.IKbDocumentService;
 import com.mall.common.core.utils.poi.ExcelUtil;
 import com.mall.common.core.web.controller.BaseController;
 import com.mall.common.core.web.domain.AjaxResult;
@@ -31,7 +31,7 @@ public class KbDocumentController extends BaseController
     /**
      * 查询知识库文档列表
      */
-    @RequiresPermissions("chatrag:document:list")
+    @RequiresPermissions("aichat:document:list")
     @GetMapping("/list")
     public TableDataInfo list(KbDocument kbDocument)
     {
@@ -43,7 +43,7 @@ public class KbDocumentController extends BaseController
     /**
      * 导出知识库文档列表
      */
-    @RequiresPermissions("chatrag:document:export")
+    @RequiresPermissions("aichat:document:export")
     @Log(title = "知识库文档", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, KbDocument kbDocument)
@@ -56,7 +56,7 @@ public class KbDocumentController extends BaseController
     /**
      * 获取知识库文档详细信息
      */
-    @RequiresPermissions("chatrag:document:query")
+    @RequiresPermissions("aichat:document:query")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@PathVariable("id") String id)
     {
@@ -66,7 +66,7 @@ public class KbDocumentController extends BaseController
     /**
      * 新增知识库文档
      */
-    @RequiresPermissions("chatrag:document:add")
+    @RequiresPermissions("aichat:document:add")
     @Log(title = "知识库文档", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody KbDocument kbDocument)
@@ -77,7 +77,7 @@ public class KbDocumentController extends BaseController
     /**
      * 修改知识库文档
      */
-    @RequiresPermissions("chatrag:document:edit")
+    @RequiresPermissions("aichat:document:edit")
     @Log(title = "知识库文档", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody KbDocument kbDocument)
@@ -88,7 +88,7 @@ public class KbDocumentController extends BaseController
     /**
      * 删除知识库文档
      */
-    @RequiresPermissions("chatrag:document:remove")
+    @RequiresPermissions("aichat:document:remove")
     @Log(title = "知识库文档", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable String[] ids)

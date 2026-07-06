@@ -1,16 +1,16 @@
-package com.mall.chatrag.mapper;
+package com.mall.aichat.service;
 
-import com.mall.chatrag.domain.KbDocumentChunk;
+import com.mall.aichat.domain.KbDocumentChunk;
 
 import java.util.List;
 
 /**
- * 文档切片Mapper接口
+ * 文档切片Service接口
  * 
  * @author mall
  * @date 2026-07-05
  */
-public interface KbDocumentChunkMapper 
+public interface IKbDocumentChunkService 
 {
     /**
      * 查询文档切片
@@ -45,18 +45,20 @@ public interface KbDocumentChunkMapper
     public int updateKbDocumentChunk(KbDocumentChunk kbDocumentChunk);
 
     /**
-     * 删除文档切片
+     * 批量删除文档切片
+     * 
+     * @param ids 需要删除的文档切片主键集合
+     * @return 结果
+     */
+    public int deleteKbDocumentChunkByIds(String[] ids);
+
+    /**
+     * 删除文档切片信息
      * 
      * @param id 文档切片主键
      * @return 结果
      */
     public int deleteKbDocumentChunkById(String id);
 
-    /**
-     * 批量删除文档切片
-     * 
-     * @param ids 需要删除的数据主键集合
-     * @return 结果
-     */
-    public int deleteKbDocumentChunkByIds(String[] ids);
+    int deleteKbDocumentChunkByKnowledgeIds(String[] ids);
 }

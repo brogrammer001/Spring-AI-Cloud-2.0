@@ -1,13 +1,13 @@
 package com.mall.system.api.factory;
 
+import com.mall.common.core.domain.R;
+import com.mall.system.api.RemoteFileService;
+import com.mall.system.api.domain.SysFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
-import com.mall.common.core.domain.R;
-import com.mall.system.api.RemoteFileService;
-import com.mall.system.api.domain.SysFile;
 
 /**
  * 文件服务降级处理
@@ -29,6 +29,11 @@ public class RemoteFileFallbackFactory implements FallbackFactory<RemoteFileServ
             public R<SysFile> upload(MultipartFile file)
             {
                 return R.fail("上传文件失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<SysFile> getFile(String fileUrl) {
+                return R.fail("获取文件失败:" + throwable.getMessage());
             }
 
             @Override

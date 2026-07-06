@@ -2,7 +2,7 @@
 <!DOCTYPE mapper
 PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.mall.chatrag.mapper.KbDocumentChunkMapper">
+<mapper namespace="com.mall.aichat.mapper.KbDocumentChunkMapper">
     
     <resultMap type="KbDocumentChunk" id="KbDocumentChunkResult">
         <result property="id"    column="id"    />
@@ -65,6 +65,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <delete id="deleteKbDocumentChunkByIds" parameterType="String">
         delete from kb_document_chunk where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteKbDocumentChunkByKnowledgeIds" parameterType="String">
+        delete from kb_document_chunk where knowledge_id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>

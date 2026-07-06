@@ -2,7 +2,7 @@
 <!DOCTYPE mapper
 PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.mall.chatrag.mapper.KbDocumentMapper">
+<mapper namespace="com.mall.aichat.mapper.KbDocumentMapper">
     
     <resultMap type="KbDocument" id="KbDocumentResult">
         <result property="id"    column="id"    />
@@ -12,11 +12,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="fileType"    column="file_type"    />
         <result property="status"    column="status"    />
         <result property="chunkCount"    column="chunk_count"    />
+        <result property="chunkSize"    column="chunk_size"    />
         <result property="createTime"    column="create_time"    />
     </resultMap>
 
     <sql id="selectKbDocumentVo">
-        select id, knowledge_id, file_name, file_path, file_type, status, chunk_count, create_time from kb_document
+        select id, knowledge_id, file_name, file_path, file_type, status, chunk_count, chunk_size, create_time from kb_document
     </sql>
 
     <select id="selectKbDocumentList" parameterType="KbDocument" resultMap="KbDocumentResult">
@@ -28,6 +29,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="fileType != null  and fileType != ''"> and file_type = #{fileType}</if>
             <if test="status != null "> and status = #{status}</if>
             <if test="chunkCount != null "> and chunk_count = #{chunkCount}</if>
+            <if test="chunkSize != null "> and chunk_size = #{chunkSize}</if>
         </where>
     </select>
     
@@ -46,6 +48,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="fileType != null">file_type,</if>
             <if test="status != null">status,</if>
             <if test="chunkCount != null">chunk_count,</if>
+            <if test="chunkSize != null">chunk_size,</if>
             <if test="createTime != null">create_time,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -56,6 +59,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="fileType != null">#{fileType},</if>
             <if test="status != null">#{status},</if>
             <if test="chunkCount != null">#{chunkCount},</if>
+            <if test="chunkSize != null">#{chunkSize},</if>
             <if test="createTime != null">#{createTime},</if>
          </trim>
     </insert>
@@ -69,6 +73,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="fileType != null">file_type = #{fileType},</if>
             <if test="status != null">status = #{status},</if>
             <if test="chunkCount != null">chunk_count = #{chunkCount},</if>
+            <if test="chunkSize != null">chunk_size = #{chunkSize},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
         </trim>
         where id = #{id}
@@ -80,6 +85,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <delete id="deleteKbDocumentByIds" parameterType="String">
         delete from kb_document where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    <delete id="deleteKbDocumentByKnowledgeIds" parameterType="String">
+        delete from kb_document where knowledge_id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>

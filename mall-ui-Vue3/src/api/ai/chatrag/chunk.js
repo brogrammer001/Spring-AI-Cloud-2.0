@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 查询文档切片列表
 export function listChunk(query) {
   return request({
-    url: '/chat-rag/chunk/list',
+    url: '/ai-chat/chunk/list',
     method: 'get',
     params: query
   })
@@ -12,7 +12,7 @@ export function listChunk(query) {
 // 查询文档切片详细
 export function getChunk(id) {
   return request({
-    url: '/chat-rag/chunk/' + id,
+    url: '/ai-chat/chunk/' + id,
     method: 'get'
   })
 }
@@ -20,7 +20,7 @@ export function getChunk(id) {
 // 新增文档切片
 export function addChunk(data) {
   return request({
-    url: '/chat-rag/chunk',
+    url: '/ai-chat/chunk',
     method: 'post',
     data: data
   })
@@ -29,7 +29,7 @@ export function addChunk(data) {
 // 修改文档切片
 export function updateChunk(data) {
   return request({
-    url: '/chat-rag/chunk',
+    url: '/ai-chat/chunk',
     method: 'put',
     data: data
   })
@@ -38,7 +38,7 @@ export function updateChunk(data) {
 // 删除文档切片
 export function delChunk(id) {
   return request({
-    url: '/chat-rag/chunk/' + id,
+    url: '/ai-chat/chunk/' + id,
     method: 'delete'
   })
 }

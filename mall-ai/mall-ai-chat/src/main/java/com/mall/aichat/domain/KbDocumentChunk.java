@@ -1,4 +1,4 @@
-package com.mall.chatrag.domain;
+package com.mall.aichat.domain;
 
 import com.mall.common.core.annotation.Excel;
 import com.mall.common.core.web.domain.BaseEntity;

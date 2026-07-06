@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
+    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="100px" style="margin-top: 20px;">
       <el-form-item label="知识库名称" prop="name">
         <el-input
           v-model="queryParams.name"
@@ -30,7 +30,7 @@
           type="success"
           plain
           icon="Edit"
-          :disabled="single"
+          :disabled="single || hasActiveSelected"
           @click="handleUpdate"
           v-hasPermi="['aichat:base:edit']"
         >修改</el-button>
@@ -40,7 +40,7 @@
           type="danger"
           plain
           icon="Delete"
-          :disabled="multiple"
+          :disabled="multiple || hasActiveSelected"
           @click="handleDelete"
           v-hasPermi="['aichat:base:remove']"
         >删除</el-button>
@@ -63,14 +63,24 @@
       <el-table-column label="知识库描述" align="center" prop="description" />
       <el-table-column label="状态" align="center" prop="status">
         <template #default="scope">
-          <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
+          <el-switch
+            v-model="scope.row.status"
+            active-value="0"
+            inactive-value="1"
+            @change="handleStatusChange(scope.row)"
+            v-hasPermi="['aichat:base:edit']"
+          ></el-switch>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="FolderOpen" @click="handleDocuments(scope.row)" v-hasPermi="['aichat:document:list']">文档管理</el-button>
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['aichat:base:edit']">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['aichat:base:remove']">删除</el-button>
+          <el-tooltip :disabled="scope.row.status !== '0'" content="启用状态不允许修改" placement="top">
+            <el-button link type="primary" icon="Edit" :disabled="scope.row.status === '0'" @click="handleUpdate(scope.row)" v-hasPermi="['aichat:base:edit']">修改</el-button>
+          </el-tooltip>
+          <el-tooltip :disabled="scope.row.status !== '0'" content="启用状态不允许删除" placement="top">
+            <el-button link type="primary" icon="Delete" :disabled="scope.row.status === '0'" @click="handleDelete(scope.row)" v-hasPermi="['aichat:base:remove']">删除</el-button>
+          </el-tooltip>
         </template>
       </el-table-column>
     </el-table>
@@ -97,7 +107,7 @@
               <el-input v-model="form.description" type="textarea" placeholder="请输入内容" />
             </el-form-item>
           </el-col>
-          <el-col :span="24">
+          <!-- <el-col :span="24">
             <el-form-item label="状态" prop="status">
               <el-radio-group v-model="form.status">
                 <el-radio
@@ -107,7 +117,7 @@
                 >{{ dict.label }}</el-radio>
               </el-radio-group>
             </el-form-item>
-          </el-col>
+          </el-col> -->
         </el-row>
       </el-form>
       <template #footer>
@@ -155,6 +165,13 @@ const data = reactive({
 })
 
 const { queryParams, form, rules } = toRefs(data)
+
+const hasActiveSelected = computed(() => {
+  return ids.value.some(id => {
+    const item = baseList.value.find(item => item.id === id)
+    return item && item.status === '0'
+  })
+})
 
 /** 查询知识库列表 */
 function getList() {
@@ -213,6 +230,10 @@ function handleAdd() {
 
 /** 修改按钮操作 */
 function handleUpdate(row) {
+  if (row && row.status === '0') {
+    proxy.$modal.msgError("启用状态的知识库不允许修改")
+    return
+  }
   reset()
   const _id = row.id || ids.value
   getBase(_id).then(response => {
@@ -250,13 +271,41 @@ function handleDocuments(row) {
 
 /** 删除按钮操作 */
 function handleDelete(row) {
+  if (row) {
+    if (row.status === '0') {
+      proxy.$modal.msgError("启用状态的知识库不允许删除")
+      return
+    }
+  } else {
+    const activeItems = ids.value.filter(id => {
+      const item = baseList.value.find(item => item.id === id)
+      return item && item.status === '0'
+    })
+    if (activeItems.length > 0) {
+      proxy.$modal.msgError("选中的知识库中包含启用状态的，不允许删除")
+      return
+    }
+  }
   const _ids = row.id || ids.value
-  proxy.$modal.confirm('是否确认删除知识库编号为"' + _ids + '"的数据项？').then(function() {
+  const names = row ? row.name : ids.value.map(id => baseList.value.find(item => item.id === id)?.name).filter(Boolean).join('、')
+  proxy.$modal.confirm('是否确认删除知识库"' + (names || _ids) + '"？').then(function() {
     return delBase(_ids)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")
   }).catch(() => {})
+}
+
+/** 状态修改 */
+function handleStatusChange(row) {
+  let text = row.status === "0" ? "启用" : "停用"
+  proxy.$modal.confirm('确认要"' + text + '"知识库"' + row.name + '"吗?').then(function () {
+    return updateBase(row)
+  }).then(() => {
+    proxy.$modal.msgSuccess(text + "成功")
+  }).catch(function () {
+    row.status = row.status === "0" ? "1" : "0"
+  })
 }
 
 /** 导出按钮操作 */

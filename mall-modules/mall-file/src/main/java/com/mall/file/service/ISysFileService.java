@@ -25,4 +25,6 @@ public interface ISysFileService
      * @throws Exception
      */
     public void deleteFile(String fileUrl) throws Exception;
+
+    String getFile(String fileUrl);
 }

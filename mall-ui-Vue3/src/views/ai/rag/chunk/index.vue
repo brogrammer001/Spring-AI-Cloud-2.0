@@ -1,18 +1,10 @@
 <template>
   <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="所属文档ID" prop="documentId">
+    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="100px" style="margin-top: 20px;">
+      <el-form-item label="内容查询" prop="content">
         <el-input
-          v-model="queryParams.documentId"
-          placeholder="请输入所属文档ID"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="所属知识库ID" prop="knowledgeId">
-        <el-input
-          v-model="queryParams.knowledgeId"
-          placeholder="请输入所属知识库ID"
+          v-model="queryParams.content"
+          placeholder="请输入切片内容"
           clearable
           @keyup.enter="handleQuery"
         />
@@ -23,58 +15,11 @@
       </el-form-item>
     </el-form>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          @click="handleAdd"
-          v-hasPermi="['aichat:chunk:add']"
-        >新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="success"
-          plain
-          icon="Edit"
-          :disabled="single"
-          @click="handleUpdate"
-          v-hasPermi="['aichat:chunk:edit']"
-        >修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="danger"
-          plain
-          icon="Delete"
-          :disabled="multiple"
-          @click="handleDelete"
-          v-hasPermi="['aichat:chunk:remove']"
-        >删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="warning"
-          plain
-          icon="Download"
-          @click="handleExport"
-          v-hasPermi="['aichat:chunk:export']"
-        >导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
-
-    <el-table v-loading="loading" :data="chunkList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="切片ID (与 Weaviate 中的 UUID 一致)" align="center" prop="id" />
-      <el-table-column label="所属文档ID" align="center" prop="documentId" />
-      <el-table-column label="所属知识库ID" align="center" prop="knowledgeId" />
-      <el-table-column label="切片文本内容" align="center" prop="content" />
+    <el-table v-loading="loading" :data="chunkList">
+      <el-table-column label="切片文本内容" align="center" prop="content" show-overflow-tooltip />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['aichat:chunk:edit']">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['aichat:chunk:remove']">删除</el-button>
+          <el-button link type="primary" icon="View" @click="handleView(scope.row)">查看详情</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -87,31 +32,18 @@
       @pagination="getList"
     />
 
-    <!-- 添加或修改文档切片对话框 -->
-    <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="chunkRef" :model="form" :rules="rules" label-width="100px">
-        <el-row>
-          <el-col :span="24">
-            <el-form-item label="所属文档ID" prop="documentId">
-              <el-input v-model="form.documentId" placeholder="请输入所属文档ID" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="所属知识库ID" prop="knowledgeId">
-              <el-input v-model="form.knowledgeId" placeholder="请输入所属知识库ID" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="切片文本内容">
-              <editor v-model="form.content" :min-height="192"/>
-            </el-form-item>
-          </el-col>
-        </el-row>
+    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+      <el-form ref="chunkRef" :model="form" label-width="100px">
+        <el-form-item label="创建时间">
+          <el-input v-model="form.createTime" readonly />
+        </el-form-item>
+        <el-form-item label="切片内容">
+          <el-input v-model="form.content" type="textarea" :rows="10" readonly />
+        </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button @click="cancel">关闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -119,7 +51,7 @@
 </template>
 
 <script setup name="Chunk">
-import { listChunk, getChunk, delChunk, addChunk, updateChunk } from "@/api/ai/chatrag/chunk"
+import { listChunk, getChunk } from "@/api/ai/chatrag/chunk"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -128,9 +60,6 @@ const chunkList = ref([])
 const open = ref(false)
 const loading = ref(true)
 const showSearch = ref(true)
-const ids = ref([])
-const single = ref(true)
-const multiple = ref(true)
 const total = ref(0)
 const title = ref("")
 
@@ -142,14 +71,6 @@ const data = reactive({
     documentId: undefined,
     knowledgeId: undefined,
     content: undefined,
-  },
-  rules: {
-    documentId: [
-      { required: true, message: "所属文档ID不能为空", trigger: "blur" }
-    ],
-    knowledgeId: [
-      { required: true, message: "所属知识库ID不能为空", trigger: "blur" }
-    ],
   }
 })
 
@@ -160,9 +81,8 @@ if (route.query.knowledgeId) {
   data.queryParams.knowledgeId = route.query.knowledgeId
 }
 
-const { queryParams, form, rules } = toRefs(data)
+const { queryParams, form } = toRefs(data)
 
-/** 查询文档切片列表 */
 function getList() {
   loading.value = true
   listChunk(queryParams.value).then(response => {
@@ -172,13 +92,11 @@ function getList() {
   })
 }
 
-/** 取消按钮 */
 function cancel() {
   open.value = false
   reset()
 }
 
-/** 表单重置 */
 function reset() {
   form.value = {
     id: null,
@@ -187,83 +105,25 @@ function reset() {
     content: null,
     createTime: null
   }
-  proxy.resetForm("chunkRef")
 }
 
-/** 搜索按钮操作 */
 function handleQuery() {
   queryParams.value.pageNum = 1
   getList()
 }
 
-/** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef")
   handleQuery()
 }
 
-/** 多选框选中数据 */
-function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.id)
-  single.value = selection.length != 1
-  multiple.value = !selection.length
-}
-
-/** 新增按钮操作 */
-function handleAdd() {
+function handleView(row) {
   reset()
-  open.value = true
-  title.value = "添加文档切片"
-}
-
-/** 修改按钮操作 */
-function handleUpdate(row) {
-  reset()
-  const _id = row.id || ids.value
-  getChunk(_id).then(response => {
+  getChunk(row.id).then(response => {
     form.value = response.data
     open.value = true
-    title.value = "修改文档切片"
+    title.value = "切片详情"
   })
-}
-
-/** 提交按钮 */
-function submitForm() {
-  proxy.$refs["chunkRef"].validate(valid => {
-    if (valid) {
-      if (form.value.id != null) {
-        updateChunk(form.value).then(() => {
-          proxy.$modal.msgSuccess("修改成功")
-          open.value = false
-          getList()
-        })
-      } else {
-        addChunk(form.value).then(() => {
-          proxy.$modal.msgSuccess("新增成功")
-          open.value = false
-          getList()
-        })
-      }
-    }
-  })
-}
-
-/** 删除按钮操作 */
-function handleDelete(row) {
-  const _ids = row.id || ids.value
-  proxy.$modal.confirm('是否确认删除文档切片编号为"' + _ids + '"的数据项？').then(function() {
-    return delChunk(_ids)
-  }).then(() => {
-    getList()
-    proxy.$modal.msgSuccess("删除成功")
-  }).catch(() => {})
-}
-
-/** 导出按钮操作 */
-function handleExport() {
-  proxy.download('aichat/chunk/export', {
-    ...queryParams.value
-  }, `chunk_${new Date().getTime()}.xlsx`)
 }
 
 getList()

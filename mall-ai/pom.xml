@@ -14,7 +14,6 @@
     <modules>
         <module>mall-ai-chat</module>
         <module>mall-ai-mcp-server</module>
-        <module>mall-ai-rag</module>
     </modules>
 
     <properties>

@@ -1,6 +1,6 @@
-package com.mall.chatrag.mapper;
+package com.mall.aichat.mapper;
 
-import com.mall.chatrag.domain.KbDocument;
+import com.mall.aichat.domain.KbDocument;
 
 import java.util.List;
 
@@ -59,4 +59,6 @@ public interface KbDocumentMapper
      * @return 结果
      */
     public int deleteKbDocumentByIds(String[] ids);
+
+    int deleteKbDocumentByKnowledgeIds(String[] ids);
 }

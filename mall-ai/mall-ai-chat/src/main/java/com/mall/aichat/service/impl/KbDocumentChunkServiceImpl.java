@@ -1,10 +1,12 @@
-package com.mall.chatrag.service.impl;
+package com.mall.aichat.service.impl;
 
-import com.mall.chatrag.domain.KbDocumentChunk;
-import com.mall.chatrag.mapper.KbDocumentChunkMapper;
-import com.mall.chatrag.service.IKbDocumentChunkService;
+import com.mall.aichat.domain.KbDocumentChunk;
+import com.mall.aichat.mapper.KbDocumentChunkMapper;
+import com.mall.aichat.service.IKbDocumentChunkService;
 import com.mall.common.core.utils.DateUtils;
-import com.mall.common.core.utils.uuid.IdUtils;
+import jakarta.annotation.Resource;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,9 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
 {
     @Autowired
     private KbDocumentChunkMapper kbDocumentChunkMapper;
+
+    @Resource(name = "knowledgeVectorStore")
+    private VectorStore vectorStore;
 
     /**
      * 查询文档切片
@@ -56,7 +61,6 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
     public int insertKbDocumentChunk(KbDocumentChunk kbDocumentChunk)
     {
         kbDocumentChunk.setCreateTime(DateUtils.getNowDate());
-        kbDocumentChunk.setId(IdUtils.fastUUID());
         return kbDocumentChunkMapper.insertKbDocumentChunk(kbDocumentChunk);
     }
 
@@ -79,9 +83,11 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
      * @return 结果
      */
     @Override
-    public int deleteKbDocumentChunkByIds(String[] ids)
-    {
-        return kbDocumentChunkMapper.deleteKbDocumentChunkByIds(ids);
+    public int deleteKbDocumentChunkByIds(String[] ids) {
+        int i = kbDocumentChunkMapper.deleteKbDocumentChunkByIds(ids);
+
+        vectorStore.delete(List.of(ids));
+        return i;
     }
 
     /**
@@ -94,5 +100,16 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
     public int deleteKbDocumentChunkById(String id)
     {
         return kbDocumentChunkMapper.deleteKbDocumentChunkById(id);
+    }
+
+    @Override
+    public int deleteKbDocumentChunkByKnowledgeIds(String[] knowledgeIds) {
+        int i = kbDocumentChunkMapper.deleteKbDocumentChunkByKnowledgeIds(knowledgeIds);
+
+        FilterExpressionBuilder b = new FilterExpressionBuilder();
+
+        // 构建过滤条件：meta_knowledge_id == knowledgeId
+        vectorStore.delete(b.in("conversationId", knowledgeIds).build());
+        return i;
     }
 }

@@ -1,4 +1,4 @@
-package com.mall.chatrag.domain;
+package com.mall.aichat.domain;
 
 import com.mall.common.core.annotation.Excel;
 import com.mall.common.core.web.domain.BaseEntity;
@@ -42,7 +42,18 @@ public class KbDocument extends BaseEntity
     @Excel(name = "切片数量")
     private Long chunkCount;
 
-    public void setId(String id) 
+    @Excel(name = "分块大小")
+    private Long chunkSize;
+
+    public Long getChunkSize() {
+        return chunkSize;
+    }
+
+    public void setChunkSize(Long chunkSize) {
+        this.chunkSize = chunkSize;
+    }
+
+    public void setId(String id)
     {
         this.id = id;
     }

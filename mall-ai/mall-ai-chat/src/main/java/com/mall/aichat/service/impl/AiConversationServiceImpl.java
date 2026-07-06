@@ -10,6 +10,7 @@ import com.mall.common.core.exception.ServiceException;
 import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import com.mall.common.security.utils.SecurityUtils;
+import jakarta.annotation.Resource;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +43,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
     @Autowired
     private ISysChatHistoryService sysChatHistoryService;
 
-    @Autowired
+    @Resource(name = "conversationVectorStore")
     private VectorStore vectorStore;
 
     /**

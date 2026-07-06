@@ -1,16 +1,16 @@
-package com.mall.chatrag.service;
+package com.mall.aichat.mapper;
 
-import com.mall.chatrag.domain.KbKnowledgeBase;
+import com.mall.aichat.domain.KbKnowledgeBase;
 
 import java.util.List;
 
 /**
- * 知识库Service接口
+ * 知识库Mapper接口
  * 
  * @author mall
  * @date 2026-07-05
  */
-public interface IKbKnowledgeBaseService 
+public interface KbKnowledgeBaseMapper 
 {
     /**
      * 查询知识库
@@ -45,18 +45,18 @@ public interface IKbKnowledgeBaseService
     public int updateKbKnowledgeBase(KbKnowledgeBase kbKnowledgeBase);
 
     /**
-     * 批量删除知识库
-     * 
-     * @param ids 需要删除的知识库主键集合
-     * @return 结果
-     */
-    public int deleteKbKnowledgeBaseByIds(String[] ids);
-
-    /**
-     * 删除知识库信息
+     * 删除知识库
      * 
      * @param id 知识库主键
      * @return 结果
      */
     public int deleteKbKnowledgeBaseById(String id);
+
+    /**
+     * 批量删除知识库
+     * 
+     * @param ids 需要删除的数据主键集合
+     * @return 结果
+     */
+    public int deleteKbKnowledgeBaseByIds(String[] ids);
 }

@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 查询知识库文档列表
 export function listDocument(query) {
   return request({
-    url: '/chat-rag/document/list',
+    url: '/ai-chat/document/list',
     method: 'get',
     params: query
   })
@@ -12,7 +12,7 @@ export function listDocument(query) {
 // 查询知识库文档详细
 export function getDocument(id) {
   return request({
-    url: '/chat-rag/document/' + id,
+    url: '/ai-chat/document/' + id,
     method: 'get'
   })
 }
@@ -20,7 +20,7 @@ export function getDocument(id) {
 // 新增知识库文档
 export function addDocument(data) {
   return request({
-    url: '/chat-rag/document',
+    url: '/ai-chat/document',
     method: 'post',
     data: data
   })
@@ -39,7 +39,7 @@ export function uploadFile(data) {
 // 修改知识库文档
 export function updateDocument(data) {
   return request({
-    url: '/chat-rag/document',
+    url: '/ai-chat/document',
     method: 'put',
     data: data
   })
@@ -48,7 +48,7 @@ export function updateDocument(data) {
 // 删除知识库文档
 export function delDocument(id) {
   return request({
-    url: '/chat-rag/document/' + id,
+    url: '/ai-chat/document/' + id,
     method: 'delete'
   })
 }

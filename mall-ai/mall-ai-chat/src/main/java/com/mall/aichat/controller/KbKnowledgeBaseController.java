@@ -1,7 +1,7 @@
-package com.mall.chatrag.controller;
+package com.mall.aichat.controller;
 
-import com.mall.chatrag.domain.KbKnowledgeBase;
-import com.mall.chatrag.service.IKbKnowledgeBaseService;
+import com.mall.aichat.domain.KbKnowledgeBase;
+import com.mall.aichat.service.IKbKnowledgeBaseService;
 import com.mall.common.core.utils.poi.ExcelUtil;
 import com.mall.common.core.web.controller.BaseController;
 import com.mall.common.core.web.domain.AjaxResult;
@@ -31,7 +31,7 @@ public class KbKnowledgeBaseController extends BaseController
     /**
      * 查询知识库列表
      */
-    @RequiresPermissions("chatrag:base:list")
+    @RequiresPermissions("aichat:base:list")
     @GetMapping("/list")
     public TableDataInfo list(KbKnowledgeBase kbKnowledgeBase)
     {
@@ -43,7 +43,7 @@ public class KbKnowledgeBaseController extends BaseController
     /**
      * 导出知识库列表
      */
-    @RequiresPermissions("chatrag:base:export")
+    @RequiresPermissions("aichat:base:export")
     @Log(title = "知识库", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, KbKnowledgeBase kbKnowledgeBase)
@@ -56,7 +56,7 @@ public class KbKnowledgeBaseController extends BaseController
     /**
      * 获取知识库详细信息
      */
-    @RequiresPermissions("chatrag:base:query")
+    @RequiresPermissions("aichat:base:query")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@PathVariable("id") String id)
     {
@@ -66,7 +66,7 @@ public class KbKnowledgeBaseController extends BaseController
     /**
      * 新增知识库
      */
-    @RequiresPermissions("chatrag:base:add")
+    @RequiresPermissions("aichat:base:add")
     @Log(title = "知识库", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody KbKnowledgeBase kbKnowledgeBase)
@@ -77,7 +77,7 @@ public class KbKnowledgeBaseController extends BaseController
     /**
      * 修改知识库
      */
-    @RequiresPermissions("chatrag:base:edit")
+    @RequiresPermissions("aichat:base:edit")
     @Log(title = "知识库", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody KbKnowledgeBase kbKnowledgeBase)
@@ -88,7 +88,7 @@ public class KbKnowledgeBaseController extends BaseController
     /**
      * 删除知识库
      */
-    @RequiresPermissions("chatrag:base:remove")
+    @RequiresPermissions("aichat:base:remove")
     @Log(title = "知识库", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable String[] ids)

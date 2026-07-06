@@ -30,9 +30,6 @@ spring:
         host: 127.0.0.1:18080
         scheme: http
         api-key: WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih
-        filter-field:
-          conversationId: TEXT
-        object-class: SpringAiWeaviate
   profiles:
     # 环境配置
     active: dev
@@ -56,3 +53,11 @@ logging:
     org.springframework.ai: DEBUG
     org.springframework.web.client: DEBUG
     org.springframework.http: DEBUG
+
+weaviate:
+  knowledge-object-class: KnowledgeBase
+  chat-memory-object-class: ConversationHistory
+vector-store:
+  chat-memory-default-topk: 1
+chat-memory:
+  max-messages: 4

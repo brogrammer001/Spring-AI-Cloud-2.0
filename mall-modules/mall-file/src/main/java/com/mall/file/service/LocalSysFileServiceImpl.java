@@ -1,12 +1,12 @@
 package com.mall.file.service;
 
+import com.mall.common.core.utils.StringUtils;
+import com.mall.common.core.utils.file.FileUtils;
+import com.mall.file.utils.FileUploadUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import com.mall.common.core.utils.StringUtils;
-import com.mall.common.core.utils.file.FileUtils;
-import com.mall.file.utils.FileUploadUtils;
 
 /**
  * 本地文件存储
@@ -59,7 +59,13 @@ public class LocalSysFileServiceImpl implements ISysFileService
     @Override
     public void deleteFile(String fileUrl) throws Exception
     {
-        String localFile = StringUtils.substringAfter(fileUrl, localFilePrefix);
+        String localFile = StringUtils.substringAfter(fileUrl, domain + localFilePrefix);
         FileUtils.deleteFile(localFilePath + localFile);
+    }
+
+    @Override
+    public String getFile(String fileUrl) {
+        String localFile = StringUtils.substringAfter(fileUrl, domain + localFilePrefix);
+       return localFilePath + localFile;
     }
 }
