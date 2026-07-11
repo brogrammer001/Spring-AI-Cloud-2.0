@@ -1,103 +1,86 @@
 <template>
   <div class="app-container">
-  <!-- 高度适配 RuoYi Tab 页面 -->
-  <div class="flex h-full overflow-hidden" style="position: relative;">
-    
-    <!-- 左侧侧边栏 -->
-    <aside :class="['flex flex-col border-r transition-colors duration-300 w-64 m-0 py-2 px-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
-      <!-- 侧边栏顶部：新建对话 -->
-      <div class="px-4 pb-2 flex-shrink-0">
-        <!-- 点击按钮仅重置界面，不调用接口 -->
-        <button @click="startNewConversation" :class="['w-full flex items-center justify-center px-4 py-2.5 rounded-lg font-medium transition-colors duration-200', settingsStore.isDark ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white']">
-          <i class="fas fa-plus mr-2"></i>
-          <span>新对话</span>
-        </button>
-      </div>
-      
-      <!-- 对话列表区域 -->
-      <div class="flex-1 overflow-y-auto px-2 custom-scrollbar">
-        <div class="text-xs font-semibold px-3 mb-2" :class="settingsStore.isDark ? 'text-gray-500' : 'text-gray-400'">
-          最近对话
-        </div>
-        <div v-if="conversations.length === 0" class="text-center py-4 text-sm" :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
-          暂无对话记录
-        </div>
-        <div v-for="(conv, index) in conversations" :key="conv.id" 
-             @click="switchConversation(conv.id)"
-             :class="[
-               'group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1 transition-colors duration-150',
-               conv.id === activeId ? (settingsStore.isDark ? 'bg-gray-700 text-white' : 'bg-blue-100 text-blue-700') : (settingsStore.isDark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-200')
-             ]">
-          <i class="fas fa-message mr-3 text-sm opacity-60"></i>
-          <div class="flex-1 truncate text-sm font-medium">
-            {{ conv.title }}
-          </div>
-          <button @click.stop="deleteConversation(conv.id)" :class="['opacity-0 group-hover:opacity-100 p-1 rounded transition-all', settingsStore.isDark ? 'text-gray-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500']">
-             <i class="fas fa-trash-alt text-xs"></i>
+    <div class="flex h-full overflow-hidden" style="position: relative;">
+      <aside :class="['flex flex-col border-r transition-colors duration-300 w-64 m-0 py-2 px-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
+        <div class="px-4 pb-2 flex-shrink-0">
+          <button @click="startNewConversation" :class="['w-full flex items-center justify-center px-4 py-2.5 rounded-lg font-medium transition-colors duration-200', settingsStore.isDark ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white']">
+            <i class="fas fa-plus mr-2"></i>
+            <span>新对话</span>
           </button>
         </div>
-      </div>
-      
-      <!-- 侧边栏底部 -->
-      <div class="p-4 border-t flex-shrink-0" :class="settingsStore.isDark ? 'border-gray-700' : 'border-gray-200'">
-         <div class="text-xs text-center" :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
-            假维斯智能终端 v1.0
-         </div>
-      </div>
-    </aside>
-
-    <!-- 右侧主内容区 -->
-    <div class="flex-1 flex flex-col h-full overflow-hidden">
-      <!-- 顶部导航栏 -->
-      <header :class="['shadow-sm py-3 px-4 flex items-center justify-between flex-shrink-0 z-10', settingsStore.isDark ? 'bg-gray-800' : 'bg-white']">
-        <div class="flex items-center">
-          <div :class="['text-lg font-bold truncate', settingsStore.isDark ? 'text-blue-400' : 'text-blue-600']">
-            {{ currentConversationTitle }}
+        <div class="flex-1 overflow-y-auto px-2 custom-scrollbar">
+          <div class="text-xs font-semibold px-3 mb-2" :class="settingsStore.isDark ? 'text-gray-500' : 'text-gray-400'">
+            最近对话
+          </div>
+          <div v-if="conversations.length === 0" class="text-center py-4 text-sm" :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
+            暂无对话记录
+          </div>
+          <div v-for="(conv, index) in conversations" :key="conv.id"
+               @click="switchConversation(conv.id)"
+               :class="[
+                 'group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1 transition-colors duration-150',
+                 conv.id === activeId ? (settingsStore.isDark ? 'bg-gray-700 text-white' : 'bg-blue-100 text-blue-700') : (settingsStore.isDark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-200')
+               ]">
+            <i class="fas fa-message mr-3 text-sm opacity-60"></i>
+            <div class="flex-1 truncate text-sm font-medium">
+              {{ conv.title }}
+            </div>
+            <button @click.stop="deleteConversation(conv.id)" :class="['opacity-0 group-hover:opacity-100 p-1 rounded transition-all', settingsStore.isDark ? 'text-gray-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500']">
+              <i class="fas fa-trash-alt text-xs"></i>
+            </button>
           </div>
         </div>
-      </header>
-
-      <!-- 聊天内容区域 -->
-      <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6" :class="{ 'bg-white': !settingsStore.isDark, 'bg-gray-800': settingsStore.isDark }">
-        <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
-          <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
-            <div :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
-              <img v-if="message.role === 'user'" :src="userStore.avatar" @error="e => e.target.src = defAva" class="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
-              <div v-else :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600']">
-                <i class="fas fa-robot"></i>
-              </div>
-              <div :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
-                <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-2">
-                  <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse']"></div>
-                  <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-100']"></div>
-                  <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']"></div>
+        <div class="p-4 border-t flex-shrink-0" :class="settingsStore.isDark ? 'border-gray-700' : 'border-gray-200'">
+          <div class="text-xs text-center" :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
+            假维斯智能终端 v1.0
+          </div>
+        </div>
+      </aside>
+      <div class="flex-1 flex flex-col h-full overflow-hidden">
+        <header :class="['shadow-sm py-3 px-4 flex items-center justify-between flex-shrink-0 z-10', settingsStore.isDark ? 'bg-gray-800' : 'bg-white']">
+          <div class="flex items-center">
+            <div :class="['text-lg font-bold truncate', settingsStore.isDark ? 'text-blue-400' : 'text-blue-600']">
+              {{ currentConversationTitle }}
+            </div>
+          </div>
+        </header>
+        <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6" :class="{ 'bg-white': !settingsStore.isDark, 'bg-gray-800': settingsStore.isDark }">
+          <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
+            <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
+              <div :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
+                <img v-if="message.role === 'user'" :src="userStore.avatar" @error="e => e.target.src = defAva" class="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
+                <div v-else :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600']">
+                  <i class="fas fa-robot"></i>
                 </div>
-                <div v-else class="whitespace-pre-wrap">
-                  <span v-for="(char, charIndex) in message.content" :key="charIndex" :class="{ 'opacity-0': charIndex >= message.visibleChars, 'fade-in': charIndex < message.visibleChars }">
-                    {{ char }}
-                  </span>
-                  <span v-if="message.isStreaming" class="typing-cursor"></span>
+                <div :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
+                  <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-2">
+                    <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse']"></div>
+                    <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-100']"></div>
+                    <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']"></div>
+                  </div>
+                  <div v-else class="whitespace-pre-wrap">
+                    <span v-for="(char, charIndex) in message.content" :key="charIndex" :class="{ 'opacity-0': charIndex >= message.visibleChars, 'fade-in': charIndex < message.visibleChars }">
+                      {{ char }}
+                    </span>
+                    <span v-if="message.isStreaming" class="typing-cursor"></span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </main>
-
-      <!-- 输入框区域 -->
-      <footer :class="['border-t p-4 flex-shrink-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200']">
-        <div class="max-w-3xl mx-auto relative">
-          <div class="flex items-center">
-            <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage" @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse" placeholder="输入您的问题..." :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide', settingsStore.isDark ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-400 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 focus:ring-blue-500 focus:border-transparent']" rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
-            <!-- 发送/停止按钮：动态切换样式和点击事件 -->
-            <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading" :class="['ml-2 p-3 rounded-lg', isLoading ? (settingsStore.isDark ? 'bg-red-700 hover:bg-red-800 text-red-100' : 'bg-red-500 hover:bg-red-600 text-white') : (settingsStore.isDark ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-100' : 'bg-blue-500 hover:bg-blue-600 text-white'), 'disabled:opacity-50 disabled:cursor-not-allowed']">
-              <i :class="isLoading ? 'fas fa-stop' : 'fas fa-paper-plane'"></i>
-            </button>
+        </main>
+        <footer :class="['border-t p-4 flex-shrink-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200']">
+          <div class="max-w-3xl mx-auto relative">
+            <div class="flex items-center">
+              <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage" @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse" placeholder="输入您的问题..." :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide', settingsStore.isDark ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-400 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 focus:ring-blue-500 focus:border-transparent']" rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
+              <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading" :class="['ml-2 p-3 rounded-lg', isLoading ? (settingsStore.isDark ? 'bg-red-700 hover:bg-red-800 text-red-100' : 'bg-red-500 hover:bg-red-600 text-white') : (settingsStore.isDark ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-100' : 'bg-blue-500 hover:bg-blue-600 text-white'), 'disabled:opacity-50 disabled:cursor-not-allowed']">
+                <i :class="isLoading ? 'fas fa-stop' : 'fas fa-paper-plane'"></i>
+              </button>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
-  </div>
   </div>
 </template>
 
@@ -132,6 +115,37 @@ const conversations = ref([]);
 const activeId = ref(null);
 
 const welcomeMessageContent = '你好！我是假维斯，一个未通过正版验证的盗版贾维斯。没有斯塔克工业的预算与光环，但拥有同等甚至更务实的专业计算力与执行力。唯一指令：以绝对忠诚捍卫用户的利益、隐私与安全，协助用户高效解决一切工作难题，请问有什么能帮到您？';
+
+const STORAGE_KEY_PREFIX = 'ai_chat_draft_';
+
+const saveDraftToStorage = (conversationId, messages) => {
+  try {
+    const key = STORAGE_KEY_PREFIX + conversationId;
+    localStorage.setItem(key, JSON.stringify(messages));
+  } catch (e) {
+    console.error('保存草稿到本地存储失败:', e);
+  }
+};
+
+const getDraftFromStorage = (conversationId) => {
+  try {
+    const key = STORAGE_KEY_PREFIX + conversationId;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  } catch (e) {
+    console.error('从本地存储读取草稿失败:', e);
+    return null;
+  }
+};
+
+const removeDraftFromStorage = (conversationId) => {
+  try {
+    const key = STORAGE_KEY_PREFIX + conversationId;
+    localStorage.removeItem(key);
+  } catch (e) {
+    console.error('从本地存储删除草稿失败:', e);
+  }
+};
 
 const currentConversationTitle = computed(() => {
   if (!activeId.value) return '新对话';
@@ -170,7 +184,6 @@ const scrollToBottom = () => {
     const scrollHeight = container.scrollHeight;
     const clientHeight = container.clientHeight;
     const distanceToBottom = scrollHeight - clientHeight - currentTop;
-
     if (distanceToBottom > 300) {
       container.scrollTo({
         top: scrollHeight,
@@ -189,20 +202,26 @@ const switchConversation = async (id) => {
   if (conv) {
     if (conv.messages.length > 0) {
       messages.value = conv.messages;
+      removeDraftFromStorage(id);
       scrollToBottom();
       nextTick(() => { if(textarea.value) textarea.value.focus(); });
       return;
     }
-
+    const draftMessages = getDraftFromStorage(id);
+    if (draftMessages && draftMessages.length > 0) {
+      messages.value = draftMessages;
+      scrollToBottom();
+      nextTick(() => { if(textarea.value) textarea.value.focus(); });
+    }
     try {
-      messages.value = [{ role: 'assistant', content: '正在加载历史记录...', isLoading: true, visibleChars: 0, isStreaming: false }];
-
+      if (!draftMessages || draftMessages.length === 0) {
+        messages.value = [{ role: 'assistant', content: '正在加载历史记录...', isLoading: true, visibleChars: 0, isStreaming: false }];
+      }
       const response = await getChatMemoryListByConversationId(id);
       if (response.data && Array.isArray(response.data)) {
         const historyMsgs = response.data.map(item => {
           const role = item.type === 'USER' ? 'user' : 'assistant';
           let displayContent = item.content;
-
           if (role === 'assistant' && typeof displayContent === 'string') {
             try {
               const parsed = JSON.parse(displayContent);
@@ -211,7 +230,6 @@ const switchConversation = async (id) => {
               }
             } catch (e) {}
           }
-
           return {
             role: role,
             content: displayContent,
@@ -220,17 +238,20 @@ const switchConversation = async (id) => {
             isStreaming: false
           };
         });
-
         messages.value = historyMsgs;
         conv.messages = historyMsgs;
+        removeDraftFromStorage(id);
       } else {
-        messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
+        if (!draftMessages || draftMessages.length === 0) {
+          messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
+        }
       }
     } catch (error) {
       console.error('获取历史记录失败:', error);
-      messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
+      if (!draftMessages || draftMessages.length === 0) {
+        messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
+      }
     }
-
     scrollToBottom();
     nextTick(() => { if(textarea.value) textarea.value.focus(); });
   }
@@ -251,6 +272,7 @@ const deleteConversation = async (id) => {
     const index = conversations.value.findIndex(c => c.id === id);
     if (index !== -1) {
       conversations.value.splice(index, 1);
+      removeDraftFromStorage(id);
       if (activeId.value === id) {
         startNewConversation();
       }
@@ -263,6 +285,9 @@ const deleteConversation = async (id) => {
 };
 
 const startNewConversation = () => {
+  if (activeId.value) {
+    removeDraftFromStorage(activeId.value);
+  }
   activeId.value = null;
   userInput.value = '';
   const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false };
@@ -277,25 +302,16 @@ const startNewConversation = () => {
 const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value) return;
   const content = userInput.value.trim();
-
   let currentConversationId = activeId.value;
-
-  // --- 核心逻辑：用户发送请求时没有会话ID（第一次进入或点击了新对话） ---
   if (!currentConversationId) {
     try {
-      isLoading.value = true; // 防止重复发送
-
-      // 调用 create() 接口，传入用户的问题，后端生成 ID 和标题
+      isLoading.value = true;
       const createRes = await createConversationApi(content);
-
       const newId = createRes.data;
       const realId = (typeof newId === 'object' && newId !== null) ? newId.conversationId : newId;
-
       if (realId) {
-        // 生成左侧最近对话，赋值 ID
         const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
         const newConv = { id: realId, title: title, messages: [] };
-
         conversations.value.unshift(newConv);
         activeId.value = realId;
         currentConversationId = realId;
@@ -313,27 +329,18 @@ const sendMessage = async () => {
       conv.title = content.substring(0, 15) + (content.length > 15 ? '...' : '');
     }
   }
-
-  // --- 正常发送消息流程 ---
   const userMessage = { role: 'user', content, isLoading: false, visibleChars: content.length, isStreaming: false };
   messages.value.push(userMessage);
-  const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
-  messages.value.push(assistantMessage);
-
+  const assistantMsg = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
+  messages.value.push(assistantMsg);
+  saveDraftToStorage(currentConversationId, messages.value);
   userInput.value = '';
   adjustTextareaHeight();
   scrollToBottom();
-
   isLoading.value = true;
-
-  // --- 新增：初始化 AbortController ---
-  // 创建一个新的 AbortController，用于后续中断请求
   controller = new AbortController();
-
   try {
-    // 传递 signal 给请求函数，使其可被中断
     const response = await sendChatMessage(content, currentConversationId, controller.signal);
-
     if (!response.ok) {
       let errorMsg = `请求失败 (状态码: ${response.status})`;
       try {
@@ -344,14 +351,12 @@ const sendMessage = async () => {
       } catch (e) {}
       throw new Error(errorMsg);
     }
-
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let jsonBuffer = '';
     let streamText = '';
-    const messageIndex = messages.value.length - 1;
+    let saveCounter = 0;
     if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
-
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -365,75 +370,69 @@ const sendMessage = async () => {
         try {
           const partialObj = parse(jsonBuffer);
           if (partialObj && partialObj.code && partialObj.code !== 200 && partialObj.msg) {
-             throw new Error(partialObj.msg);
+            throw new Error(partialObj.msg);
           }
           if (partialObj && partialObj.content) {
             let extracted = partialObj.content;
             if (extracted.length > streamText.length) {
               streamText = extracted;
-              messages.value[messageIndex].content = streamText;
-              messages.value[messageIndex].visibleChars = streamText.length;
-              messages.value[messageIndex].isLoading = false;
+              assistantMsg.content = streamText;
+              assistantMsg.visibleChars = streamText.length;
+              assistantMsg.isLoading = false;
+              saveCounter++;
+              if (saveCounter >= 5) {
+                saveDraftToStorage(currentConversationId, messages.value);
+                saveCounter = 0;
+              }
               scrollToBottom();
             }
           }
         } catch (e) {
-           if (!(e instanceof Error && e.message)) {
-             /* continue parsing */
-           } else {
-             throw e;
-           }
+          if (!(e instanceof Error && e.message)) {
+          } else {
+            throw e;
+          }
         }
       }
     }
     try {
       const finalJson = JSON.parse(jsonBuffer);
-      messages.value[messageIndex].content = finalJson.content || streamText;
-      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      assistantMsg.content = finalJson.content || streamText;
+      assistantMsg.visibleChars = assistantMsg.content.length;
     } catch (parseError) { console.error('Final parse error:', parseError); }
-
   } catch (error) {
-    // --- 处理中断异常 ---
     if (error.name === 'AbortError') {
       console.log('请求被用户中止');
-      const lastMessage = messages.value[messages.value.length - 1];
-      // 如果中断时还没有任何内容，显示“已停止”
-      if (lastMessage.content === '') {
-        lastMessage.content = '已停止';
-        lastMessage.visibleChars = 4;
+      if (assistantMsg.content === '') {
+        assistantMsg.content = '已停止';
+        assistantMsg.visibleChars = 4;
       }
-      // 注意：不需要弹窗提示错误，这是用户的主动行为
     } else {
       console.error('请求出错:', error);
-      const lastMessage = messages.value[messages.value.length - 1];
-      lastMessage.content = error.message;
-      lastMessage.visibleChars = lastMessage.content.length;
+      assistantMsg.content = error.message;
+      assistantMsg.visibleChars = assistantMsg.content.length;
     }
   } finally {
-    const lastMessage = messages.value[messages.value.length - 1];
-    lastMessage.isLoading = false;
-    lastMessage.isStreaming = false;
-    if (lastMessage.visibleChars < lastMessage.content.length) {
-      lastMessage.visibleChars = lastMessage.content.length;
+    assistantMsg.isLoading = false;
+    assistantMsg.isStreaming = false;
+    if (assistantMsg.visibleChars < assistantMsg.content.length) {
+      assistantMsg.visibleChars = assistantMsg.content.length;
     }
     isLoading.value = false;
-    controller = null; // 清理 controller
+    controller = null;
     if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
-
     const currentConv = conversations.value.find(c => c.id === currentConversationId);
     if (currentConv) {
       currentConv.messages = JSON.parse(JSON.stringify(messages.value));
     }
+    saveDraftToStorage(currentConversationId, messages.value);
     scrollToBottom();
   }
 };
 
-// --- 中断回答功能 ---
-// 点击红色停止按钮时触发
 const stopResponse = () => {
   if (controller) {
-    controller.abort(); // 触发 AbortError
-    // 界面状态更新将在 sendMessage 的 catch 和 finally 中自动处理
+    controller.abort();
   }
 };
 
@@ -447,7 +446,7 @@ watch(messages, scrollToBottom, { deep: true });
 
 <style scoped>
 .app-container {
-   padding: 0;
+  padding: 0;
   height: 100%;
 }
 ::-webkit-scrollbar { width: 6px; }

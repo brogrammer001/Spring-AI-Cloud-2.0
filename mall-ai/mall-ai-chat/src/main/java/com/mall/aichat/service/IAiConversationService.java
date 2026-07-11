@@ -60,8 +60,6 @@ public interface IAiConversationService
      */
     public int deleteAiConversationById(String id);
 
-    public boolean checkConversationOwner(Long userId, String conversationId);
-
     AiConversation createAiConversation(String question);
 
     int deleteByConversationId(String[] conversationIds);

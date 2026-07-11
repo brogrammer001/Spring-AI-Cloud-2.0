@@ -115,29 +115,6 @@ public class AiConversationServiceImpl implements IAiConversationService {
     }
 
     @Override
-    public boolean checkConversationOwner(Long userId, String conversationId) {
-        String redisKey = Constants.CHAT_CONVERSATION_KEY + conversationId;
-
-        // 1. 先查 Redis
-        String cachedUserId = mallRedisTemplate.opsForValue().get(redisKey);
-        if (cachedUserId != null) {
-            return String.valueOf(userId).equals(cachedUserId);
-        }
-
-        // 2. Redis 没有则查 DB
-        Long dbUserId = aiConversationMapper.findByConversationId(conversationId);
-        if (dbUserId == null) {
-            return false; // 会话不存在
-        }
-
-        // 3. 回填 Redis
-        mallRedisTemplate.opsForValue().set(redisKey, String.valueOf(dbUserId), 7, TimeUnit.DAYS);
-
-        // 4. 比对
-        return String.valueOf(userId).equals(dbUserId);
-    }
-
-    @Override
     public AiConversation createAiConversation(String question) {
         // 保存到数据库
         Long userId = SecurityUtils.getUserId();
@@ -187,24 +164,13 @@ public class AiConversationServiceImpl implements IAiConversationService {
         mallRedisTemplate.delete(chatConversationKey);
 
         //删除向量库会话
-        for (int k = 0; k < conversationIds.length; k++) {
-            this.clearConversation(conversationIds[k]);
-        }
+        FilterExpressionBuilder b = new FilterExpressionBuilder();
+        vectorStore.delete(b.in("conversationId", conversationIds).build());
 
         if (i == 0 || j == 0 || z == 0) {
             throw new ServiceException("删除会话失败");
         }
         return i;
-    }
-
-    /**
-     * 删除指定会话的全部向量记录
-     */
-    public void clearConversation(String conversationId) {
-        // 注意：这里用 metadata 的原始 key（conversationId），
-        // WeaviateVectorStore 内部会自动加上 "meta_" 前缀去匹配物理字段 meta_conversationId
-        FilterExpressionBuilder b = new FilterExpressionBuilder();
-        vectorStore.delete(b.eq("conversationId", conversationId).build());
     }
 
 }

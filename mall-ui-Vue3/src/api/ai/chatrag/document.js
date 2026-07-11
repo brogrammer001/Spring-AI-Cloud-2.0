@@ -52,3 +52,12 @@ export function delDocument(id) {
     method: 'delete'
   })
 }
+
+// 下载知识库文档
+export function downloadDocument(filePath) {
+  return request({
+    url: filePath.startsWith('http') ? filePath : '/file/download' + filePath,
+    method: 'get',
+    responseType: 'blob'
+  })
+}

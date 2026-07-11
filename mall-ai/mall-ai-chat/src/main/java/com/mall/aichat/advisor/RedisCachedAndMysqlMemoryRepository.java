@@ -4,17 +4,18 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.mall.aichat.domain.SysChatHistory;
+import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
 import com.mall.common.core.utils.StringUtils;
+import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -25,11 +26,14 @@ import java.util.concurrent.TimeUnit;
 public class RedisCachedAndMysqlMemoryRepository implements ChatMemoryRepository {
     private final JdbcChatMemoryRepository jdbcChatMemoryRepository;
     private final StringRedisTemplate mallRedisTemplate;
+    private final ISysChatHistoryService sysChatHistoryService;
     public static final long TTL_DAYS = 7;  // Redis 热缓存保留 7 天
 
-    public RedisCachedAndMysqlMemoryRepository(JdbcChatMemoryRepository jdbcChatMemoryRepository, StringRedisTemplate mallRedisTemplate) {
+    public RedisCachedAndMysqlMemoryRepository(JdbcChatMemoryRepository jdbcChatMemoryRepository, StringRedisTemplate mallRedisTemplate,
+                                               ISysChatHistoryService sysChatHistoryService) {
         this.jdbcChatMemoryRepository = jdbcChatMemoryRepository;
         this.mallRedisTemplate = mallRedisTemplate;
+        this.sysChatHistoryService = sysChatHistoryService;
     }
 
     @Override
@@ -65,6 +69,28 @@ public class RedisCachedAndMysqlMemoryRepository implements ChatMemoryRepository
             // 2. 更新缓存
             mallRedisTemplate.opsForValue().set(Constants.CHAT_MEMORY_KEY + conversationId,
                 serialize(messages), TTL_DAYS, TimeUnit.DAYS);
+
+            List<SysChatHistory> sysChatHistories = messages.stream()
+                .filter(m -> !(m instanceof ToolResponseMessage)
+                    && !(m instanceof AssistantMessage am && am.hasToolCalls()))
+                .map(message -> {
+                    Long sequenceId = mallRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
+                    SysChatHistory sysChatHistory = new SysChatHistory();
+                    sysChatHistory.setId(IdUtils.fastUUID());
+                    sysChatHistory.setConversationId(conversationId);
+                    sysChatHistory.setContent(message.getText());
+                    sysChatHistory.setTimestamp(new Date());
+                    sysChatHistory.setIsCompression("N");
+                    sysChatHistory.setType(message.getMessageType().getValue());
+                    sysChatHistory.setSequenceId(sequenceId);
+                    return sysChatHistory;
+                })
+                .toList();
+
+            if (sysChatHistories.isEmpty()) {
+                return;
+            }
+            sysChatHistoryService.saveBatch(sysChatHistories);
         } catch (Exception e) {
             // 缓存更新失败不影响主流程，可打印日志
         }

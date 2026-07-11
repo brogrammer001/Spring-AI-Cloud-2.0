@@ -14,6 +14,8 @@ import com.mall.common.core.utils.uuid.IdUtils;
 import com.mall.system.api.RemoteFileService;
 import com.mall.system.api.domain.SysFile;
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.TextReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
@@ -32,6 +34,7 @@ import java.util.List;
  */
 @Service
 public class KbDocumentServiceImpl implements IKbDocumentService {
+    private static final Logger log = LoggerFactory.getLogger(KbDocumentServiceImpl.class);
     @Autowired
     private KbDocumentMapper kbDocumentMapper;
 
@@ -82,10 +85,12 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
             R<SysFile> fileR = remoteFileService.getFile(kbDocument.getFilePath());
 
-            String filePath = "";
+            String filePath;
             if (fileR.getCode() == Constants.SUCCESS) {
                 SysFile sysFile = fileR.getData();
                 filePath = sysFile.getUrl();
+            } else {
+                filePath = "";
             }
 
             if (StringUtils.isEmpty(filePath)) {
@@ -95,6 +100,30 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
             // 2. 使用 Spring AI 读取文档 (Tika 支持多种格式：PDF, Word, TXT, MD)
             TextReader reader = new TextReader(new FileSystemResource(filePath));
             List<Document> documents = reader.get();
+            FileSystemResource resource = new FileSystemResource(filePath);
+
+//            TikaDocumentParser parser = new TikaDocumentParser();
+//
+//            List<Document> documents;
+//            try (InputStream inputStream = resource.getInputStream()) {
+//                // 直接调用解析方法，传入 InputStream
+//                // 内部会自动根据配置文件中的 OCR 设置进行处理
+//                documents = parser.parse(inputStream);
+//            }
+
+            if (documents.isEmpty()) {
+                log.warn("文件 {} 解析后内容为空，跳过向量化", filePath);
+                kbDocument.setStatus(1L);
+                kbDocumentMapper.updateKbDocument(kbDocument);
+                return i;
+            }
+
+            // 补充元数据
+            documents.forEach(doc -> {
+                doc.getMetadata().put("filename", kbDocument.getFileName());
+                doc.getMetadata().put("knowledgeId", kbDocument.getKnowledgeId());
+                doc.getMetadata().put("source", kbDocument.getFilePath());
+            });
 
             // 3. 分块 (TokenTextSplitter 按 token 数量切分)
             TokenTextSplitter splitter = TokenTextSplitter.builder()

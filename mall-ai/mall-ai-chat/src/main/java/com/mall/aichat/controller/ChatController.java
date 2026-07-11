@@ -1,8 +1,8 @@
 package com.mall.aichat.controller;
 
 import com.mall.aichat.config.RagConfig;
+import com.mall.aichat.config.VectorCompressionConfig;
 import com.mall.common.core.utils.StringUtils;
-import com.mall.common.security.utils.SecurityUtils;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -24,24 +24,25 @@ public class ChatController {
     @Autowired
     private RagConfig ragConfig;
 
+    @Autowired
+    private VectorCompressionConfig vectorCompressionConfig;
+
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chat(@RequestParam String question, @RequestParam(required = false) String conversationId) {
         // 1. 从向量库检索相关知识片段
         String relevantDoc = ragConfig.retrieveContext(question);
+
+        // 构建完整的 User Prompt
+        String promptContent = question;
         if (StringUtils.isNotEmpty(relevantDoc)) {
-            // 直接拼接即可
-            relevantDoc = "\n\n【参考知识】\n" + relevantDoc;
+            promptContent = "请根据以下参考知识回答我的问题。\n\n【参考知识】\n" + relevantDoc + "\n\n【我的问题】\n" + question;
         }
 
-        String promptContent = relevantDoc;
         return qwenChatClient.prompt()
-            .system(s -> s.text(promptContent))
-            .user(question)
-            .advisors(a -> {
-                a.param(ChatMemory.CONVERSATION_ID, conversationId);
-                a.param("userId", SecurityUtils.getUserId());
-            })
+            .user(promptContent)
+            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
             .stream()
-            .content();
+            .content()
+            .doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));
     }
 }

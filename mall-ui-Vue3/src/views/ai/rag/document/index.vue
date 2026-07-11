@@ -114,6 +114,13 @@
                     <rect x="14" y="14" width="7" height="7"/>
                   </svg>
                 </button>
+                <button class="doc-action-btn" @click="handleDownload(doc)" title="下载附件">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
                 <button class="doc-action-btn danger-btn" @click="handleDelete(doc)" v-hasPermi="['chatrag:document:remove']" title="删除">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/>
@@ -200,7 +207,7 @@
 </template>
 
 <script setup name="Document">
-import {addDocument, delDocument, listDocument, uploadFile} from "@/api/ai/chatrag/document"
+import {addDocument, delDocument, listDocument, uploadFile, downloadDocument} from "@/api/ai/chatrag/document"
 import "@/utils/css/document.css";
 
 const { proxy } = getCurrentInstance()
@@ -469,6 +476,30 @@ function handleChunks(row) {
   router.push({
     path: '/ai/rag/chunk/index',
     query: { documentId: row.id, documentName: row.fileName, knowledgeId: row.knowledgeId }
+  })
+}
+
+function handleDownload(doc) {
+  if (!doc.filePath) {
+    showToast('文件路径不存在', 'error')
+    return
+  }
+  proxy.$modal.loading("正在下载文件...")
+  downloadDocument(doc.filePath).then(response => {
+    const blob = new Blob([response.data])
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = doc.fileName || 'download'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+    showToast('下载成功', 'success')
+  }).catch(error => {
+    console.error('下载失败:', error)
+    showToast('下载失败', 'error')
+  }).finally(() => {
+    proxy.$modal.closeLoading()
   })
 }
 

@@ -1,13 +1,13 @@
 package com.mall.system.api.factory;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.cloud.openfeign.FallbackFactory;
-import org.springframework.stereotype.Component;
 import com.mall.common.core.domain.R;
 import com.mall.system.api.RemoteUserService;
 import com.mall.system.api.domain.SysUser;
 import com.mall.system.api.model.LoginUser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cloud.openfeign.FallbackFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * 用户服务降级处理
@@ -41,6 +41,11 @@ public class RemoteUserFallbackFactory implements FallbackFactory<RemoteUserServ
             public R<Boolean> recordUserLogin(SysUser sysUser, String source)
             {
                 return R.fail("记录用户登录信息失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> addUser(SysUser sysUser) {
+                return R.fail("新增用户失败:" + throwable.getMessage());
             }
         };
     }

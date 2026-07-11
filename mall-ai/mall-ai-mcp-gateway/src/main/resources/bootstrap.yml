@@ -1,0 +1,66 @@
+# Tomcat
+server:
+  port: 9999
+
+# Spring
+spring:
+  application:
+    # 应用名称
+    name: mall-ai-mcp-gateway
+  profiles:
+    # 环境配置
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册地址
+        server-addr: 127.0.0.1:8848
+      config:
+        # 配置中心地址
+        server-addr: 127.0.0.1:8848
+  config:
+    # 配置文件格式
+    file-extension: yml
+    import:
+      - nacos:application-${spring.profiles.active}.${spring.config.file-extension}
+      - nacos:${spring.application.name}-${spring.profiles.active}.${spring.config.file-extension}
+  ai:
+    dashscope:
+      api-key: ${aliQwen-api}
+    mcp:
+      server:
+        name: ${spring.application.name}
+        version: 1.0.0
+        enabled: true
+        #protocol: sse
+        protocol: STREAMABLE
+        type: async
+        instructions: "Nacos MCP Gateway - 聚合多个 MCP Server 的工具网关"
+        streamable-http:
+          mcp-endpoint: /mcp
+          keep-alive-interval: 60s
+          disallow-delete: false
+        #sse-message-endpoint: /mcp/messages
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+    alibaba:
+      # MCP Gateway 配置
+      mcp:
+        gateway:
+          enabled: true
+          # 配置要发现和聚合的 MCP Server 服务名称
+          nacos:
+            serviceNames:
+              - mall-ai-mcp-server
+          streamable:
+            enabled: true
+          sse:
+            enabled: true
+        # Nacos 注册中心配置
+        nacos:
+          server-addr: 127.0.0.1:8848
+          username: nacos
+          password: nacos

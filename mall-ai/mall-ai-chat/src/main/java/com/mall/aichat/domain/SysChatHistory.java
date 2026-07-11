@@ -46,8 +46,20 @@ public class SysChatHistory extends BaseEntity
     @Excel(name = "排序")
     private Long sequenceId;
 
+    /** 是否压缩 */
+    @Excel(name = "是否压缩")
+    private String isCompression;
+
     @TableField(exist = false)
     private String userName;
+
+    public String getIsCompression() {
+        return isCompression;
+    }
+
+    public void setIsCompression(String isCompression) {
+        this.isCompression = isCompression;
+    }
 
     public String getUserName() {
         return userName;

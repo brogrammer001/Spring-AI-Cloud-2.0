@@ -59,5 +59,6 @@ weaviate:
   chat-memory-object-class: ConversationHistory
 vector-store:
   chat-memory-default-topk: 1
+  compression-threshold: 4
 chat-memory:
   max-messages: 4

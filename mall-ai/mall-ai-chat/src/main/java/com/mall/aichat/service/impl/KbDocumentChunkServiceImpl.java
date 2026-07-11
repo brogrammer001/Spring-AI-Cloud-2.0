@@ -109,7 +109,7 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
         FilterExpressionBuilder b = new FilterExpressionBuilder();
 
         // 构建过滤条件：meta_knowledge_id == knowledgeId
-        vectorStore.delete(b.in("conversationId", knowledgeIds).build());
+        vectorStore.delete(b.in("knowledgeId", knowledgeIds).build());
         return i;
     }
 }

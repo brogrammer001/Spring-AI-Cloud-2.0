@@ -1,18 +1,13 @@
 package com.mall.system.api;
 
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import com.mall.common.core.constant.SecurityConstants;
 import com.mall.common.core.constant.ServiceNameConstants;
 import com.mall.common.core.domain.R;
 import com.mall.system.api.domain.SysUser;
 import com.mall.system.api.factory.RemoteUserFallbackFactory;
 import com.mall.system.api.model.LoginUser;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 用户服务
@@ -51,4 +46,14 @@ public interface RemoteUserService
      */
     @PutMapping("/user/recordlogin")
     public R<Boolean> recordUserLogin(@RequestBody SysUser sysUser, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 注册用户信息
+     *
+     * @param sysUser 用户信息
+     * @return 结果
+     */
+    @PostMapping("/user/addUser")
+    public R<Boolean> addUser(@RequestBody SysUser sysUser);
+
 }

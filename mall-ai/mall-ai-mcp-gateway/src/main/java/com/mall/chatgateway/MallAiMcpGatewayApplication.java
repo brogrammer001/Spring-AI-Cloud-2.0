@@ -1,20 +1,13 @@
-package com.mall.chatmcp;
+package com.mall.chatgateway;
 
 import org.springframework.boot.SpringApplication;
-//import org.springframework.boot.autoconfigure.SpringBootApplication;
-//import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
-import org.springframework.cloud.openfeign.EnableFeignClients;
 
 
-@EnableFeignClients(basePackages="com.mall")
-@SpringBootApplication(exclude = {
-    DataSourceAutoConfiguration.class,
-})
-public class MallChatMcpServerApplication {
+@SpringBootApplication
+public class MallAiMcpGatewayApplication {
     public static void main(String[] args) {
-        SpringApplication.run(MallChatMcpServerApplication.class, args);
+        SpringApplication.run(MallAiMcpGatewayApplication.class, args);
         System.out.println("(♥◠‿◠)ﾉﾞ  ai服务模块启动成功   ლ(´ڡ`ლ)ﾞ  \n" +
             " .-------.       ____     __        \n" +
             " |  _ _   \\      \\   \\   /  /    \n" +

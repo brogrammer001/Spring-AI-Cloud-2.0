@@ -39,28 +39,39 @@
 
         <spring-ai.version>2.0.0</spring-ai.version>
         <spring-ai-ai-advisors-vector-store.version>2.0.0-M8</spring-ai-ai-advisors-vector-store.version>
-
         <SpringAIAlibaba.version>2.0.0-M1.1</SpringAIAlibaba.version>
+
     </properties>
 
     <!-- 依赖声明 -->
     <dependencyManagement>
         <dependencies>
-<!--            <dependency>-->
-<!--                <groupId>com.alibaba.cloud.ai</groupId>-->
-<!--                <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>-->
-<!--                <version>${SpringAIAlibaba.version}</version>-->
-<!--            </dependency>-->
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+                <version>${SpringAIAlibaba.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-starter-mcp-gateway</artifactId>
+                <version>${SpringAIAlibaba.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-starter-mcp-registry</artifactId>
+                <version>${SpringAIAlibaba.version}</version>
+            </dependency>
 
             <!-- Spring AI Alibaba -->
-<!--            <dependency>-->
-<!--                <groupId>com.alibaba.cloud.ai</groupId>-->
-<!--                <artifactId>spring-ai-alibaba-bom</artifactId>-->
-<!--                <version>${SpringAIAlibaba.version}</version>-->
-<!--                <type>pom</type>-->
-<!--                <scope>import</scope>-->
-<!--            </dependency>-->
-
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>${SpringAIAlibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
 
             <dependency>
                 <groupId>org.springframework.ai</groupId>

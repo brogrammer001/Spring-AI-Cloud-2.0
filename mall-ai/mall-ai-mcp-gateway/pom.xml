@@ -9,7 +9,7 @@
         <version>3.6.8</version>
     </parent>
 
-    <artifactId>mall-ai-mcp-server</artifactId>
+    <artifactId>mall-ai-mcp-gateway</artifactId>
 
     <properties>
         <maven.compiler.source>25</maven.compiler.source>
@@ -22,21 +22,10 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
-        <!-- SpringCloud Alibaba Nacos Config -->
+
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-
-        <!-- Mall Common DataScope -->
-        <dependency>
-            <groupId>com.mall</groupId>
-            <artifactId>mall-api-system</artifactId>
         </dependency>
 
         <dependency>
@@ -46,7 +35,12 @@
 
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter-mcp-registry</artifactId>
+            <artifactId>spring-ai-alibaba-starter-mcp-gateway</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
         </dependency>
     </dependencies>
 </project>

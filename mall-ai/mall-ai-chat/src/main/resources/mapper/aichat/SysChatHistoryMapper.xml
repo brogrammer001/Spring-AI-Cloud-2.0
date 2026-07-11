@@ -11,10 +11,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="timestamp"    column="timestamp"    />
         <result property="sequenceId"    column="sequence_id"    />
         <result property="userName"    column="user_name"    />
+        <result property="isCompression"    column="is_compression"    />
     </resultMap>
 
     <sql id="selectSysChatHistoryVo">
-        select id, conversation_id, content, type, timestamp, sequence_id from sys_chat_history
+        select id, conversation_id, content, type, timestamp, sequence_id, is_compression from sys_chat_history
     </sql>
 
     <select id="selectSysChatHistoryList" parameterType="SysChatHistory" resultMap="SysChatHistoryResult">
@@ -25,6 +26,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         type,
         TIMESTAMP,
         sequence_id,
+        is_compression,
         u.user_name
         FROM
         sys_chat_history t1
@@ -36,6 +38,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="type != null  and type != ''"> and t1.type = #{type}</if>
             <if test="timestamp != null "> and t1.timestamp = #{timestamp}</if>
             <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
+            <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
         </where>
         order by t1.sequence_id asc
     </select>
@@ -48,6 +51,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         type,
         TIMESTAMP,
         sequence_id,
+        is_compression,
         u.user_name
         FROM
         sys_chat_history t1
@@ -71,6 +75,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="type != null and type != ''">type,</if>
             <if test="timestamp != null">timestamp,</if>
             <if test="sequenceId != null">sequence_id,</if>
+            <if test="isCompression != null">is_compression,</if>
+            <if test="id != null">id,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="conversationId != null and conversationId != ''">#{conversationId},</if>
@@ -78,6 +84,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="type != null and type != ''">#{type},</if>
             <if test="timestamp != null">#{timestamp},</if>
             <if test="sequenceId != null">#{sequenceId},</if>
+            <if test="isCompression != null">#{isCompression},</if>
+            <if test="id != null">#{id},</if>
          </trim>
     </insert>
 
@@ -88,8 +96,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="type != null and type != ''">type = #{type},</if>
             <if test="timestamp != null">timestamp = #{timestamp},</if>
             <if test="sequenceId != null">sequence_id = #{sequenceId},</if>
+            <if test="isCompression != null">is_compression = #{isCompression},</if>
         </trim>
-        where conversation_id = #{conversationId}
+        where id = #{id}
     </update>
 
     <delete id="deleteSysChatHistoryByConversationId" parameterType="String">
