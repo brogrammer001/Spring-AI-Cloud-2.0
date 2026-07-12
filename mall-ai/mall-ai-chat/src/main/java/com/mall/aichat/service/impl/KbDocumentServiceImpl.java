@@ -1,30 +1,40 @@
 package com.mall.aichat.service.impl;
 
 import com.knuddels.jtokkit.api.EncodingType;
+import com.mall.aichat.config.MinerUService;
 import com.mall.aichat.domain.KbDocument;
 import com.mall.aichat.domain.KbDocumentChunk;
+import com.mall.aichat.domain.MinerUResult;
 import com.mall.aichat.mapper.KbDocumentMapper;
 import com.mall.aichat.service.IKbDocumentChunkService;
 import com.mall.aichat.service.IKbDocumentService;
 import com.mall.common.core.constant.Constants;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.utils.DateUtils;
-import com.mall.common.core.utils.StringUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import com.mall.system.api.RemoteFileService;
 import com.mall.system.api.domain.SysFile;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.reader.TextReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 知识库文档Service业务层处理
@@ -46,6 +56,12 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
     @Autowired
     private RemoteFileService remoteFileService;
+
+    @Resource(name = "minerUChatClient")
+    private ChatClient minerUChatClient;
+
+    @Autowired
+    private MinerUService minerUService;
 
     /**
      * 查询知识库文档
@@ -93,29 +109,56 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 filePath = "";
             }
 
-            if (StringUtils.isEmpty(filePath)) {
-                return i;
-            }
+            FileSystemResource fileResource = new FileSystemResource(filePath);
+            String filename = fileResource.getFilename();
+            boolean b = filename.toLowerCase().endsWith(".pdf") || filename.toLowerCase().endsWith(".png") || filename.toLowerCase().endsWith(".jpg") ;
 
-            // 2. 使用 Spring AI 读取文档 (Tika 支持多种格式：PDF, Word, TXT, MD)
-            TextReader reader = new TextReader(new FileSystemResource(filePath));
-            List<Document> documents = reader.get();
-            FileSystemResource resource = new FileSystemResource(filePath);
+            List<Document> documents = new ArrayList<>();
+            if (b) {
+                // 2. 使用 Spring AI 读取文档
+                String parseDocument = this.parseDocument(fileResource);
 
-//            TikaDocumentParser parser = new TikaDocumentParser();
-//
-//            List<Document> documents;
-//            try (InputStream inputStream = resource.getInputStream()) {
-//                // 直接调用解析方法，传入 InputStream
-//                // 内部会自动根据配置文件中的 OCR 设置进行处理
-//                documents = parser.parse(inputStream);
-//            }
+                Document document = Document.builder()
+                    .text(parseDocument)
+                    .metadata(Map.of(
+                        "filename", kbDocument.getFileName(),
+                        "knowledgeId", kbDocument.getKnowledgeId(),
+                        "source", kbDocument.getFilePath()
+                    ))
+                    .build();
 
-            if (documents.isEmpty()) {
-                log.warn("文件 {} 解析后内容为空，跳过向量化", filePath);
-                kbDocument.setStatus(1L);
-                kbDocumentMapper.updateKbDocument(kbDocument);
-                return i;
+                documents.add(document);
+            }else {
+                MinerUResult minerUResult = minerUService.parseMarkdown(fileResource);
+
+                List<ByteArrayResource> resourceList = minerUResult.images().stream()
+                    .map(img -> new ByteArrayResource(img.data()))
+                    .toList();
+
+                if (!resourceList.isEmpty()) {
+                    for (ByteArrayResource byteArrayResource : resourceList) {
+                        String parseDocument = this.parseDocument(byteArrayResource);
+                        Document document = Document.builder()
+                            .text(parseDocument)
+                            .metadata(Map.of(
+                                "filename", kbDocument.getFileName(),
+                                "knowledgeId", kbDocument.getKnowledgeId(),
+                                "source", kbDocument.getFilePath()
+                            ))
+                            .build();
+                        documents.add(document);
+                    }
+                }
+
+                Document document = Document.builder()
+                    .text(minerUResult.markdown())
+                    .metadata(Map.of(
+                        "filename", kbDocument.getFileName(),
+                        "knowledgeId", kbDocument.getKnowledgeId(),
+                        "source", kbDocument.getFilePath()
+                    ))
+                    .build();
+                documents.add(document);
             }
 
             // 补充元数据
@@ -165,6 +208,64 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
         return i;
     }
 
+    public String parseDocument(org.springframework.core.io.Resource resource) {
+        String filename = resource.getFilename();
+        MimeType mimeType;
+
+        // 1. 动态推断文件的实际 MIME 类型
+        try {
+            if (resource instanceof FileSystemResource fileSystemResource) {
+                // 如果是磁盘文件，优先使用系统底层的探测
+                Path filePath = fileSystemResource.getFile().toPath();
+                String contentType = Files.probeContentType(filePath);
+                if (contentType != null) {
+                    mimeType = MimeTypeUtils.parseMimeType(contentType);
+                } else {
+                    mimeType = guessMimeType(filename);
+                }
+            } else {
+                // 如果是 ByteArrayResource 或其他内存资源，只能靠文件名推断
+                mimeType = guessMimeType(filename);
+            }
+        } catch (IOException e) {
+            // 探测失败时兜底
+            mimeType = guessMimeType(filename);
+        }
+
+        // 2. 使用 Builder 构造 Media
+        Media media = Media.builder()
+            .mimeType(mimeType)
+            .data(resource)
+            .build();
+
+        String instruction = "1";
+        return minerUChatClient.prompt()
+            .user(u -> u.text(instruction).media(media))
+            .call()
+            .content();
+    }
+
+    /**
+     * 辅助方法：根据文件名后缀推断 MimeType
+     */
+    private MimeType guessMimeType(String filename) {
+        if (filename == null) {
+            return MimeTypeUtils.IMAGE_PNG; // 默认兜底
+        }
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".pdf")) {
+            return MimeTypeUtils.parseMimeType("application/pdf");
+        } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return MimeTypeUtils.IMAGE_JPEG;
+        } else if (lower.endsWith(".png")) {
+            return MimeTypeUtils.IMAGE_PNG;
+        } else if (lower.endsWith(".gif")) {
+            return MimeTypeUtils.IMAGE_GIF;
+        }
+        // 默认按图片处理
+        return MimeTypeUtils.IMAGE_PNG;
+    }
+
     /**
      * 修改知识库文档
      *
@@ -191,8 +292,9 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
             KbDocumentChunk kbDocumentChunk = new KbDocumentChunk();
             kbDocumentChunk.setDocumentId(id);
             List<KbDocumentChunk> kbDocumentChunks = iKbDocumentChunkService.selectKbDocumentChunkList(kbDocumentChunk);
-
-            iKbDocumentChunkService.deleteKbDocumentChunkByIds(kbDocumentChunks.stream().map(KbDocumentChunk::getId).toArray(String[]::new));
+            if (!kbDocumentChunks.isEmpty()) {
+                iKbDocumentChunkService.deleteKbDocumentChunkByIds(kbDocumentChunks.stream().map(KbDocumentChunk::getId).toArray(String[]::new));
+            }
         }
         int i = kbDocumentMapper.deleteKbDocumentByIds(ids);
         return i;

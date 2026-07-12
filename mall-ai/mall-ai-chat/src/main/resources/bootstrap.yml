@@ -9,7 +9,13 @@ spring:
     name: mall-ai-chat
   ai:
     model:
+      chat: openai
       embedding: openai
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
     chat:
       memory:
         repository:
@@ -54,6 +60,16 @@ logging:
     org.springframework.web.client: DEBUG
     org.springframework.http: DEBUG
 
+mineru:
+  base-url: https://mineru.net
+  token: eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI1NzQwMDk2MCIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc4MzgyMzgyNSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiM2ZiMmEzNGEtNjg3MS00NjU3LWJiNWMtMTVjOGIyNjBmYmM0IiwiZW1haWwiOiIiLCJleHAiOjE3OTE1OTk4MjV9.67WV5bcxK-pWtllOhXQJo6xbkfeRg2fb2vf2GZPsHarxMwRc134MIspaByOllvJczzUsq57fnFd-6Ta1eN-_IA
+  model-version: vlm          # pipeline / vlm(推荐) / MinerU-HTML
+  poll-interval-ms: 2000      # 轮询间隔
+  poll-max-attempts: 120      # 最大轮询次数（约 4 分钟）
+  vl:
+    base-url: http://127.0.0.1:8890/v1     # vLLM 默认 8000；SGLang 用 30000
+    api-key: 123456
+    model: opendatalab/MinerU2.5-Pro-2605-1.2B   # 必须与 vllm serve 的模型名一致
 weaviate:
   knowledge-object-class: KnowledgeBase
   chat-memory-object-class: ConversationHistory

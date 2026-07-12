@@ -247,7 +247,7 @@ const { queryParams, form } = toRefs(data)
 const totalPages = computed(() => Math.ceil(total.value / queryParams.value.pageSize) || 1)
 
 function getIconClass(type) {
-  const typeMap = { 'pdf': 'pdf', 'txt': 'txt', 'md': 'md', 'doc': 'doc', 'docx': 'doc' }
+  const typeMap = { 'pdf': 'pdf', 'txt': 'txt', 'md': 'md', 'doc': 'doc', 'docx': 'doc', 'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image' }
   return typeMap[type?.toLowerCase()] || 'other'
 }
 
@@ -257,6 +257,7 @@ function getFileIcon(type) {
     txt: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
     md: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>',
     doc: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    image: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
     other: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>'
   }
   return { template: icons[type?.toLowerCase()] || icons.other }
@@ -318,7 +319,7 @@ function prepareDocumentConfig(file) {
   if (!file) return;
 
   // 简单的格式校验
-  const allowedTypes = ['pdf', 'txt', 'md', 'doc', 'docx'];
+  const allowedTypes = ['pdf', 'txt', 'md', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
   const fileExt = file.name.split('.').pop().toLowerCase();
   if (!allowedTypes.includes(fileExt)) {
     showToast(`不支持的文件格式: ${fileExt}`, 'error');
