@@ -22,17 +22,19 @@ export function addDocument(data) {
   return request({
     url: '/ai-chat/document',
     method: 'post',
-    data: data
+    data: data,
+    timeout: 120000
   })
 }
 
-// 新增知识库文档
+// 上传文件
 export function uploadFile(data) {
   return request({
     url: '/file/upload',
     method: 'post',
     headers: { 'Content-Type': 'multipart/form-data' },
-    data: data
+    data: data,
+    timeout: 120000
   })
 }
 

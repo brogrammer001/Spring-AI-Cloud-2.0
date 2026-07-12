@@ -11,6 +11,7 @@ import com.mall.aichat.service.IKbDocumentService;
 import com.mall.common.core.constant.Constants;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.utils.DateUtils;
+import com.mall.common.core.utils.StringUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import com.mall.system.api.RemoteFileService;
 import com.mall.system.api.domain.SysFile;
@@ -59,6 +60,9 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
     @Resource(name = "minerUChatClient")
     private ChatClient minerUChatClient;
+
+    @Resource(name = "reparsingChatClient")
+    private ChatClient reparsingChatClient;
 
     @Autowired
     private MinerUService minerUService;
@@ -111,55 +115,53 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
             FileSystemResource fileResource = new FileSystemResource(filePath);
             String filename = fileResource.getFilename();
-            boolean b = filename.toLowerCase().endsWith(".pdf") || filename.toLowerCase().endsWith(".png") || filename.toLowerCase().endsWith(".jpg") ;
+            boolean isImage = filename.toLowerCase().endsWith(".png") || filename.toLowerCase().endsWith(".jpg") ;
 
             List<Document> documents = new ArrayList<>();
-            if (b) {
+
+            String parseDocument;
+            if (isImage) {
                 // 2. 使用 Spring AI 读取文档
-                String parseDocument = this.parseDocument(fileResource);
-
-                Document document = Document.builder()
-                    .text(parseDocument)
-                    .metadata(Map.of(
-                        "filename", kbDocument.getFileName(),
-                        "knowledgeId", kbDocument.getKnowledgeId(),
-                        "source", kbDocument.getFilePath()
-                    ))
-                    .build();
-
-                documents.add(document);
+                parseDocument = this.parseDocument(fileResource);
+                parseDocument = this.cleanMinerUContent(parseDocument);
             }else {
                 MinerUResult minerUResult = minerUService.parseMarkdown(fileResource);
 
-                List<ByteArrayResource> resourceList = minerUResult.images().stream()
-                    .map(img -> new ByteArrayResource(img.data()))
-                    .toList();
+                String markdownContent = minerUResult.markdown();
 
-                if (!resourceList.isEmpty()) {
-                    for (ByteArrayResource byteArrayResource : resourceList) {
-                        String parseDocument = this.parseDocument(byteArrayResource);
-                        Document document = Document.builder()
-                            .text(parseDocument)
-                            .metadata(Map.of(
-                                "filename", kbDocument.getFileName(),
-                                "knowledgeId", kbDocument.getKnowledgeId(),
-                                "source", kbDocument.getFilePath()
-                            ))
-                            .build();
-                        documents.add(document);
+                if (minerUResult.images() != null && !minerUResult.images().isEmpty()) {
+                    for (MinerUResult.ImageData imageData : minerUResult.images()) {
+                        String imageText = this.parseDocument(new ByteArrayResource(imageData.data()));
+                        String imagePlaceholder = "![](images/" + imageData.name() + ")";
+
+                        // 为了避免替换文本中包含特殊字符影响格式，可以加上换行
+                        String replacementText = "\n[" + imageText + "]\n";
+                        markdownContent = markdownContent.replace(imagePlaceholder, replacementText);
                     }
                 }
 
-                Document document = Document.builder()
-                    .text(minerUResult.markdown())
-                    .metadata(Map.of(
-                        "filename", kbDocument.getFileName(),
-                        "knowledgeId", kbDocument.getKnowledgeId(),
-                        "source", kbDocument.getFilePath()
-                    ))
-                    .build();
-                documents.add(document);
+                parseDocument = this.cleanMinerUContent(markdownContent);
             }
+
+            if (StringUtils.isEmpty(parseDocument)) {
+                throw new RuntimeException("内容解析失败");
+            }
+
+            String finalParseDocument = parseDocument;
+            String finalResult = reparsingChatClient.prompt()
+                .user(u -> u.text(finalParseDocument))
+                .call()
+                .content();
+
+            Document document = Document.builder()
+                .text(finalResult)
+                .metadata(Map.of(
+                    "filename", kbDocument.getFileName(),
+                    "knowledgeId", kbDocument.getKnowledgeId(),
+                    "source", kbDocument.getFilePath()
+                ))
+                .build();
+            documents.add(document);
 
             // 补充元数据
             documents.forEach(doc -> {
@@ -206,6 +208,21 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
         }
 
         return i;
+    }
+
+    public String cleanMinerUContent(String rawText) {
+        if (rawText == null) return "";
+
+        // 1. 针对死循环标签的强力正则清洗（在大模型处理前先止损）
+        // 匹配类似 <|txt_contd_tgt|> <|txt_contd_src|> 的连续重复
+        String pattern = "(<\\|txt_contd_tgt\\|>|<\\|txt_contd_src\\|>)+";
+        String cleanedText = rawText.replaceAll(pattern, "");
+
+        // 2. 简单的页码正则（大模型处理正则很贵，不如代码处理）
+        // 假设页码是独立一行的数字
+        cleanedText = cleanedText.replaceAll("(?m)^\\s*\\d+\\s*$", "");
+
+        return cleanedText;
     }
 
     public String parseDocument(org.springframework.core.io.Resource resource) {

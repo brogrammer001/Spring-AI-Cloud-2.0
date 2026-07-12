@@ -66,4 +66,5 @@ public interface SysChatHistoryMapper extends BaseMapper<SysChatHistory>
     public int deleteSysChatHistoryByConversationIds(String[] conversationIds);
 
 
+    List<SysChatHistory> selectSysChatHistoryListAll(SysChatHistory sysChatHistory);
 }

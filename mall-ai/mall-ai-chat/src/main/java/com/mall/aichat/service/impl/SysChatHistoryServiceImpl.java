@@ -102,4 +102,9 @@ public class SysChatHistoryServiceImpl extends ServiceImpl<SysChatHistoryMapper,
     public int deleteSysChatHistoryById(String id) {
         return sysChatHistoryMapper.deleteSysChatHistoryById(id);
     }
+
+    @Override
+    public List<SysChatHistory> selectSysChatHistoryListAll(SysChatHistory sysChatHistory) {
+        return sysChatHistoryMapper.selectSysChatHistoryListAll(sysChatHistory);
+    }
 }

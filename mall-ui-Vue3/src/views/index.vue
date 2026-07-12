@@ -1,31 +1,34 @@
 <template>
   <div class="app-container">
     <div class="flex h-full overflow-hidden" style="position: relative;">
-      <aside :class="['flex flex-col border-r transition-colors duration-300 w-64 m-0 py-2 px-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
+      <aside
+        :class="['flex flex-col border-r transition-colors duration-300 w-64 m-0 py-2 px-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
         <div class="px-4 pb-2 flex-shrink-0">
-          <button @click="startNewConversation" :class="['w-full flex items-center justify-center px-4 py-2.5 rounded-lg font-medium transition-colors duration-200', settingsStore.isDark ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white']">
+          <button @click="startNewConversation"
+            :class="['w-full flex items-center justify-center px-4 py-2.5 rounded-lg font-medium transition-colors duration-200', settingsStore.isDark ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white']">
             <i class="fas fa-plus mr-2"></i>
             <span>新对话</span>
           </button>
         </div>
         <div class="flex-1 overflow-y-auto px-2 custom-scrollbar">
-          <div class="text-xs font-semibold px-3 mb-2" :class="settingsStore.isDark ? 'text-gray-500' : 'text-gray-400'">
+          <div class="text-xs font-semibold px-3 mb-2"
+            :class="settingsStore.isDark ? 'text-gray-500' : 'text-gray-400'">
             最近对话
           </div>
-          <div v-if="conversations.length === 0" class="text-center py-4 text-sm" :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
+          <div v-if="conversations.length === 0" class="text-center py-4 text-sm"
+            :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
             暂无对话记录
           </div>
-          <div v-for="(conv, index) in conversations" :key="conv.id"
-               @click="switchConversation(conv.id)"
-               :class="[
-                 'group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1 transition-colors duration-150',
-                 conv.id === activeId ? (settingsStore.isDark ? 'bg-gray-700 text-white' : 'bg-blue-100 text-blue-700') : (settingsStore.isDark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-200')
-               ]">
+          <div v-for="(conv, index) in conversations" :key="conv.id" @click="switchConversation(conv.id)" :class="[
+            'group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1 transition-colors duration-150',
+            conv.id === activeId ? (settingsStore.isDark ? 'bg-gray-700 text-white' : 'bg-blue-100 text-blue-700') : (settingsStore.isDark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-200')
+          ]">
             <i class="fas fa-message mr-3 text-sm opacity-60"></i>
             <div class="flex-1 truncate text-sm font-medium">
               {{ conv.title }}
             </div>
-            <button @click.stop="deleteConversation(conv.id)" :class="['opacity-0 group-hover:opacity-100 p-1 rounded transition-all', settingsStore.isDark ? 'text-gray-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500']">
+            <button @click.stop="deleteConversation(conv.id)"
+              :class="['opacity-0 group-hover:opacity-100 p-1 rounded transition-all', settingsStore.isDark ? 'text-gray-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500']">
               <i class="fas fa-trash-alt text-xs"></i>
             </button>
           </div>
@@ -37,29 +40,42 @@
         </div>
       </aside>
       <div class="flex-1 flex flex-col h-full overflow-hidden">
-        <header :class="['shadow-sm py-3 px-4 flex items-center justify-between flex-shrink-0 z-10', settingsStore.isDark ? 'bg-gray-800' : 'bg-white']">
+        <header
+          :class="['shadow-sm py-3 px-4 flex items-center justify-between flex-shrink-0 z-10', settingsStore.isDark ? 'bg-gray-800' : 'bg-white']">
           <div class="flex items-center">
             <div :class="['text-lg font-bold truncate', settingsStore.isDark ? 'text-blue-400' : 'text-blue-600']">
               {{ currentConversationTitle }}
             </div>
           </div>
         </header>
-        <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6" :class="{ 'bg-white': !settingsStore.isDark, 'bg-gray-800': settingsStore.isDark }">
+        <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6"
+          :class="{ 'bg-white': !settingsStore.isDark, 'bg-gray-800': settingsStore.isDark }">
           <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
             <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
-              <div :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
-                <img v-if="message.role === 'user'" :src="userStore.avatar" @error="e => e.target.src = defAva" class="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
-                <div v-else :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600']">
+              <div
+                :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
+                <img v-if="message.role === 'user'" :src="userStore.avatar" @error="e => e.target.src = defAva"
+                  class="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
+                <div v-else
+                  :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600']">
                   <i class="fas fa-robot"></i>
                 </div>
-                <div :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
+                <div
+                  :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
                   <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-2">
-                    <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse']"></div>
-                    <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-100']"></div>
-                    <div :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']"></div>
+                    <div
+                      :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse']">
+                    </div>
+                    <div
+                      :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-100']">
+                    </div>
+                    <div
+                      :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']">
+                    </div>
                   </div>
                   <div v-else class="whitespace-pre-wrap">
-                    <span v-for="(char, charIndex) in message.content" :key="charIndex" :class="{ 'opacity-0': charIndex >= message.visibleChars, 'fade-in': charIndex < message.visibleChars }">
+                    <span v-for="(char, charIndex) in message.content" :key="charIndex"
+                      :class="{ 'opacity-0': charIndex >= message.visibleChars, 'fade-in': charIndex < message.visibleChars }">
                       {{ char }}
                     </span>
                     <span v-if="message.isStreaming" class="typing-cursor"></span>
@@ -69,11 +85,17 @@
             </div>
           </div>
         </main>
-        <footer :class="['border-t p-4 flex-shrink-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200']">
+        <footer
+          :class="['border-t p-4 flex-shrink-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200']">
           <div class="max-w-3xl mx-auto relative">
             <div class="flex items-center">
-              <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage" @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse" placeholder="输入您的问题..." :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide', settingsStore.isDark ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-400 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 focus:ring-blue-500 focus:border-transparent']" rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
-              <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading" :class="['ml-2 p-3 rounded-lg', isLoading ? (settingsStore.isDark ? 'bg-red-700 hover:bg-red-800 text-red-100' : 'bg-red-500 hover:bg-red-600 text-white') : (settingsStore.isDark ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-100' : 'bg-blue-500 hover:bg-blue-600 text-white'), 'disabled:opacity-50 disabled:cursor-not-allowed']">
+              <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage"
+                @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse"
+                placeholder="输入您的问题..."
+                :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide', settingsStore.isDark ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-400 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 focus:ring-blue-500 focus:border-transparent']"
+                rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
+              <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading"
+                :class="['ml-2 p-3 rounded-lg', isLoading ? (settingsStore.isDark ? 'bg-red-700 hover:bg-red-800 text-red-100' : 'bg-red-500 hover:bg-red-600 text-white') : (settingsStore.isDark ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-100' : 'bg-blue-500 hover:bg-blue-600 text-white'), 'disabled:opacity-50 disabled:cursor-not-allowed']">
                 <i :class="isLoading ? 'fas fa-stop' : 'fas fa-paper-plane'"></i>
               </button>
             </div>
@@ -96,7 +118,6 @@ import {
 import {getChatMemoryListByConversationId} from '@/api/ai/aichat/history';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
-import {parse} from 'partial-json';
 import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
 
@@ -204,14 +225,14 @@ const switchConversation = async (id) => {
       messages.value = conv.messages;
       removeDraftFromStorage(id);
       scrollToBottom();
-      nextTick(() => { if(textarea.value) textarea.value.focus(); });
+      nextTick(() => { if (textarea.value) textarea.value.focus(); });
       return;
     }
     const draftMessages = getDraftFromStorage(id);
     if (draftMessages && draftMessages.length > 0) {
       messages.value = draftMessages;
       scrollToBottom();
-      nextTick(() => { if(textarea.value) textarea.value.focus(); });
+      nextTick(() => { if (textarea.value) textarea.value.focus(); });
     }
     try {
       if (!draftMessages || draftMessages.length === 0) {
@@ -228,7 +249,7 @@ const switchConversation = async (id) => {
               if (parsed && parsed.content) {
                 displayContent = parsed.content;
               }
-            } catch (e) {}
+            } catch (e) { }
           }
           return {
             role: role,
@@ -253,7 +274,7 @@ const switchConversation = async (id) => {
       }
     }
     scrollToBottom();
-    nextTick(() => { if(textarea.value) textarea.value.focus(); });
+    nextTick(() => { if (textarea.value) textarea.value.focus(); });
   }
 };
 
@@ -293,22 +314,26 @@ const startNewConversation = () => {
   const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false };
   messages.value = [initialMsg];
   nextTick(() => {
-    if(messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
+    if (messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
   });
   scrollToBottom();
-  nextTick(() => { if(textarea.value) textarea.value.focus(); });
+  nextTick(() => { if (textarea.value) textarea.value.focus(); });
 };
 
 const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value) return;
   const content = userInput.value.trim();
+
   let currentConversationId = activeId.value;
+
+  // --- 核心逻辑：用户发送请求时没有会话ID ---
   if (!currentConversationId) {
     try {
       isLoading.value = true;
       const createRes = await createConversationApi(content);
       const newId = createRes.data;
       const realId = (typeof newId === 'object' && newId !== null) ? newId.conversationId : newId;
+
       if (realId) {
         const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
         const newConv = { id: realId, title: title, messages: [] };
@@ -329,18 +354,23 @@ const sendMessage = async () => {
       conv.title = content.substring(0, 15) + (content.length > 15 ? '...' : '');
     }
   }
+
+  // --- 正常发送消息流程 ---
   const userMessage = { role: 'user', content, isLoading: false, visibleChars: content.length, isStreaming: false };
   messages.value.push(userMessage);
-  const assistantMsg = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
-  messages.value.push(assistantMsg);
-  saveDraftToStorage(currentConversationId, messages.value);
+  const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
+  messages.value.push(assistantMessage);
+
   userInput.value = '';
   adjustTextareaHeight();
   scrollToBottom();
+
   isLoading.value = true;
   controller = new AbortController();
+
   try {
     const response = await sendChatMessage(content, currentConversationId, controller.signal);
+
     if (!response.ok) {
       let errorMsg = `请求失败 (状态码: ${response.status})`;
       try {
@@ -351,81 +381,101 @@ const sendMessage = async () => {
       } catch (e) {}
       throw new Error(errorMsg);
     }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
-    let jsonBuffer = '';
-    let streamText = '';
-    let saveCounter = 0;
+
+    let sseBuffer = '';   // 用于处理 SSE 换行
+    let rawTextBuffer = ''; // 用于累积所有收到的原始字符（包含各种符号）
+    const messageIndex = messages.value.length - 1;
+
     if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunkText = decoder.decode(value, { stream: true });
-      const lines = chunkText.split('\n');
+
+      sseBuffer += decoder.decode(value, { stream: true });
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop(); // 保留不完整的尾部
+
       for (const line of lines) {
-        let chunk = line;
-        if (chunk.startsWith('data:')) chunk = chunk.replace(/^data:\s*/, '');
-        if (chunk === '[DONE]' || chunk.trim() === '') continue;
-        jsonBuffer += chunk;
-        try {
-          const partialObj = parse(jsonBuffer);
-          if (partialObj && partialObj.code && partialObj.code !== 200 && partialObj.msg) {
-            throw new Error(partialObj.msg);
-          }
-          if (partialObj && partialObj.content) {
-            let extracted = partialObj.content;
-            if (extracted.length > streamText.length) {
-              streamText = extracted;
-              assistantMsg.content = streamText;
-              assistantMsg.visibleChars = streamText.length;
-              assistantMsg.isLoading = false;
-              saveCounter++;
-              if (saveCounter >= 5) {
-                saveDraftToStorage(currentConversationId, messages.value);
-                saveCounter = 0;
-              }
-              scrollToBottom();
-            }
-          }
-        } catch (e) {
-          if (!(e instanceof Error && e.message)) {
-          } else {
-            throw e;
-          }
+        const trimmedLine = line.trim();
+        if (!trimmedLine || !trimmedLine.startsWith('data:')) continue;
+
+        // 1. 去掉 data: 前缀
+        let chunk = trimmedLine.replace(/^data:\s*/, '');
+        if (chunk === '[DONE]') continue;
+
+        // 2. 累积所有内容
+        rawTextBuffer += chunk;
+
+        // 3. 提取 content 字段的内容
+        const contentKey = 'content';
+        const startIdx = rawTextBuffer.indexOf(contentKey);
+
+        if (startIdx !== -1) {
+          // 截取 content 之后的所有内容
+          let displayText = rawTextBuffer.substring(startIdx + contentKey.length);
+
+          // 4. 核心清洗：去除前后多余的 JSON 符号和转义符
+          // 去掉开头的冒号、空格、双引号、反斜杠
+          displayText = displayText.replace(/^[\s:"\\]+/, '');
+
+          // 去掉结尾的双引号、反斜杠、大括号
+          displayText = displayText.replace(/[\s"\\}]+$/, '');
+
+          // 5. 处理中间的转义符号 (将 \" 替换为 "，将 \\ 替换为 \，将 \n 替换为换行)
+          displayText = displayText
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, '\\')
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r');
+
+          // 实时更新 UI
+          messages.value[messageIndex].content = displayText;
+          messages.value[messageIndex].visibleChars = displayText.length;
+          messages.value[messageIndex].isLoading = false;
+          scrollToBottom();
         }
       }
     }
-    try {
-      const finalJson = JSON.parse(jsonBuffer);
-      assistantMsg.content = finalJson.content || streamText;
-      assistantMsg.visibleChars = assistantMsg.content.length;
-    } catch (parseError) { console.error('Final parse error:', parseError); }
+
+    // 兜底：如果流结束了但没提取到任何内容
+    if (messages.value[messageIndex].content === '') {
+      messages.value[messageIndex].content = '(无返回内容)';
+      messages.value[messageIndex].visibleChars = 6;
+    }
+
   } catch (error) {
     if (error.name === 'AbortError') {
       console.log('请求被用户中止');
-      if (assistantMsg.content === '') {
-        assistantMsg.content = '已停止';
-        assistantMsg.visibleChars = 4;
+      const lastMessage = messages.value[messages.value.length - 1];
+      if (lastMessage.content === '') {
+        lastMessage.content = '已停止';
+        lastMessage.visibleChars = 4;
       }
     } else {
       console.error('请求出错:', error);
-      assistantMsg.content = error.message;
-      assistantMsg.visibleChars = assistantMsg.content.length;
+      const lastMessage = messages.value[messages.value.length - 1];
+      lastMessage.content = error.message;
+      lastMessage.visibleChars = lastMessage.content.length;
     }
   } finally {
-    assistantMsg.isLoading = false;
-    assistantMsg.isStreaming = false;
-    if (assistantMsg.visibleChars < assistantMsg.content.length) {
-      assistantMsg.visibleChars = assistantMsg.content.length;
+    const lastMessage = messages.value[messages.value.length - 1];
+    lastMessage.isLoading = false;
+    lastMessage.isStreaming = false;
+    if (lastMessage.visibleChars < lastMessage.content.length) {
+      lastMessage.visibleChars = lastMessage.content.length;
     }
     isLoading.value = false;
     controller = null;
     if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+
     const currentConv = conversations.value.find(c => c.id === currentConversationId);
     if (currentConv) {
       currentConv.messages = JSON.parse(JSON.stringify(messages.value));
     }
-    saveDraftToStorage(currentConversationId, messages.value);
     scrollToBottom();
   }
 };
@@ -449,26 +499,100 @@ watch(messages, scrollToBottom, { deep: true });
   padding: 0;
   height: 100%;
 }
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 
-aside::-webkit-scrollbar { width: 4px; }
-aside::-webkit-scrollbar-thumb { background: #888; }
+::-webkit-scrollbar {
+  width: 6px;
+}
 
-textarea { min-height: 44px; max-height: 200px; transition: height 0.2s; overflow-y: auto; }
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-@keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-.animate-pulse { animation: pulse 1.5s infinite; }
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
 
-@keyframes blink { from, to { opacity: 1; } 50% { opacity: 0; } }
-.typing-cursor::after { content: "|"; animation: blink 1s step-end infinite; }
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
 
-.fade-in { animation: fadeIn 0.05s ease-in forwards; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+aside::-webkit-scrollbar {
+  width: 4px;
+}
+
+aside::-webkit-scrollbar-thumb {
+  background: #888;
+}
+
+textarea {
+  min-height: 44px;
+  max-height: 200px;
+  transition: height 0.2s;
+  overflow-y: auto;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+.delay-100 {
+  animation-delay: 0.1s;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+}
+
+@keyframes blink {
+
+  from,
+  to {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+.typing-cursor::after {
+  content: "|";
+  animation: blink 1s step-end infinite;
+}
+
+.fade-in {
+  animation: fadeIn 0.05s ease-in forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
 </style>

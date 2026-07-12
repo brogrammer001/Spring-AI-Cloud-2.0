@@ -15,7 +15,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectSysChatHistoryVo">
-        select id, conversation_id, content, type, timestamp, sequence_id, is_compression from sys_chat_history
+        select id, conversation_id, content, type, timestamp, sequence_id, is_compression from sys_chat_history t1
     </sql>
 
     <select id="selectSysChatHistoryList" parameterType="SysChatHistory" resultMap="SysChatHistoryResult">
@@ -32,7 +32,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         sys_chat_history t1
         LEFT JOIN ai_conversation t2 ON t1.conversation_id = t2.conversation_id
         LEFT JOIN `mall-system`.sys_user u ON t2.user_id = u.user_id
-        <where>  
+        <where>
+            AND t1.type &lt;&gt; 'COMPRESS'
             <if test="conversationId != null  and conversationId != ''"> and t1.conversation_id = #{conversationId}</if>
             <if test="content != null  and content != ''"> and t1.content = #{content}</if>
             <if test="type != null  and type != ''"> and t1.type = #{type}</if>
@@ -57,14 +58,27 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         sys_chat_history t1
         LEFT JOIN ai_conversation t2 ON t1.conversation_id = t2.conversation_id
         LEFT JOIN `mall-system`.sys_user u ON t2.user_id = u.user_id
-        where t1.id = #{id}
+        where t1.id = #{id} AND t1.type &lt;&gt; 'COMPRESS'
         order by sequence_id asc
     </select>
 
     <select id="selectSysChatHistoryByConversationId" parameterType="String" resultMap="SysChatHistoryResult">
         <include refid="selectSysChatHistoryVo"/>
         where conversation_id = #{conversationId}
+        AND t1.type &lt;&gt; 'COMPRESS'
         order by sequence_id asc
+    </select>
+
+    <select id="selectSysChatHistoryListAll" parameterType="SysChatHistory" resultMap="SysChatHistoryResult">
+        <include refid="selectSysChatHistoryVo"/>
+        <where>
+            <if test="conversationId != null  and conversationId != ''"> and t1.conversation_id = #{conversationId}</if>
+            <if test="content != null  and content != ''"> and t1.content = #{content}</if>
+            <if test="type != null  and type != ''"> and t1.type = #{type}</if>
+            <if test="timestamp != null "> and t1.timestamp = #{timestamp}</if>
+            <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
+            <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
+        </where>
     </select>
 
     <insert id="insertSysChatHistory" parameterType="SysChatHistory">

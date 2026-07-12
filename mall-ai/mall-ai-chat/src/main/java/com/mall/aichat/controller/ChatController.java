@@ -30,16 +30,21 @@ public class ChatController {
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chat(@RequestParam String question, @RequestParam(required = false) String conversationId) {
         // 1. 从向量库检索相关知识片段
-        String relevantDoc = ragConfig.retrieveContext(question);
+        String relevantDoc = "";//ragConfig.retrieveContext(question);
 
-        // 构建完整的 User Prompt
-        String promptContent = question;
+        // 2. 构建提示词请求
+        // 注意：这里使用了链式调用，通过 .system() 设置系统上下文，.user() 保持用户原始输入
+        var promptSpec = qwenChatClient.prompt()
+            .user(question); // 【关键修改】用户输入仅包含原始问题，记忆组件将只记录这部分
+
+        // 如果存在参考知识，将其作为系统提示注入，而不是拼接在用户输入中
         if (StringUtils.isNotEmpty(relevantDoc)) {
-            promptContent = "请根据以下参考知识回答我的问题。\n\n【参考知识】\n" + relevantDoc + "\n\n【我的问题】\n" + question;
+            String systemContext = "请根据以下参考知识回答我的问题。\n\n【参考知识】\n" + relevantDoc;
+            // 将参考知识放入 System Prompt，对模型起到引导作用，但不会被记忆组件记录为用户发言
+            promptSpec.system(systemContext);
         }
 
-        return qwenChatClient.prompt()
-            .user(promptContent)
+        return promptSpec
             .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
             .stream()
             .content()

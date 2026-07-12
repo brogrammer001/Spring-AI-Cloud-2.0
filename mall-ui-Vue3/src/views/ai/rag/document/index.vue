@@ -82,7 +82,8 @@
           <div v-for="(doc, index) in documentList" :key="doc.id" class="doc-card" :style="{ transitionDelay: (index * 50) + 'ms' }">
             <div class="doc-card-header">
               <div class="doc-icon" :class="getIconClass(doc.fileType)">
-                <component :is="getFileIcon(doc.fileType)" />
+                <img v-if="isImageType(doc.fileType)" :src="getImageUrl(doc.filePath)" :alt="doc.fileName" class="doc-image-preview" />
+                <span v-else v-html="getFileIcon(doc.fileType)" />
               </div>
               <div class="doc-info">
                 <div class="doc-title" :title="doc.fileName">{{ doc.fileName }}</div>
@@ -95,7 +96,6 @@
             <div class="doc-card-body">
               <div class="doc-status">
                 <dict-tag class="status-badge" :class="getStatusClass(doc.status)" :options="sys_normal_disable" :value="doc.status" />
-                <span class="chunk-count">{{ doc.chunkCount || 0 }} 切片</span>
               </div>
             </div>
             <div class="doc-card-footer">
@@ -251,6 +251,16 @@ function getIconClass(type) {
   return typeMap[type?.toLowerCase()] || 'other'
 }
 
+function isImageType(type) {
+  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+  return imageTypes.includes(type?.toLowerCase())
+}
+
+function getImageUrl(filePath) {
+  if (!filePath) return ''
+  return filePath.startsWith('http') ? filePath : window.location.origin + filePath
+}
+
 function getFileIcon(type) {
   const icons = {
     pdf: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>',
@@ -260,7 +270,7 @@ function getFileIcon(type) {
     image: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
     other: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>'
   }
-  return { template: icons[type?.toLowerCase()] || icons.other }
+  return icons[type?.toLowerCase()] || icons.other
 }
 
 function getStatusClass(status) {

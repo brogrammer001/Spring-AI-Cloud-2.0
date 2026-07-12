@@ -186,6 +186,8 @@ html.dark .bg-atmosphere {
 .doc-icon.md { background: rgba(168, 85, 247, 0.2); color: var(--purple); box-shadow: 0 0 15px rgba(168, 85, 247, 0.2); }
 .doc-icon.doc { background: rgba(59, 130, 246, 0.2); color: var(--info); box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
 .doc-icon.other { background: rgba(107, 114, 128, 0.2); color: var(--gray); }
+.doc-icon.image { background: rgba(59, 130, 246, 0.1); }
+.doc-image-preview { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
 .doc-info { flex: 1; min-width: 0; }
 .doc-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .doc-meta { font-size: 11px; color: var(--fg-muted); display: flex; gap: 10px; }

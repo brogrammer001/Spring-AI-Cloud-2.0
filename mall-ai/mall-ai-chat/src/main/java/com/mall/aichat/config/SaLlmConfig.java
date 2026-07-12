@@ -1,24 +1,15 @@
 package com.mall.aichat.config;
 
+import com.mall.aichat.advisor.FullHistoryChatMemory;
 import com.mall.aichat.advisor.RedisCachedAndMysqlMemoryRepository;
 import com.mall.aichat.service.ISysChatHistoryService;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
-import org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -33,24 +24,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 public class SaLlmConfig {
 
-    // 注入 系统提示词
-    @Value("classpath:/prompts/system-prompt.md")
-    private Resource systemPromptResource;
-
-    @Value("${vector-store.chat-memory-default-topk}")
-    private int vectorStoreChatMemoryDefaultTopK;
-
     @Value("${chat-memory.max-messages}")
     private int chatMemoryMaxMessages;
-
-    @Value("${mineru.vl.base-url}")
-    private String llmBaseUrl;
-
-    @Value("${mineru.vl.api-key}")
-    private String apiKey;
-
-    @Value("${mineru.vl.model}")
-    private String model;
 
     @Value("${mineru.base-url}")
     private String baseUrl;
@@ -82,42 +57,12 @@ public class SaLlmConfig {
      */
     @Bean
     public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcChatMemoryRepository, ISysChatHistoryService sysChatHistoryService, StringRedisTemplate mallRedisTemplate) {
-        ChatMemoryRepository chatMemoryRepository = new RedisCachedAndMysqlMemoryRepository(jdbcChatMemoryRepository, mallRedisTemplate, sysChatHistoryService); //redis/mysql存储最近几轮对话
-        return MessageWindowChatMemory.builder()
-            .maxMessages(chatMemoryMaxMessages) //达到4条时，会直接删除最老的2条对话，偶数，向下取整
+        ChatMemoryRepository chatMemoryRepository = new RedisCachedAndMysqlMemoryRepository(jdbcChatMemoryRepository, mallRedisTemplate);
+        MessageWindowChatMemory memory = MessageWindowChatMemory.builder()
+            .maxMessages(chatMemoryMaxMessages) //达到4条时，会直接删除最老的2条对话，偶数 ，向下取整
             .chatMemoryRepository(chatMemoryRepository)
             .build();
-    }
-
-
-    @Bean(name = "qwenChatClient")
-    public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
-                                     @Qualifier("conversationVectorStore") VectorStore conversationVectorStore) {
-        return ChatClient
-            .builder(model)
-            .defaultSystem(systemPromptResource)
-            .defaultAdvisors(
-                MessageChatMemoryAdvisor.builder(chatMemory).order(1).build(), //redis/mysql存储会话记忆
-                VectorStoreChatMemoryAdvisor.builder(conversationVectorStore).order(2).defaultTopK(vectorStoreChatMemoryDefaultTopK).build(), //向量库存储全量会话
-                new SimpleLoggerAdvisor(3)
-            )
-            .build();
-    }
-
-    @Bean(name = "compressChatClient")
-    public ChatClient compressChatClient(OpenAiChatModel model) {
-        return ChatClient
-            .builder(model)
-            .defaultSystem("""
-                请从以下对话中提取关键的用户偏好、事实和决策，输出为JSON列表格式：
-                [
-                  {"fact": "用户不喜欢吃香菜"},
-                  {"fact": "用户正在学习 Spring AI"}
-                ]
-                对话记录：
-                %s
-                """)
-            .build();
+        return new FullHistoryChatMemory(memory, sysChatHistoryService, mallRedisTemplate);
     }
 
     @Bean("taskExecutor")
@@ -152,31 +97,4 @@ public class SaLlmConfig {
         return executor;
     }
 
-    @Bean("minerUChatClient")
-    public ChatClient minerUChatClient() {
-        // 1) 构造同步客户端
-        com.openai.client.OpenAIClient client = OpenAIOkHttpClient.builder()
-            .baseUrl(llmBaseUrl)
-            .apiKey(apiKey)
-            .timeout(Duration.ofMinutes(5)) // 设置超时时间为 5 分钟
-            .build();
-
-        // 2) 选项中补全 apiKey 和 baseUrl，供 build() 内部创建 async client 使用
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
-            .model(model)
-            .apiKey(apiKey)     // 关键：补上 apiKey
-            .baseUrl(llmBaseUrl)     // 关键：补上 baseUrl
-            .temperature(0.2)
-            .maxTokens(4096) // 增加最大 token 限制，但要有上限防止死循环
-            .build();
-
-        // 3) 构造 OpenAiChatModel
-        OpenAiChatModel minerUModel = OpenAiChatModel.builder()
-            .openAiClient(client)
-            .options(options)
-            .build();
-
-        // 4) 包装成 ChatClient
-        return ChatClient.builder(minerUModel).build();
-    }
 }
