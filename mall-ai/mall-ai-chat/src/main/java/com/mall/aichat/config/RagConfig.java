@@ -14,6 +14,9 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 检索向量知识库库配置
+ */
 @Component
 public class RagConfig {
 

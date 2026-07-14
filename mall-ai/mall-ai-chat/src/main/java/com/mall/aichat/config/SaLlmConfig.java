@@ -21,6 +21,9 @@ import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
+/**
+ * 会话记忆配置
+ */
 @Configuration
 public class SaLlmConfig {
 

@@ -56,8 +56,7 @@ public class GatewayController {
     public String chat(@RequestParam String message) {
         log.info("收到用户消息: {}", message);
 
-        ChatClient chatClient = ChatClient.builder(chatModel)
-            .defaultToolCallbacks(toolCallbackProvider.getToolCallbacks())
+        ChatClient chatClient = ChatClient.builder(chatModel).defaultTools((Object) toolCallbackProvider.getToolCallbacks())
             .build();
 
         String response = chatClient.prompt()

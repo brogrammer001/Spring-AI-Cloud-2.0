@@ -2,6 +2,7 @@ package com.mall.aichat.config;
 
 import com.mall.aichat.domain.SysChatHistory;
 import com.mall.aichat.service.ISysChatHistoryService;
+import com.mall.common.core.utils.StringUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
@@ -23,6 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 向量库会话配置
+ */
 @Component
 public class VectorCompressionConfig {
 
@@ -63,23 +67,33 @@ public class VectorCompressionConfig {
     }
 
     private void doCompress(String conversationId, List<SysChatHistory> sysChatHistoryList) {
-        // 2. 构建 Prompt 让 LLM 提取原子事实
-        String historyText = sysChatHistoryList.stream()
-            .filter(history -> !"COMPRESS".equals(history.getType()))
-            .map(SysChatHistory::getContent)
-            .collect(Collectors.joining("\n"));
+        // 只遍历一次列表，按类型将内容分区并拼接
+        Map<Boolean, String> partitionedTexts = sysChatHistoryList.stream()
+            .collect(Collectors.partitioningBy(
+                history -> "COMPRESS".equals(history.getType()),
+                Collectors.mapping(SysChatHistory::getContent, Collectors.joining("\n"))
+            ));
 
-        String beforeHistoryCompressText = sysChatHistoryList.stream()
-            .filter(history -> "COMPRESS".equals(history.getType()))
-            .map(SysChatHistory::getContent)
-            .collect(Collectors.joining("\n"));
+        String beforeHistoryCompressText = partitionedTexts.get(true);   // 历史摘要
+        String historyText = partitionedTexts.get(false);                // 新增未压缩对话
 
-        String promptText = String.format(
-            "以下是之前的会话摘要：\n%s\n\n" +
-            "以下是新增的未压缩对话内容：\n%s\n\n" +
-            "请结合以上两部分，生成一份更新后的完整摘要，保留重要的事实信息，去除冗余。",
-            beforeHistoryCompressText, historyText
-        );
+        String promptText;
+        if (StringUtils.isBlank(beforeHistoryCompressText)) {
+            // 无历史摘要，直接基于新增对话生成摘要
+            promptText = String.format(
+                "以下是本次会话内容：\n%s\n\n" +
+                "请根据以上对话，生成一份完整的摘要，保留重要的事实信息，去除冗余。",
+                historyText
+            );
+        } else {
+            // 结合历史摘要与新增对话生成更新摘要
+            promptText = String.format(
+                "以下是之前的会话摘要：\n%s\n\n" +
+                "以下是新增的未压缩对话内容：\n%s\n\n" +
+                "请结合以上两部分，生成一份更新后的完整摘要，保留重要的事实信息，去除冗余。",
+                beforeHistoryCompressText, historyText
+            );
+        }
 
         // 3. 调用 LLM (注意：这是异步后台执行的，不卡顿)
         String factsJson = chatClient.prompt().user(promptText).call().content();

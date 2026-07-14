@@ -17,11 +17,14 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-
+/**
+ * 向量库配置
+ */
 @Configuration
 public class WeaviateConfig {
 
     private static final Logger log = LoggerFactory.getLogger(WeaviateConfig.class);
+
     @Value("${weaviate.knowledge-object-class}")
     private String weaviateKnowledgeObjectClass;
 

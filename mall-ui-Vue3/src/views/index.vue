@@ -107,15 +107,15 @@
 </template>
 
 <script setup>
-import {computed, nextTick, onMounted, ref, watch} from 'vue';
-import {ElMessageBox} from 'element-plus';
-import {sendChatMessage} from '@/api/ai/aichat/chat';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { ElMessageBox } from 'element-plus';
+import { sendChatMessage } from '@/api/ai/aichat/chat';
 import {
   create as createConversationApi,
   deleteByConversationId,
   getConversationListByUserId as fetchConversationListApi
 } from '@/api/ai/aichat/conversation';
-import {getChatMemoryListByConversationId} from '@/api/ai/aichat/history';
+import { getChatMemoryListByConversationId } from '@/api/ai/aichat/history';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import useUserStore from '@/store/modules/user';
@@ -130,7 +130,6 @@ const isLoading = ref(false);
 const chatContainer = ref(null);
 const textarea = ref(null);
 let controller = null;
-let typingInterval = null;
 
 const conversations = ref([]);
 const activeId = ref(null);
@@ -323,17 +322,14 @@ const startNewConversation = () => {
 const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value) return;
   const content = userInput.value.trim();
-
   let currentConversationId = activeId.value;
 
-  // --- 核心逻辑：用户发送请求时没有会话ID ---
   if (!currentConversationId) {
     try {
       isLoading.value = true;
       const createRes = await createConversationApi(content);
       const newId = createRes.data;
       const realId = (typeof newId === 'object' && newId !== null) ? newId.conversationId : newId;
-
       if (realId) {
         const title = content.substring(0, 20) + (content.length > 20 ? '...' : '');
         const newConv = { id: realId, title: title, messages: [] };
@@ -355,7 +351,6 @@ const sendMessage = async () => {
     }
   }
 
-  // --- 正常发送消息流程 ---
   const userMessage = { role: 'user', content, isLoading: false, visibleChars: content.length, isStreaming: false };
   messages.value.push(userMessage);
   const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
@@ -384,64 +379,95 @@ const sendMessage = async () => {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
-
-    let sseBuffer = '';   // 用于处理 SSE 换行
-    let rawTextBuffer = ''; // 用于累积所有收到的原始字符（包含各种符号）
+    let buffer = '';
     const messageIndex = messages.value.length - 1;
-
-    if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+    let saveCounter = 0;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      sseBuffer += decoder.decode(value, { stream: true });
-      const lines = sseBuffer.split('\n');
-      sseBuffer = lines.pop(); // 保留不完整的尾部
+      buffer += decoder.decode(value, { stream: true });
 
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (!trimmedLine || !trimmedLine.startsWith('data:')) continue;
+      while (buffer.includes('}{')) {
+        const splitIndex = buffer.indexOf('}{');
+        const jsonStr = buffer.substring(0, splitIndex + 1);
+        buffer = buffer.substring(splitIndex + 1);
 
-        // 1. 去掉 data: 前缀
-        let chunk = trimmedLine.replace(/^data:\s*/, '');
-        if (chunk === '[DONE]') continue;
+        try {
+          const chunk = JSON.parse(jsonStr);
+          const type = chunk.type?.toUpperCase();
 
-        // 2. 累积所有内容
-        rawTextBuffer += chunk;
+          switch (type) {
+            case 'CONTENT':
+              messages.value[messageIndex].content += chunk.content || '';
+              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+              messages.value[messageIndex].isLoading = false;
+              saveCounter++;
+              if (saveCounter >= 5) {
+                saveDraftToStorage(currentConversationId, messages.value);
+                saveCounter = 0;
+              }
+              scrollToBottom();
+              break;
 
-        // 3. 提取 content 字段的内容
-        const contentKey = 'content';
-        const startIdx = rawTextBuffer.indexOf(contentKey);
+            case 'OPEN_MENU':
+              window.location.href = chunk.content || '';
+              break;
 
-        if (startIdx !== -1) {
-          // 截取 content 之后的所有内容
-          let displayText = rawTextBuffer.substring(startIdx + contentKey.length);
+            case 'DATA_TABLE':
+              messages.value[messageIndex].content += chunk.content || '';
+              if (chunk.data && Array.isArray(chunk.data)) {
+                const tableHtml = renderDataTable(chunk.data);
+                messages.value[messageIndex].content += '\n\n' + tableHtml;
+              }
+              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+              messages.value[messageIndex].isLoading = false;
+              scrollToBottom();
+              break;
 
-          // 4. 核心清洗：去除前后多余的 JSON 符号和转义符
-          // 去掉开头的冒号、空格、双引号、反斜杠
-          displayText = displayText.replace(/^[\s:"\\]+/, '');
+            case 'CONFIRM':
+              if (window.confirm(chunk.content)) {
+                userInput.value = '确认';
+                await sendMessage();
+              }
+              break;
 
-          // 去掉结尾的双引号、反斜杠、大括号
-          displayText = displayText.replace(/[\s"\\}]+$/, '');
+            case 'ERROR':
+              messages.value[messageIndex].content += '\n\n错误: ' + (chunk.content || '未知错误');
+              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+              messages.value[messageIndex].isLoading = false;
+              scrollToBottom();
+              break;
 
-          // 5. 处理中间的转义符号 (将 \" 替换为 "，将 \\ 替换为 \，将 \n 替换为换行)
-          displayText = displayText
-          .replace(/\\"/g, '"')
-          .replace(/\\\\/g, '\\')
-          .replace(/\\n/g, '\n')
-          .replace(/\\r/g, '\r');
-
-          // 实时更新 UI
-          messages.value[messageIndex].content = displayText;
-          messages.value[messageIndex].visibleChars = displayText.length;
-          messages.value[messageIndex].isLoading = false;
-          scrollToBottom();
+            case 'DONE':
+              messages.value[messageIndex].isLoading = false;
+              messages.value[messageIndex].isStreaming = false;
+              saveDraftToStorage(currentConversationId, messages.value);
+              scrollToBottom();
+              break;
+          }
+        } catch (e) {
+          console.error('解析 NDJSON 失败:', jsonStr, e);
         }
       }
     }
 
-    // 兜底：如果流结束了但没提取到任何内容
+    if (buffer.trim()) {
+      try {
+        const chunk = JSON.parse(buffer);
+        const type = chunk.type?.toUpperCase();
+        if (type === 'CONTENT' && chunk.content) {
+          messages.value[messageIndex].content += chunk.content;
+          messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+          messages.value[messageIndex].isLoading = false;
+          scrollToBottom();
+        }
+      } catch (e) {
+        console.error('解析残留 NDJSON 失败:', buffer, e);
+      }
+    }
+
     if (messages.value[messageIndex].content === '') {
       messages.value[messageIndex].content = '(无返回内容)';
       messages.value[messageIndex].visibleChars = 6;
@@ -470,7 +496,6 @@ const sendMessage = async () => {
     }
     isLoading.value = false;
     controller = null;
-    if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 
     const currentConv = conversations.value.find(c => c.id === currentConversationId);
     if (currentConv) {
@@ -478,6 +503,27 @@ const sendMessage = async () => {
     }
     scrollToBottom();
   }
+};
+
+const renderDataTable = (data) => {
+  if (!data || !data.length) return '';
+  const headers = Object.keys(data[0]);
+  let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 12px;">';
+  html += '<thead><tr>';
+  headers.forEach(header => {
+    html += `<th style="background: #f5f5f5; padding: 8px; text-align: left;">${header}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  data.forEach(row => {
+    html += '<tr>';
+    headers.forEach(header => {
+      const value = row[header];
+      html += `<td style="padding: 8px; border-top: 1px solid #eee;">${value !== undefined ? value : ''}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
 };
 
 const stopResponse = () => {
@@ -542,12 +588,10 @@ textarea {
 }
 
 @keyframes pulse {
-
   0%,
   100% {
     opacity: 0.5;
   }
-
   50% {
     opacity: 1;
   }
@@ -566,12 +610,10 @@ textarea {
 }
 
 @keyframes blink {
-
   from,
   to {
     opacity: 1;
   }
-
   50% {
     opacity: 0;
   }
@@ -590,7 +632,6 @@ textarea {
   from {
     opacity: 0;
   }
-
   to {
     opacity: 1;
   }

@@ -17,12 +17,18 @@ import org.springframework.core.io.Resource;
 
 import java.time.Duration;
 
+/**
+ * 聊天客户端配置
+ */
 @Configuration
 public class ChatClientConfig {
 
     // 注入 系统提示词
     @Value("classpath:/prompts/system-prompt.md")
     private Resource systemPromptResource;
+
+    @Value("classpath:/prompts/system-prompt-simplify.md")
+    private Resource systemSimplifyPromptResource;
 
     @Value("${vector-store.chat-memory-default-topk}")
     private int vectorStoreChatMemoryDefaultTopK;
@@ -45,10 +51,13 @@ public class ChatClientConfig {
      */
     @Bean(name = "qwenChatClient")
     public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
-                                     @Qualifier("conversationVectorStore") VectorStore conversationVectorStore) {
+                                     @Qualifier("conversationVectorStore") VectorStore conversationVectorStore
+                                     //@Qualifier("mcpAsyncToolCallbacks") ToolCallbackProvider tools
+    ) {
         return ChatClient
             .builder(model)
-            .defaultSystem(systemPromptResource)
+            .defaultSystem(systemSimplifyPromptResource)
+            //.defaultTools(tools)
             .defaultAdvisors(
                 MessageChatMemoryAdvisor.builder(chatMemory).order(1).build(), //redis/mysql存储会话记忆
                 VectorStoreChatMemoryAdvisor.builder(conversationVectorStore).order(2).defaultTopK(vectorStoreChatMemoryDefaultTopK).build(), //向量库存储全量会话
