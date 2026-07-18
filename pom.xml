@@ -40,6 +40,10 @@
         <spring-ai.version>2.0.0</spring-ai.version>
         <spring-ai-ai-advisors-vector-store.version>2.0.0-M8</spring-ai-ai-advisors-vector-store.version>
         <SpringAIAlibaba.version>2.0.0-M1.1</SpringAIAlibaba.version>
+        <okhttp.version>4.41.0</okhttp.version>
+        <mcp-spring-webflux.version>0.18.3</mcp-spring-webflux.version>
+        <json-schema-validator.version>3.0.6</json-schema-validator.version>
+        <jsonschema-module-jackson.version>5.0.0</jsonschema-module-jackson.version>
 
     </properties>
 
@@ -47,9 +51,21 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>com.github.victools</groupId>
+                <artifactId>jsonschema-module-jackson</artifactId>
+                <version>${jsonschema-module-jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-starter-mcp-distributed</artifactId>
+                <version>${SpringAIAlibaba.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.openai</groupId>
                 <artifactId>openai-java-client-okhttp</artifactId>
-                <version>4.41.0</version>
+                <version>${okhttp.version}</version>
             </dependency>
 
             <dependency>
@@ -61,13 +77,41 @@
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-starter-mcp-gateway</artifactId>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.modelcontextprotocol.sdk</groupId>
+                        <artifactId>mcp-spring-webflux</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.networknt</groupId>
+                        <artifactId>json-schema-validator</artifactId>
+                    </exclusion>
+                </exclusions>
                 <version>${SpringAIAlibaba.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-starter-mcp-registry</artifactId>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.modelcontextprotocol.sdk</groupId>
+                        <artifactId>mcp-spring-webflux</artifactId>
+                    </exclusion>
+                </exclusions>
                 <version>${SpringAIAlibaba.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.networknt</groupId>
+                <artifactId>json-schema-validator</artifactId>
+                <version>${json-schema-validator.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.modelcontextprotocol.sdk</groupId>
+                <artifactId>mcp-spring-webflux</artifactId>
+                <version>${mcp-spring-webflux.version}</version>
             </dependency>
 
             <!-- Spring AI Alibaba -->

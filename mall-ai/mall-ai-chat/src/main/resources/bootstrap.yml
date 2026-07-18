@@ -8,6 +8,23 @@ spring:
     # 应用名称
     name: mall-ai-chat
   ai:
+    mcp:
+      client:
+        enabled: true
+        name: ${spring.application.name}
+        version: 1.0.0
+        request-timeout: 600s
+        type: ASYNC  # or ASYNC for reactive applications
+        streamable-http:
+          connections:
+            gateway:
+              url: http://localhost:9999  # 替换为实际 Gateway 地址
+#    dashscope:
+#      api-key: ${aliQwen-api}
+#      chat:
+#        options:
+#          model: qwen3.7-max
+#          multi-model: true
     model:
       chat: openai
       embedding: openai

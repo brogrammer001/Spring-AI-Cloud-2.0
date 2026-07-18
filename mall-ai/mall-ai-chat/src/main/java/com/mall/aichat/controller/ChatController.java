@@ -2,18 +2,19 @@ package com.mall.aichat.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.aichat.config.RagConfig;
-import com.mall.aichat.config.ToolResultHolder;
 import com.mall.aichat.config.VectorCompressionConfig;
-import com.mall.aichat.domain.ChatEventType;
-import com.mall.aichat.domain.ChatStreamResponse;
 import com.mall.common.core.utils.StringUtils;
+import com.mall.system.api.domain.ChatEventType;
+import com.mall.system.api.domain.ChatStreamResponse;
 import jakarta.annotation.Resource;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,13 +37,13 @@ public class ChatController {
     private VectorCompressionConfig vectorCompressionConfig;
 
     @Autowired
-    private ToolResultHolder resultHolder;
-
-    @Autowired
     private ObjectMapper objectMapper;
 
-    @PostMapping(value = "/chat2", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chat(@RequestParam String question, @RequestParam(required = false) String conversationId) {
+    @Resource(name = "mcpAsyncToolCallbacks")
+    private ToolCallbackProvider toolCallbackProvider;
+
+    @PostMapping(value = "/chat1", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> chat1(@RequestParam String question, @RequestParam(required = false) String conversationId) {
         // 1. 从向量库检索相关知识片段
         String relevantDoc = ragConfig.retrieveContext(question);
 
@@ -65,67 +66,53 @@ public class ChatController {
             .doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));
     }
 
-    @PostMapping(value = "/chat", produces = MediaType.APPLICATION_NDJSON_VALUE)
-    public Flux<String> chatStream(
-        @RequestParam String question,
-        @RequestParam(required = false) String conversationId) {
-
-        //知识库检索
+    @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<ChatStreamResponse>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
+        // 1. RAG 检索
         String relevantDoc = ragConfig.retrieveContext(question);
 
+        // 2. 构建请求
         var promptSpec = qwenChatClient.prompt()
-            .user(question) // 仅原始问题进入记忆
+            .user(question)
             .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId));
 
         if (StringUtils.isNotEmpty(relevantDoc)) {
             promptSpec.system("参考知识：\n" + relevantDoc);
         }
 
-        // 1. 获取纯净的文本流 (绕过 getText() 为空的问题)
-        Flux<String> textFlux = promptSpec.stream().content();
+        // 3. 流式处理与智能路由
+        return promptSpec.stream()
+            .content()
+            .filter(StringUtils::isNotBlank)
+            .map(content -> {
+                try {
+                    // 尝试将 AI 输出的文本直接解析为 ChatStreamResponse 对象
+                    ChatStreamResponse parsedResponse = objectMapper.readValue(content, ChatStreamResponse.class);
 
-        // 2. 如果工具被触发了，替换为业务 JSON，并忽略后续的 textFlux
-        if (resultHolder.isHasAction()) {
-            String bizJson = toJsonString(new ChatStreamResponse(
-                resultHolder.getActionType(),
-                resultHolder.getConfirmDesc(),
-                resultHolder.getActionData()
-            ));
-            return Flux.just(bizJson)
-                .concatWith(Flux.just(toJsonString(new ChatStreamResponse(ChatEventType.DONE, "", null))))
-                .doOnComplete(() -> resultHolder.clear());
-        }
-
-        // 3. 正常的聊天流处理
-        return textFlux
-            .filter(StringUtils::isNotEmpty) // 自动过滤空心跳包
-            .map(text -> new ChatStreamResponse(ChatEventType.CONTENT, text, null))
-            .map(this::toJsonString)
-            .concatWith(Flux.just(toJsonString(new ChatStreamResponse(ChatEventType.DONE, "", null))))
-            .onErrorResume(e -> {
-                log.error("流处理异常", e);
-                return Flux.just(toJsonString(new ChatStreamResponse(ChatEventType.ERROR, "服务器内部错误", null)));
+                    // 如果解析成功，且 type 不是普通文本（说明是工具返回的指令，如 OPEN_MENU, CONFIRM 等）
+                    // 则直接返回该对象，不再包裹！这样 SSE 就是 data: {"type":"OPEN_MENU"...}
+                    if (parsedResponse.type() != ChatEventType.CONTENT) {
+                        return parsedResponse;
+                    }
+                } catch (Exception e) {
+                    // 解析失败（比如是普通的自然语言对话，或者格式不对），走默认的 CONTENT 包装逻辑
+                    // 这里忽略异常，视为普通文本
+                }
+                // 默认情况：将自然语言文本包装为 CONTENT 类型
+                // SSE 变成: data: {"type":"CONTENT", "content":"用户说的话..."}
+                return new ChatStreamResponse(ChatEventType.CONTENT, content, null);
             })
-            .doOnComplete(() -> {
-                resultHolder.clear();
-                vectorCompressionConfig.checkAndCompressAsync(conversationId);
-            });
+            .map(response -> ServerSentEvent.<ChatStreamResponse>builder().data(response).build())
+            .concatWith(Flux.just(ServerSentEvent.<ChatStreamResponse>builder()
+                .data(new ChatStreamResponse(ChatEventType.DONE, "", null))
+                .build()))
+            .onErrorResume(e -> {
+                log.error("Stream error", e);
+                return Flux.just(ServerSentEvent.<ChatStreamResponse>builder()
+                    .data(new ChatStreamResponse(ChatEventType.ERROR, "服务器内部错误: " + e.getMessage(), null))
+                    .build());
+            })
+            .doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));
     }
 
-    /**
-     * 使用 Jackson 将实体类序列化为 JSON 字符串
-     */
-    private String toJsonString(ChatStreamResponse response) {
-        try {
-            return objectMapper.writeValueAsString(response);
-        } catch (Exception e) {
-            log.error("JSON序列化失败", e);
-            try {
-                // 降级返回简单的错误 JSON
-                return objectMapper.writeValueAsString(new ChatStreamResponse(ChatEventType.ERROR, "JSON序列化失败", null));
-            } catch (Exception ignored) {
-                return "{\"type\":\"error\",\"content\":\"JSON序列化失败\"}";
-            }
-        }
-    }
 }

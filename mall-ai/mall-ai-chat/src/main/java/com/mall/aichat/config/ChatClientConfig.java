@@ -8,6 +8,7 @@ import org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMem
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,18 +52,33 @@ public class ChatClientConfig {
      */
     @Bean(name = "qwenChatClient")
     public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
-                                     @Qualifier("conversationVectorStore") VectorStore conversationVectorStore
-                                     //@Qualifier("mcpAsyncToolCallbacks") ToolCallbackProvider tools
+                                     @Qualifier("conversationVectorStore") VectorStore conversationVectorStore,
+                                     @Qualifier("mcpAsyncToolCallbacks")ToolCallbackProvider tools
     ) {
         return ChatClient
             .builder(model)
             .defaultSystem(systemSimplifyPromptResource)
-            //.defaultTools(tools)
+            .defaultTools(tools)
             .defaultAdvisors(
                 MessageChatMemoryAdvisor.builder(chatMemory).order(1).build(), //redis/mysql存储会话记忆
                 VectorStoreChatMemoryAdvisor.builder(conversationVectorStore).order(2).defaultTopK(vectorStoreChatMemoryDefaultTopK).build(), //向量库存储全量会话
                 new SimpleLoggerAdvisor(3)
             )
+            .build();
+    }
+
+    /**
+     * 意图识别会话
+     * @param model
+     * @return
+     */
+    @Bean(name = "intentRecognitionChatClient")
+    public ChatClient intentRecognitionChatClient(OpenAiChatModel model) {
+        return ChatClient
+            .builder(model)
+            .defaultSystem("""
+                判断用户意图。如果是闲聊回复'TEXT'，如果是需要查天气等指令回复'TOOL'
+                """)
             .build();
     }
 

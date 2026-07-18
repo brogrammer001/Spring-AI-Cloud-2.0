@@ -25,14 +25,11 @@ spring:
       - nacos:application-${spring.profiles.active}.${spring.config.file-extension}
       - nacos:${spring.application.name}-${spring.profiles.active}.${spring.config.file-extension}
   ai:
-    dashscope:
-      api-key: ${aliQwen-api}
     mcp:
       server:
         name: ${spring.application.name}
         version: 1.0.0
         enabled: true
-        #protocol: sse
         protocol: STREAMABLE
         type: async
         instructions: "Nacos MCP Gateway - 聚合多个 MCP Server 的工具网关"
@@ -56,8 +53,6 @@ spring:
             serviceNames:
               - mall-ai-mcp-server
           streamable:
-            enabled: true
-          sse:
             enabled: true
         # Nacos 注册中心配置
         nacos:

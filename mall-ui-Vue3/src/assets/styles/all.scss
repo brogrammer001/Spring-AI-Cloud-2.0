@@ -6796,3 +6796,98 @@
     src: url(./webfonts/fa-v4compatibility.woff2) format("woff2"),url(./webfonts/fa-v4compatibility.ttf) format("truetype");
     unicode-range: U+f041,U+f047,U+f065-f066,U+f07d-f07e,U+f080,U+f08b,U+f08e,U+f090,U+f09a,U+f0ac,U+f0ae,U+f0b2,U+f0d0,U+f0d6,U+f0e4,U+f0ec,U+f10a-f10b,U+f123,U+f13e,U+f148-f149,U+f14c,U+f156,U+f15e,U+f160-f161,U+f163,U+f175-f178,U+f195,U+f1f8,U+f219,U+f250,U+f252,U+f27a
 }
+
+.markdown-body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.markdown-body h1 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.markdown-body h2 {
+  font-size: 1.3em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.markdown-body h3 {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.markdown-body p {
+  margin-bottom: 0.5em;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-body li {
+  margin-bottom: 0.25em;
+}
+
+.markdown-body code {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 0.1em 0.3em;
+  border-radius: 0.2em;
+  font-size: 0.9em;
+}
+
+.markdown-body pre {
+  background: #282c34;
+  padding: 12px 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 0.5em;
+}
+
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  font-size: 14px;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid #ddd;
+  padding-left: 1em;
+  margin-left: 0;
+  color: #666;
+  font-style: italic;
+}
+
+.markdown-body a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.5em;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid #ddd;
+  padding: 0.5em;
+  text-align: left;
+}
+
+.markdown-body th {
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 1em 0;
+}

@@ -73,13 +73,7 @@
                       :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']">
                     </div>
                   </div>
-                  <div v-else class="whitespace-pre-wrap">
-                    <span v-for="(char, charIndex) in message.content" :key="charIndex"
-                      :class="{ 'opacity-0': charIndex >= message.visibleChars, 'fade-in': charIndex < message.visibleChars }">
-                      {{ char }}
-                    </span>
-                    <span v-if="message.isStreaming" class="typing-cursor"></span>
-                  </div>
+                  <div v-else class="markdown-body" v-html="renderMessage(message)"></div>
                 </div>
               </div>
             </div>
@@ -120,6 +114,7 @@ import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
+import md from '@/utils/markdown';
 
 const userStore = useUserStore();
 const settingsStore = useSettingsStore();
@@ -165,6 +160,15 @@ const removeDraftFromStorage = (conversationId) => {
   } catch (e) {
     console.error('从本地存储删除草稿失败:', e);
   }
+};
+
+const renderMessage = (message) => {
+  if (message.role === 'user') {
+    return `<div class="whitespace-pre-wrap">${message.content}</div>`;
+  }
+  if (!message.content) return '';
+  const visibleContent = message.content.substring(0, message.visibleChars);
+  return md.render(visibleContent);
 };
 
 const currentConversationTitle = computed(() => {
@@ -319,6 +323,55 @@ const startNewConversation = () => {
   nextTick(() => { if (textarea.value) textarea.value.focus(); });
 };
 
+const handleAction = (chunk, messageIndex) => {
+  const actionType = chunk.content;
+  const actionData = chunk.data;
+
+  switch (actionType) {
+    case 'OPEN_MENU':
+      messages.value[messageIndex].content += '\n\n【导航】正在跳转到: ' + actionData;
+      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      messages.value[messageIndex].isLoading = false;
+      scrollToBottom();
+      setTimeout(() => {
+        window.location.href = actionData || '';
+      }, 500);
+      break;
+
+    case 'DATA_TABLE':
+      messages.value[messageIndex].content += '\n\n' + (actionData?.content || '');
+      if (actionData?.data && Array.isArray(actionData.data)) {
+        const tableHtml = renderDataTable(actionData.data);
+        messages.value[messageIndex].content += '\n\n' + tableHtml;
+      }
+      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      messages.value[messageIndex].isLoading = false;
+      scrollToBottom();
+      break;
+
+    case 'CONFIRM':
+      messages.value[messageIndex].content += '\n\n' + actionData;
+      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      messages.value[messageIndex].isLoading = false;
+      scrollToBottom();
+      if (window.confirm(actionData)) {
+        userInput.value = '确认';
+        sendMessage();
+      }
+      break;
+
+    default:
+      messages.value[messageIndex].content += '\n\n【动作调用】' + actionType;
+      if (actionData) {
+        messages.value[messageIndex].content += '\n参数: ' + JSON.stringify(actionData, null, 2);
+      }
+      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      messages.value[messageIndex].isLoading = false;
+      scrollToBottom();
+      break;
+  }
+};
+
 const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value) return;
   const content = userInput.value.trim();
@@ -388,14 +441,18 @@ const sendMessage = async () => {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
 
-      while (buffer.includes('}{')) {
-        const splitIndex = buffer.indexOf('}{');
-        const jsonStr = buffer.substring(0, splitIndex + 1);
-        buffer = buffer.substring(splitIndex + 1);
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || !trimmedLine.startsWith('data:')) continue;
+
+        const dataPart = trimmedLine.substring(5).trim();
+        if (!dataPart || dataPart === '[DONE]') continue;
 
         try {
-          const chunk = JSON.parse(jsonStr);
+          const chunk = JSON.parse(dataPart);
           const type = chunk.type?.toUpperCase();
 
           switch (type) {
@@ -411,26 +468,8 @@ const sendMessage = async () => {
               scrollToBottom();
               break;
 
-            case 'OPEN_MENU':
-              window.location.href = chunk.content || '';
-              break;
-
-            case 'DATA_TABLE':
-              messages.value[messageIndex].content += chunk.content || '';
-              if (chunk.data && Array.isArray(chunk.data)) {
-                const tableHtml = renderDataTable(chunk.data);
-                messages.value[messageIndex].content += '\n\n' + tableHtml;
-              }
-              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-              messages.value[messageIndex].isLoading = false;
-              scrollToBottom();
-              break;
-
-            case 'CONFIRM':
-              if (window.confirm(chunk.content)) {
-                userInput.value = '确认';
-                await sendMessage();
-              }
+            case 'ACTION':
+              handleAction(chunk, messageIndex);
               break;
 
             case 'ERROR':
@@ -448,23 +487,29 @@ const sendMessage = async () => {
               break;
           }
         } catch (e) {
-          console.error('解析 NDJSON 失败:', jsonStr, e);
+          console.error('解析 SSE 失败:', dataPart, e);
         }
       }
     }
 
     if (buffer.trim()) {
-      try {
-        const chunk = JSON.parse(buffer);
-        const type = chunk.type?.toUpperCase();
-        if (type === 'CONTENT' && chunk.content) {
-          messages.value[messageIndex].content += chunk.content;
-          messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-          messages.value[messageIndex].isLoading = false;
-          scrollToBottom();
+      const trimmedBuffer = buffer.trim();
+      if (trimmedBuffer.startsWith('data:')) {
+        const dataPart = trimmedBuffer.substring(5).trim();
+        if (dataPart && dataPart !== '[DONE]') {
+          try {
+            const chunk = JSON.parse(dataPart);
+            const type = chunk.type?.toUpperCase();
+            if (type === 'CONTENT' && chunk.content) {
+              messages.value[messageIndex].content += chunk.content;
+              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+              messages.value[messageIndex].isLoading = false;
+              scrollToBottom();
+            }
+          } catch (e) {
+            console.error('解析残留 SSE 失败:', dataPart, e);
+          }
         }
-      } catch (e) {
-        console.error('解析残留 NDJSON 失败:', buffer, e);
       }
     }
 

@@ -8,7 +8,7 @@ spring:
     banner-mode: off
   application:
     # 应用名称
-    name: mall-chat-mcp-server
+    name: mall-ai-mcp-server
   profiles:
     # 环境配置
     active: dev
@@ -43,6 +43,7 @@ spring:
       mcp:
         nacos:
           server-addr: 127.0.0.1:8848
+          namespace: public
           username: nacos
           password: nacos
           register:
