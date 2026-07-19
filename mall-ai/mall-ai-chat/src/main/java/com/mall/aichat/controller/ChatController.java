@@ -3,6 +3,7 @@ package com.mall.aichat.controller;
 import com.mall.aichat.config.RagConfig;
 import com.mall.aichat.config.VectorCompressionConfig;
 import com.mall.common.core.utils.StringUtils;
+import com.mall.common.core.web.domain.AjaxResult;
 import jakarta.annotation.Resource;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -33,7 +34,7 @@ public class ChatController {
     private VectorCompressionConfig vectorCompressionConfig;
 
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
+    public Flux<ServerSentEvent<AjaxResult>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
         // 1. RAG 检索
         String relevantDoc = "";//ragConfig.retrieveContext(question);
 
@@ -50,17 +51,16 @@ public class ChatController {
         return promptSpec.stream()
             .content()
             // 直接将模型输出的内容（纯文本或JSON）作为 SSE 的 data 透传
-            .map(content -> ServerSentEvent.<String>builder().data(content).build())
+            .map(content -> ServerSentEvent.<AjaxResult>builder().data(AjaxResult.success(content)).build())
             // 结束标记：通过 SSE 的 event 字段标记为 done，data 中可以返回一个结束标识符
             .concatWith(Flux.just(
-                ServerSentEvent.<String>builder().data("done").build()
+                ServerSentEvent.<AjaxResult>builder().data(AjaxResult.done()).build()
             ))
             .onErrorResume(e -> {
                 log.error("Stream error", e);
                 // 错误标记：通过 SSE 的 event 字段标记为 error，前端可直接解析 data 获取错误信息
-                return Flux.just(ServerSentEvent.<String>builder()
-                    .event("error")
-                    .data("服务器内部错误: " + e.getMessage())
+                return Flux.just(ServerSentEvent.<AjaxResult>builder()
+                    .data(AjaxResult.error("服务器内部错误: " + e.getMessage()))
                     .build());
             });
             //.doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));

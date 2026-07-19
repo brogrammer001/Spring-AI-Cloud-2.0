@@ -1,9 +1,10 @@
 package com.mall.common.core.web.domain;
 
-import java.util.HashMap;
-import java.util.Objects;
 import com.mall.common.core.constant.HttpStatus;
 import com.mall.common.core.utils.StringUtils;
+
+import java.util.HashMap;
+import java.util.Objects;
 
 /**
  * 操作消息提醒
@@ -88,6 +89,11 @@ public class AjaxResult extends HashMap<String, Object>
     public static AjaxResult success(String msg)
     {
         return AjaxResult.success(msg, null);
+    }
+
+    public static AjaxResult done()
+    {
+        return new AjaxResult(-1, "");
     }
 
     /**

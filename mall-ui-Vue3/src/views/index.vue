@@ -101,23 +101,22 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch, getCurrentInstance, nextTick } from 'vue';
-import { ElMessageBox } from 'element-plus';
-import { sendChatMessage } from '@/api/ai/aichat/chat';
+import {computed, getCurrentInstance, nextTick, onMounted, ref, watch} from 'vue';
+import {ElMessageBox} from 'element-plus';
+import {sendChatMessage} from '@/api/ai/aichat/chat';
 import {
   create as createConversationApi,
   deleteByConversationId,
   getConversationListByUserId as fetchConversationListApi
 } from '@/api/ai/aichat/conversation';
-import { getChatMemoryListByConversationId } from '@/api/ai/aichat/history';
-import { handleRouteJump } from '@/api/ai/aichat/execute';
+import {getChatMemoryListByConversationId} from '@/api/ai/aichat/history';
+import {handleRouteJump} from '@/api/ai/aichat/execute';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
 import useTagsViewStore from '@/store/modules/tagsView';
-import { md } from '@/utils/markdown';
-import { parseStream } from '@/utils/chatStream';
+import {md} from '@/utils/markdown';
 import router from '@/router';
 
 const userStore = useUserStore();
@@ -170,16 +169,64 @@ const removeDraftFromStorage = (conversationId) => {
   }
 };
 
+// const renderMessage = (message) => {
+//   if (message.role === 'user') {
+//     return `<div class="whitespace-pre-wrap">${message.content}</div>`;
+//   }
+//   if (!message.content) return '';
+//   let html = md.render(message.content);
+//   if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
+//     html += `<br><a href="javascript:void(0)" class="route-link" data-url="${message.routeUrl}">点击跳转 →</a>`;
+//   }
+//   return html;
+// };
+
 const renderMessage = (message) => {
   if (message.role === 'user') {
-    return `<div class="whitespace-pre-wrap">${message.content}</div>`;
+    return message.content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
   }
+
   if (!message.content) return '';
-  let html = md.render(message.content);
-  if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
-    html += `<br><a href="javascript:void(0)" class="route-link" data-url="${message.routeUrl}">点击跳转 →</a>`;
+
+  try {
+    let content = message.content;
+
+    content = content.replace(/^data:/gm, '');
+    content = content.replace(/\[DONE\]|done$/gi, '');
+
+    const codeBlockRegex = /```/g;
+    const matches = content.match(codeBlockRegex);
+    const count = matches ? matches.length : 0;
+    if (count % 2 !== 0) {
+      content += '\n```';
+    }
+
+    content = content.replace(/(\*\*|__)$/, '');
+
+    let html = md.render(content);
+
+    html = html.replace(/<pre><code><\/code><\/pre>/g, '');
+
+    if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
+      html += `<div class="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+             <a href="javascript:void(0)"
+                class="route-link text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                data-url="${message.routeUrl}">
+                <i class="fas fa-external-link-alt mr-1"></i>点击跳转
+             </a>
+           </div>`;
+    }
+
+    return html;
+  } catch (error) {
+    console.error('Markdown 渲染异常:', error);
+    return '<div class="whitespace-pre-wrap text-gray-600 dark:text-gray-300">' + message.content.replace(/data:/g, '') + '</div>';
   }
-  return html;
 };
 
 const handleRouteClick = (event) => {
@@ -222,23 +269,17 @@ const adjustTextareaHeight = () => {
   }
 };
 
+let scrollTimeout = null;
 const scrollToBottom = () => {
-  nextTick(() => {
-    if (!chatContainer.value) return;
-    const container = chatContainer.value;
-    const currentTop = container.scrollTop;
-    const scrollHeight = container.scrollHeight;
-    const clientHeight = container.clientHeight;
-    const distanceToBottom = scrollHeight - clientHeight - currentTop;
-    if (distanceToBottom > 300) {
-      container.scrollTo({
-        top: scrollHeight,
-        behavior: 'smooth'
-      });
-    } else {
+  if (scrollTimeout) clearTimeout(scrollTimeout);
+  scrollTimeout = setTimeout(() => {
+    nextTick(() => {
+      if (!chatContainer.value) return;
+      const container = chatContainer.value;
+      const scrollHeight = container.scrollHeight;
       container.scrollTop = scrollHeight;
-    }
-  });
+    });
+  }, 30);
 };
 
 const switchConversation = async (id) => {
@@ -465,44 +506,101 @@ const sendMessage = async () => {
 
     const messageIndex = messages.value.length - 1;
 
-    await parseStream({
-      response,
-      onTextChange: (text) => {
-        const msg = messages.value[messageIndex];
-        msg.content += text;
-        scrollToBottom();
-      },
-      onJsonChunk: (chunk) => {
-        if (chunk.code !== undefined) {
-          if (chunk.code === 8001 && chunk.data && typeof chunk.data === 'string' && chunk.data.trim()) {
-            messages.value[messageIndex].routeUrl = chunk.data;
-            setTimeout(() => {
-              handleRouteJump(chunk.data.trim(), { proxy, router });
-            }, 500);
-          } else if (chunk.code === 0) {
-            messages.value[messageIndex].isLoading = false;
-            messages.value[messageIndex].isStreaming = false;
-          } else if (chunk.code === 500) {
-            messages.value[messageIndex].isLoading = false;
+    // await parseStream({
+    //   response,
+    //   onTextChange: (text) => {
+    //     const msg = messages.value[messageIndex];
+    //     msg.content += text;
+    //     scrollToBottom();
+    //   },
+    //   onJsonChunk: (chunk) => {
+    //     if (chunk.code !== undefined) {
+    //       if (chunk.code === 8001 && chunk.data && typeof chunk.data === 'string' && chunk.data.trim()) {
+    //         messages.value[messageIndex].routeUrl = chunk.data;
+    //         setTimeout(() => {
+    //           handleRouteJump(chunk.data.trim(), { proxy, router });
+    //         }, 500);
+    //       } else if (chunk.code === 0) {
+    //         messages.value[messageIndex].isLoading = false;
+    //         messages.value[messageIndex].isStreaming = false;
+    //       } else if (chunk.code === 500) {
+    //         messages.value[messageIndex].isLoading = false;
+    //       }
+    //     }
+    //   },
+    //   onDone: () => {
+    //     if (messages.value[messageIndex].content === '') {
+    //       messages.value[messageIndex].content = '(无返回内容)';
+    //       messages.value[messageIndex].visibleChars = 6;
+    //     }
+    //     messages.value[messageIndex].isLoading = false;
+    //     messages.value[messageIndex].isStreaming = false;
+    //   },
+    //   onError: (error) => {
+    //     if (error.name !== 'AbortError') {
+    //       console.error('流处理错误:', error);
+    //       messages.value[messageIndex].content = error.message;
+    //       messages.value[messageIndex].visibleChars = error.message.length;
+    //     }
+    //   }
+    // });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+    let streamEnded = false;
+
+    while (true) {
+      if (streamEnded) break;
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+
+        let content = trimmedLine;
+        if (content.startsWith("data:")) {
+          content = content.substring(5).trim();
+        }
+        if (!content) continue;
+
+        try {
+          const jsonData = JSON.parse(content);
+          const { msg, code } = jsonData;
+
+          if (code === -1) {
+            streamEnded = true;
+            break;
           }
-        }
-      },
-      onDone: () => {
-        if (messages.value[messageIndex].content === '') {
-          messages.value[messageIndex].content = '(无返回内容)';
-          messages.value[messageIndex].visibleChars = 6;
-        }
-        messages.value[messageIndex].isLoading = false;
-        messages.value[messageIndex].isStreaming = false;
-      },
-      onError: (error) => {
-        if (error.name !== 'AbortError') {
-          console.error('流处理错误:', error);
-          messages.value[messageIndex].content = error.message;
-          messages.value[messageIndex].visibleChars = error.message.length;
+
+          if (msg && typeof msg === "string") {
+            messages.value[messageIndex].content += msg;
+            scrollToBottom();
+          }
+
+          if (code === 8001 && jsonData.data && typeof jsonData.data === "string" && jsonData.data.trim()) {
+            messages.value[messageIndex].routeUrl = jsonData.data;
+            setTimeout(() => {
+              handleRouteJump(jsonData.data.trim(), { proxy, router });
+            }, 500);
+          }
+        } catch (e) {
+          console.error("解析 JSON 失败:", content, e);
         }
       }
-    });
+    }
+
+    // 流结束后的处理（保持原有逻辑）
+    if (messages.value[messageIndex].content === '') {
+      messages.value[messageIndex].content = '(无返回内容)';
+      messages.value[messageIndex].visibleChars = 6;
+    }
+    messages.value[messageIndex].isLoading = false;
+    messages.value[messageIndex].isStreaming = false;
   } catch (error) {
     if (error.name === 'AbortError') {
       console.log('请求被用户中止');
