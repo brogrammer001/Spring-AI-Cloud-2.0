@@ -68,6 +68,22 @@ public class ChatClientConfig {
     }
 
     /**
+     * 会话标题概述会话
+     * @param model
+     * @return
+     */
+    @Bean(name = "titleChatClient")
+    public ChatClient titleChatClient(OpenAiChatModel model) {
+        return ChatClient
+            .builder(model)
+            .defaultSystem("""
+                你是会话标题助手。任务：在用户发送首个问题时，用一句简短、明确的概述该问题，
+                用作会话标题。要求：不超过20字，仅输出概述，不带任何解释或标点。禁止输出“标题是”“概述”“会话标题”等前缀或说明。
+                """)
+            .build();
+    }
+
+    /**
      * 向量压缩会话
      * @param model
      * @return

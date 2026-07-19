@@ -37,7 +37,6 @@ spring:
           mcp-endpoint: /mcp
           keep-alive-interval: 60s
           disallow-delete: false
-        #sse-message-endpoint: /mcp/messages
         capabilities:
           tool: true
           resource: false

@@ -49,12 +49,12 @@
           </div>
         </header>
         <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6"
-          :class="{ 'bg-white': !settingsStore.isDark, 'bg-gray-800': settingsStore.isDark }">
+          :class="{ 'bg-white': !settingsStore.isDark, 'bg-gray-800': settingsStore.isDark }" @click="handleRouteClick">
           <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
             <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
               <div
                 :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
-                <img v-if="message.role === 'user'" :src="userStore.avatar" @error="e => e.target.src = defAva"
+                <img v-if="message.role === 'user'" :src="userStore.avatar && userStore.avatar.trim() ? userStore.avatar : defAva"
                   class="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
                 <div v-else
                   :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600']">
@@ -62,18 +62,18 @@
                 </div>
                 <div
                   :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
-                  <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-2">
+                  <div class="markdown-body" v-html="renderMessage(message)"></div>
+                  <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-1 mt-1">
                     <div
-                      :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse']">
+                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse']">
                     </div>
                     <div
-                      :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-100']">
+                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-100']">
                     </div>
                     <div
-                      :class="['w-2 h-2 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']">
+                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']">
                     </div>
                   </div>
-                  <div v-else class="markdown-body" v-html="renderMessage(message)"></div>
                 </div>
               </div>
             </div>
@@ -101,7 +101,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch, getCurrentInstance, nextTick } from 'vue';
 import { ElMessageBox } from 'element-plus';
 import { sendChatMessage } from '@/api/ai/aichat/chat';
 import {
@@ -110,14 +110,22 @@ import {
   getConversationListByUserId as fetchConversationListApi
 } from '@/api/ai/aichat/conversation';
 import { getChatMemoryListByConversationId } from '@/api/ai/aichat/history';
+import { handleRouteJump } from '@/api/ai/aichat/execute';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
-import md from '@/utils/markdown';
+import useTagsViewStore from '@/store/modules/tagsView';
+import { md } from '@/utils/markdown';
+import { parseStream } from '@/utils/chatStream';
+import router from '@/router';
 
 const userStore = useUserStore();
 const settingsStore = useSettingsStore();
+const tagsViewStore = useTagsViewStore();
+const { proxy } = getCurrentInstance();
+
+const defAva = '/assets/images/profile.jpg';
 
 const messages = ref([]);
 const userInput = ref('');
@@ -167,8 +175,22 @@ const renderMessage = (message) => {
     return `<div class="whitespace-pre-wrap">${message.content}</div>`;
   }
   if (!message.content) return '';
-  const visibleContent = message.content.substring(0, message.visibleChars);
-  return md.render(visibleContent);
+  let html = md.render(message.content);
+  if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
+    html += `<br><a href="javascript:void(0)" class="route-link" data-url="${message.routeUrl}">点击跳转 →</a>`;
+  }
+  return html;
+};
+
+const handleRouteClick = (event) => {
+  const target = event.target.closest('.route-link');
+  if (target) {
+    const url = target.getAttribute('data-url');
+    if (url && typeof url === 'string' && url.trim()) {
+      event.preventDefault();
+      handleRouteJump(url.trim(), { proxy, router });
+    }
+  }
 };
 
 const currentConversationTitle = computed(() => {
@@ -246,17 +268,26 @@ const switchConversation = async (id) => {
         const historyMsgs = response.data.map(item => {
           const role = item.type === 'USER' ? 'user' : 'assistant';
           let displayContent = item.content;
+          let routeUrl = null;
           if (role === 'assistant' && typeof displayContent === 'string') {
             try {
               const parsed = JSON.parse(displayContent);
-              if (parsed && parsed.content) {
-                displayContent = parsed.content;
+              if (parsed) {
+                if (parsed.msg) {
+                  displayContent = parsed.msg;
+                } else if (parsed.content) {
+                  displayContent = parsed.content;
+                }
+                if (parsed.code === 8001 && parsed.data && typeof parsed.data === 'string') {
+                  routeUrl = parsed.data;
+                }
               }
             } catch (e) { }
           }
           return {
             role: role,
             content: displayContent,
+            routeUrl: routeUrl,
             isLoading: false,
             visibleChars: displayContent.length,
             isStreaming: false
@@ -329,13 +360,15 @@ const handleAction = (chunk, messageIndex) => {
 
   switch (actionType) {
     case 'OPEN_MENU':
-      messages.value[messageIndex].content += '\n\n【导航】正在跳转到: ' + actionData;
-      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-      messages.value[messageIndex].isLoading = false;
-      scrollToBottom();
-      setTimeout(() => {
-        window.location.href = actionData || '';
-      }, 500);
+      if (actionData && typeof actionData === 'string' && actionData.trim()) {
+        messages.value[messageIndex].content += '\n\n【导航】正在跳转到: ' + actionData;
+        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+        messages.value[messageIndex].isLoading = false;
+        scrollToBottom();
+        setTimeout(() => {
+          router.push(actionData);
+        }, 500);
+      }
       break;
 
     case 'DATA_TABLE':
@@ -430,94 +463,46 @@ const sendMessage = async () => {
       throw new Error(errorMsg);
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
     const messageIndex = messages.value.length - 1;
-    let saveCounter = 0;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (!trimmedLine || !trimmedLine.startsWith('data:')) continue;
-
-        const dataPart = trimmedLine.substring(5).trim();
-        if (!dataPart || dataPart === '[DONE]') continue;
-
-        try {
-          const chunk = JSON.parse(dataPart);
-          const type = chunk.type?.toUpperCase();
-
-          switch (type) {
-            case 'CONTENT':
-              messages.value[messageIndex].content += chunk.content || '';
-              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-              messages.value[messageIndex].isLoading = false;
-              saveCounter++;
-              if (saveCounter >= 5) {
-                saveDraftToStorage(currentConversationId, messages.value);
-                saveCounter = 0;
-              }
-              scrollToBottom();
-              break;
-
-            case 'ACTION':
-              handleAction(chunk, messageIndex);
-              break;
-
-            case 'ERROR':
-              messages.value[messageIndex].content += '\n\n错误: ' + (chunk.content || '未知错误');
-              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-              messages.value[messageIndex].isLoading = false;
-              scrollToBottom();
-              break;
-
-            case 'DONE':
-              messages.value[messageIndex].isLoading = false;
-              messages.value[messageIndex].isStreaming = false;
-              saveDraftToStorage(currentConversationId, messages.value);
-              scrollToBottom();
-              break;
-          }
-        } catch (e) {
-          console.error('解析 SSE 失败:', dataPart, e);
-        }
-      }
-    }
-
-    if (buffer.trim()) {
-      const trimmedBuffer = buffer.trim();
-      if (trimmedBuffer.startsWith('data:')) {
-        const dataPart = trimmedBuffer.substring(5).trim();
-        if (dataPart && dataPart !== '[DONE]') {
-          try {
-            const chunk = JSON.parse(dataPart);
-            const type = chunk.type?.toUpperCase();
-            if (type === 'CONTENT' && chunk.content) {
-              messages.value[messageIndex].content += chunk.content;
-              messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-              messages.value[messageIndex].isLoading = false;
-              scrollToBottom();
-            }
-          } catch (e) {
-            console.error('解析残留 SSE 失败:', dataPart, e);
+    await parseStream({
+      response,
+      onTextChange: (text) => {
+        const msg = messages.value[messageIndex];
+        msg.content += text;
+        scrollToBottom();
+      },
+      onJsonChunk: (chunk) => {
+        if (chunk.code !== undefined) {
+          if (chunk.code === 8001 && chunk.data && typeof chunk.data === 'string' && chunk.data.trim()) {
+            messages.value[messageIndex].routeUrl = chunk.data;
+            setTimeout(() => {
+              handleRouteJump(chunk.data.trim(), { proxy, router });
+            }, 500);
+          } else if (chunk.code === 0) {
+            messages.value[messageIndex].isLoading = false;
+            messages.value[messageIndex].isStreaming = false;
+          } else if (chunk.code === 500) {
+            messages.value[messageIndex].isLoading = false;
           }
         }
+      },
+      onDone: () => {
+        if (messages.value[messageIndex].content === '') {
+          messages.value[messageIndex].content = '(无返回内容)';
+          messages.value[messageIndex].visibleChars = 6;
+        }
+        messages.value[messageIndex].isLoading = false;
+        messages.value[messageIndex].isStreaming = false;
+      },
+      onError: (error) => {
+        if (error.name !== 'AbortError') {
+          console.error('流处理错误:', error);
+          messages.value[messageIndex].content = error.message;
+          messages.value[messageIndex].visibleChars = error.message.length;
+        }
       }
-    }
-
-    if (messages.value[messageIndex].content === '') {
-      messages.value[messageIndex].content = '(无返回内容)';
-      messages.value[messageIndex].visibleChars = 6;
-    }
-
+    });
   } catch (error) {
     if (error.name === 'AbortError') {
       console.log('请求被用户中止');
@@ -547,6 +532,64 @@ const sendMessage = async () => {
       currentConv.messages = JSON.parse(JSON.stringify(messages.value));
     }
     scrollToBottom();
+  }
+};
+
+const processChunk = (dataPart, messageIndex, currentConversationId) => {
+  try {
+    const chunk = JSON.parse(dataPart);
+    const code = chunk.code;
+    const msg = chunk.msg || '';
+
+    switch (code) {
+      case 8000:
+        messages.value[messageIndex].content += msg;
+        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+        messages.value[messageIndex].isLoading = false;
+        scrollToBottom();
+        break;
+
+      case 8001:
+        if (msg) {
+          messages.value[messageIndex].content += msg;
+          messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+        }
+        if (chunk.data && typeof chunk.data === 'string' && chunk.data.trim()) {
+          messages.value[messageIndex].routeUrl = chunk.data;
+          setTimeout(() => {
+            handleRouteJump(chunk.data.trim(), { proxy, router });
+          }, 500);
+        }
+        messages.value[messageIndex].isLoading = false;
+        scrollToBottom();
+        break;
+
+      case 200:
+        messages.value[messageIndex].content += '\n\n' + msg;
+        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+        messages.value[messageIndex].isLoading = false;
+        scrollToBottom();
+        break;
+
+      case 500:
+        messages.value[messageIndex].content += '\n\n错误: ' + msg;
+        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+        messages.value[messageIndex].isLoading = false;
+        scrollToBottom();
+        break;
+
+      case 0:
+        messages.value[messageIndex].isLoading = false;
+        messages.value[messageIndex].isStreaming = false;
+        scrollToBottom();
+        break;
+
+      default:
+        console.warn('未知的 code:', code);
+        break;
+    }
+  } catch (e) {
+    console.error('解析数据失败:', dataPart, e);
   }
 };
 

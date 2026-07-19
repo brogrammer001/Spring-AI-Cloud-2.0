@@ -1,11 +1,8 @@
 package com.mall.aichat.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.aichat.config.RagConfig;
 import com.mall.aichat.config.VectorCompressionConfig;
 import com.mall.common.core.utils.StringUtils;
-import com.mall.system.api.domain.ChatEventType;
-import com.mall.system.api.domain.ChatStreamResponse;
 import jakarta.annotation.Resource;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -35,10 +32,8 @@ public class ChatController {
     @Autowired
     private VectorCompressionConfig vectorCompressionConfig;
 
-    private ObjectMapper objectMapper = new ObjectMapper();
-
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<ChatStreamResponse>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
+    public Flux<ServerSentEvent<String>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
         // 1. RAG 检索
         String relevantDoc = "";//ragConfig.retrieveContext(question);
 
@@ -54,33 +49,18 @@ public class ChatController {
         // 3. 流式处理与智能路由
         return promptSpec.stream()
             .content()
-            .filter(StringUtils::isNotBlank)
-            .map(content -> {
-                try {
-                    // 尝试将 AI 输出的文本直接解析为 ChatStreamResponse 对象
-                    ChatStreamResponse parsedResponse = objectMapper.readValue(content, ChatStreamResponse.class);
-
-                    // 如果解析成功，且 type 不是普通文本（说明是工具返回的指令，如 OPEN_MENU, CONFIRM 等）
-                    // 则直接返回该对象，不再包裹！这样 SSE 就是 data: {"type":"OPEN_MENU"...}
-                    if (parsedResponse.type() != ChatEventType.CONTENT) {
-                        return parsedResponse;
-                    }
-                } catch (Exception e) {
-                    // 解析失败（比如是普通的自然语言对话，或者格式不对），走默认的 CONTENT 包装逻辑
-                    // 这里忽略异常，视为普通文本
-                }
-                // 默认情况：将自然语言文本包装为 CONTENT 类型
-                // SSE 变成: data: {"type":"CONTENT", "content":"用户说的话..."}
-                return new ChatStreamResponse(ChatEventType.CONTENT, content, null);
-            })
-            .map(response -> ServerSentEvent.<ChatStreamResponse>builder().data(response).build())
-            .concatWith(Flux.just(ServerSentEvent.<ChatStreamResponse>builder()
-                .data(new ChatStreamResponse(ChatEventType.DONE, "", null))
-                .build()))
+            // 直接将模型输出的内容（纯文本或JSON）作为 SSE 的 data 透传
+            .map(content -> ServerSentEvent.<String>builder().data(content).build())
+            // 结束标记：通过 SSE 的 event 字段标记为 done，data 中可以返回一个结束标识符
+            .concatWith(Flux.just(
+                ServerSentEvent.<String>builder().data("done").build()
+            ))
             .onErrorResume(e -> {
                 log.error("Stream error", e);
-                return Flux.just(ServerSentEvent.<ChatStreamResponse>builder()
-                    .data(new ChatStreamResponse(ChatEventType.ERROR, "服务器内部错误: " + e.getMessage(), null))
+                // 错误标记：通过 SSE 的 event 字段标记为 error，前端可直接解析 data 获取错误信息
+                return Flux.just(ServerSentEvent.<String>builder()
+                    .event("error")
+                    .data("服务器内部错误: " + e.getMessage())
                     .build());
             });
             //.doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));

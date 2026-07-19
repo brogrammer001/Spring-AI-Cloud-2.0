@@ -1,12 +1,10 @@
 package com.mall.chatmcp.sevice;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.chatmcp.bo.SysUserBo;
 import com.mall.common.core.domain.R;
+import com.mall.common.core.web.domain.AjaxResult;
 import com.mall.system.api.RemoteMenuService;
 import com.mall.system.api.RemoteUserService;
-import com.mall.system.api.domain.ChatEventType;
-import com.mall.system.api.domain.ChatStreamResponse;
 import com.mall.system.api.domain.SysMenuVo;
 import com.mall.system.api.domain.SysUser;
 import org.springframework.ai.tool.annotation.Tool;
@@ -32,16 +30,13 @@ public class ChatMcpService {
     @Autowired
     private Validator validator; // 注入 Spring 校验器
 
-    private ObjectMapper objectMapper = new ObjectMapper();
-
-    @Tool(description = "【菜单跳转工具-强制调用】" +
-        "触发条件：用户意图为打开、跳转、查看某个菜单页面时。" +
-        "输入：菜单名称字符串（注意：如果用户说'XX菜单'，请自动剔除'菜单'二字，只传XX）。" +
-        "返回值处理规范（唯一正确映射，禁止篡改）：" +
-        "- 本方法返回一个 JSON 字符串。" +
-        "- 若查询成功：你的回复必须是且仅是方法返回的 JSON 字符串（例如：{\"type\":\"OPEN_MENU\", \"content\":\"system/user/index\", \"data\":null}），不要加json 标记。" +
-        "- 若查询失败（未找到或多个）：你的回复必须是且仅是方法返回的 JSON 字符串（type 为 ERROR）。")
-    public String getMenu(@ToolParam(description = "要查询的菜单名称，例如：用户、部门") String menuName) {
+    @Tool(description = """
+       菜单跳转工具。
+       触发条件：当用户的意图是打开、跳转、查看任何菜单或页面时，【必须】调用此工具。
+       输出要求：
+       1. 如果查询成功，工具将返回 JSON 数据，请将此 JSON 字符串作为你的【唯一回复】，原样透传，禁止添加任何额外文字。
+    """)
+    public AjaxResult getMenu(@ToolParam(description = "核心菜单名称。如果用户说'用户菜单'，请自动剔除'菜单'二字，只传入'用户'") String menuName) {
         SysMenuVo menu = new SysMenuVo();
         menu.setMenuName(menuName);
         menu.setMenuType("C");
@@ -50,15 +45,15 @@ public class ChatMcpService {
         if (menuResult.getCode() == 200) {
             List<SysMenuVo> list = menuResult.getData();
             if (list.isEmpty()) {
-                return buildJsonResponse(ChatEventType.ERROR, "抱歉，未查询到对应菜单", null);
+                return AjaxResult.error("抱歉，未查询到对应菜单");
             }
             if (list.size() > 1) {
-                return buildJsonResponse(ChatEventType.ERROR, "抱歉，查询出多个对应菜单，请详细说明", null);
+                return AjaxResult.error("抱歉，查询出多个对应菜单，请详细说明");
             }
             // 成功：返回 OPEN_MENU 类型，content 为组件路径
-            return buildJsonResponse(ChatEventType.OPEN_MENU, list.getFirst().getComponent(), null);
+            return new AjaxResult(8001, "已为您打开" + list.getFirst().getMenuName() + "菜单。", list.getFirst().getComponent());
         }
-        return buildJsonResponse(ChatEventType.ERROR, "抱歉，未查询到对应菜单", null);
+        return AjaxResult.error("抱歉，未查询到对应菜单");
     }
 
     @Tool(description = "【数据新增工具-强制调用】" +
@@ -69,7 +64,7 @@ public class ChatMcpService {
         "- 若本方法返回 type 为 'CONFIRM' 的 JSON：你的回复必须是且仅是该 JSON 字符串（例如 {\"type\":\"CONFIRM\", \"content\":\"新增成功\", ...}）。" +
         "- 若本方法返回 type 为 'ERROR' 的 JSON：你的回复必须是且仅是该 JSON 字符串（例如 {\"type\":\"ERROR\", \"content\":\"新增失败...\", ...}）。" +
         "- 【绝对禁止】添加任何 Markdown 代码块标记（```json），直接返回原始 JSON 文本。")
-    public String addUser(SysUserBo userBo) {
+    public AjaxResult addUser(SysUserBo userBo) {
         // 1. 手动触发校验
         BindingResult bindingResult = new BeanPropertyBindingResult(userBo, "sysUserBo");
         validator.validate(userBo, bindingResult);
@@ -78,7 +73,7 @@ public class ChatMcpService {
         if (bindingResult.hasErrors()) {
             StringBuilder errorMsg = new StringBuilder("新增失败，原因：");
             bindingResult.getFieldErrors().forEach(error -> errorMsg.append(error.getDefaultMessage()).append("；"));
-            return buildJsonResponse(ChatEventType.ERROR, errorMsg.toString(), null);
+            return AjaxResult.error(errorMsg.toString());
         }
 
         try {
@@ -90,14 +85,14 @@ public class ChatMcpService {
             // 4. 结果处理
             if (result.getCode() == 200 && result.getData()) {
                 // 成功：返回 CONFIRM 类型，表示操作已确认完成
-                return buildJsonResponse(ChatEventType.CONFIRM, "新增成功", null);
+                return AjaxResult.success("新增成功");
             } else {
                 // 业务报错
-                return buildJsonResponse(ChatEventType.ERROR, result.getMsg(), null);
+                return AjaxResult.error(result.getMsg());
             }
         } catch (Exception e) {
             // 系统级异常
-            return buildJsonResponse(ChatEventType.ERROR, "系统内部异常，新增失败，请稍后再试。", null);
+            return AjaxResult.error("系统内部异常，新增失败，请稍后再试。");
         }
     }
 
@@ -202,17 +197,4 @@ public class ChatMcpService {
 //        }
 //    }
 
-    /**
-     * 辅助方法：构建统一的 JSON 响应字符串
-     */
-    private String buildJsonResponse(ChatEventType type, String content, Object data) {
-        try {
-            // 这里的 ChatStreamResponse 和 ChatEventType 是你提供的类
-            ChatStreamResponse response = new ChatStreamResponse(type, content, data);
-            return objectMapper.writeValueAsString(response);
-        } catch (Exception e) {
-            // 容错处理，防止 JSON 序列化失败导致大模型理解错误
-            return String.format("{\"type\":\"ERROR\",\"content\":\"系统序列化异常:%s\",\"data\":null}", e.getMessage());
-        }
-    }
 }

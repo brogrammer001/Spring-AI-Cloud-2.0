@@ -39,6 +39,9 @@
 			<if test="menuName != null and menuName != ''">
 				AND menu_name like concat('%', #{menuName}, '%')
 			</if>
+			<if test="menuType != null and menuType != ''">
+				AND menu_type = #{menuType}
+			</if>
 			<if test="visible != null and visible != ''">
 				AND visible = #{visible}
 			</if>
@@ -67,6 +70,9 @@
 		</if>
 		<if test="visible != null and visible != ''">
             AND m.visible = #{visible}
+		</if>
+		<if test="menuType != null and menuType != ''">
+			AND menu_type = #{menuType}
 		</if>
 		<if test="status != null and status != ''">
             AND m.status = #{status}

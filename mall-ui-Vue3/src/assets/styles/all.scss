@@ -6891,3 +6891,15 @@
   border-top: 1px solid #ddd;
   margin: 1em 0;
 }
+
+.markdown-body .route-link {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.markdown-body .route-link:hover {
+  color: #2563eb;
+  text-decoration: none;
+}

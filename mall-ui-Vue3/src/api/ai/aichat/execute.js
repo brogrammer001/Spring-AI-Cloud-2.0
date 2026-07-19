@@ -4,6 +4,7 @@ export function handleRouteJump(componentPath, { proxy, router }) {
   console.log(componentPath)
   // 从全局路由中查找对应的路由信息
   const allRoutes = router.getRoutes()
+  console.log(allRoutes)
   let targetRoute = null
   
   // 1. 尝试直接匹配路由路径
