@@ -11,7 +11,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -36,40 +35,12 @@ public class ChatController {
     @Autowired
     private VectorCompressionConfig vectorCompressionConfig;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Resource(name = "mcpAsyncToolCallbacks")
-    private ToolCallbackProvider toolCallbackProvider;
-
-    @PostMapping(value = "/chat1", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chat1(@RequestParam String question, @RequestParam(required = false) String conversationId) {
-        // 1. 从向量库检索相关知识片段
-        String relevantDoc = ragConfig.retrieveContext(question);
-
-        // 2. 构建提示词请求
-        // 注意：这里使用了链式调用，通过 .system() 设置系统上下文，.user() 保持用户原始输入
-        var promptSpec = qwenChatClient.prompt()
-            .user(question); // 【关键修改】用户输入仅包含原始问题，记忆组件将只记录这部分
-
-        // 如果存在参考知识，将其作为系统提示注入，而不是拼接在用户输入中
-        if (StringUtils.isNotEmpty(relevantDoc)) {
-            String systemContext = "请根据以下参考知识回答我的问题。\n\n【参考知识】\n" + relevantDoc;
-            // 将参考知识放入 System Prompt，对模型起到引导作用，但不会被记忆组件记录为用户发言
-            promptSpec.system(systemContext);
-        }
-
-        return promptSpec
-            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-            .stream()
-            .content()
-            .doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));
-    }
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<ChatStreamResponse>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
         // 1. RAG 检索
-        String relevantDoc = ragConfig.retrieveContext(question);
+        String relevantDoc = "";//ragConfig.retrieveContext(question);
 
         // 2. 构建请求
         var promptSpec = qwenChatClient.prompt()
@@ -111,8 +82,8 @@ public class ChatController {
                 return Flux.just(ServerSentEvent.<ChatStreamResponse>builder()
                     .data(new ChatStreamResponse(ChatEventType.ERROR, "服务器内部错误: " + e.getMessage(), null))
                     .build());
-            })
-            .doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));
+            });
+            //.doOnComplete(() -> vectorCompressionConfig.checkAndCompressAsync(conversationId));
     }
 
 }

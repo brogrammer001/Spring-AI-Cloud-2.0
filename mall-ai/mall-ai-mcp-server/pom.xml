@@ -52,6 +52,14 @@
                     <groupId>io.modelcontextprotocol.sdk</groupId>
                     <artifactId>mcp-spring-webflux</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>io.modelcontextprotocol.sdk</groupId>
+                    <artifactId>mcp-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.springframework.ai</groupId>
+                    <artifactId>spring-ai-starter-mcp-server</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -59,5 +67,12 @@
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp-spring-webflux</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-core</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+
     </dependencies>
 </project>

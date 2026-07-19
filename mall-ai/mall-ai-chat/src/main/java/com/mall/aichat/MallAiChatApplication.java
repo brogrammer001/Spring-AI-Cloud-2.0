@@ -7,10 +7,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 
-//@SpringBootApplication(exclude = {
-//    com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeEmbeddingAutoConfiguration.class,
-//    org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration.class
-//})
 @SpringBootApplication
 @EnableRyFeignClients
 @EnableCustomConfig

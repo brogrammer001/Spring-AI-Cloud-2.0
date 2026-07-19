@@ -19,12 +19,6 @@ spring:
           connections:
             gateway:
               url: http://localhost:9999  # 替换为实际 Gateway 地址
-#    dashscope:
-#      api-key: ${aliQwen-api}
-#      chat:
-#        options:
-#          model: qwen3.7-max
-#          multi-model: true
     model:
       chat: openai
       embedding: openai

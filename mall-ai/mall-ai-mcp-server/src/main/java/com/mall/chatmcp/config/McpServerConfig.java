@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 public class McpServerConfig {
 
     @Bean
-    public ToolCallbackProvider weatherTools(ChatMcpService chatMcpService)
+    public ToolCallbackProvider tools(ChatMcpService chatMcpService)
     {
         return MethodToolCallbackProvider.builder()
             .toolObjects(chatMcpService)

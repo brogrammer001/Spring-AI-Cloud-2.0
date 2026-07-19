@@ -1,10 +1,10 @@
 package com.mall.aichat.config;
 
+import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
-import org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -61,24 +61,9 @@ public class ChatClientConfig {
             .defaultTools(tools)
             .defaultAdvisors(
                 MessageChatMemoryAdvisor.builder(chatMemory).order(1).build(), //redis/mysql存储会话记忆
-                VectorStoreChatMemoryAdvisor.builder(conversationVectorStore).order(2).defaultTopK(vectorStoreChatMemoryDefaultTopK).build(), //向量库存储全量会话
+                //VectorStoreChatMemoryAdvisor.builder(conversationVectorStore).order(2).defaultTopK(vectorStoreChatMemoryDefaultTopK).build(), //向量库存储全量会话
                 new SimpleLoggerAdvisor(3)
             )
-            .build();
-    }
-
-    /**
-     * 意图识别会话
-     * @param model
-     * @return
-     */
-    @Bean(name = "intentRecognitionChatClient")
-    public ChatClient intentRecognitionChatClient(OpenAiChatModel model) {
-        return ChatClient
-            .builder(model)
-            .defaultSystem("""
-                判断用户意图。如果是闲聊回复'TEXT'，如果是需要查天气等指令回复'TOOL'
-                """)
             .build();
     }
 
@@ -146,7 +131,7 @@ public class ChatClientConfig {
     @Bean("minerUChatClient")
     public ChatClient minerUChatClient() {
         // 1) 构造同步客户端
-        com.openai.client.OpenAIClient client = OpenAIOkHttpClient.builder()
+        OpenAIClient client = OpenAIOkHttpClient.builder()
             .baseUrl(llmBaseUrl)
             .apiKey(apiKey)
             .timeout(Duration.ofMinutes(5)) // 设置超时时间为 5 分钟
