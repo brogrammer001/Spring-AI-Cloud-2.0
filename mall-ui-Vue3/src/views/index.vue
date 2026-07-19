@@ -548,6 +548,8 @@ const sendMessage = async () => {
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
     let streamEnded = false;
+    let innerBuffer = "";
+    let isInnerJson = false;
 
     while (true) {
       if (streamEnded) break;
@@ -578,21 +580,21 @@ const sendMessage = async () => {
           }
 
           if (msg && typeof msg === "string") {
-            messages.value[messageIndex].content += msg;
-            scrollToBottom();
-          }
-
-          if (code === 8001 && jsonData.data && typeof jsonData.data === "string" && jsonData.data.trim()) {
-            messages.value[messageIndex].routeUrl = jsonData.data;
-            setTimeout(() => {
-              handleRouteJump(jsonData.data.trim(), { proxy, router });
-            }, 500);
+            if (!isInnerJson && msg.startsWith('{')) {
+              isInnerJson = true;
+            }
+            innerBuffer += msg;
+            if (tryParseInnerJson(innerBuffer, messageIndex, isInnerJson)) {
+              innerBuffer = "";
+            }
           }
         } catch (e) {
           console.error("解析 JSON 失败:", content, e);
         }
       }
     }
+
+    processRemainingBuffer(innerBuffer, messageIndex, isInnerJson);
 
     // 流结束后的处理（保持原有逻辑）
     if (messages.value[messageIndex].content === '') {
@@ -688,6 +690,89 @@ const processChunk = (dataPart, messageIndex, currentConversationId) => {
     }
   } catch (e) {
     console.error('解析数据失败:', dataPart, e);
+  }
+};
+
+const tryParseInnerJson = (buffer, messageIndex, isInnerJson) => {
+  if (!buffer) return false;
+
+  if (!isInnerJson) {
+    messages.value[messageIndex].content += buffer;
+    scrollToBottom();
+    return true;
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(buffer);
+  } catch (e) {
+    return false;
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const innerMsg = parsed.msg || '';
+    const innerCode = parsed.code;
+    const innerData = parsed.data;
+
+    if (innerMsg && typeof innerMsg === 'string') {
+      messages.value[messageIndex].content += innerMsg;
+      scrollToBottom();
+    }
+
+    if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
+      messages.value[messageIndex].routeUrl = innerData;
+      setTimeout(() => {
+        handleRouteJump(innerData.trim(), { proxy, router });
+      }, 500);
+    } else if (innerCode === 500) {
+      messages.value[messageIndex].content += '\n\n错误: ' + (innerMsg || '');
+      scrollToBottom();
+    }
+    return true;
+  }
+  return false;
+};
+
+const processRemainingBuffer = (buffer, messageIndex, isInnerJson) => {
+  if (!buffer) return;
+
+  if (!isInnerJson) {
+    messages.value[messageIndex].content += buffer;
+    scrollToBottom();
+    return;
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(buffer);
+  } catch (e) {
+    messages.value[messageIndex].content += buffer;
+    scrollToBottom();
+    return;
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const innerMsg = parsed.msg || '';
+    const innerCode = parsed.code;
+    const innerData = parsed.data;
+
+    if (innerMsg && typeof innerMsg === 'string') {
+      messages.value[messageIndex].content += innerMsg;
+      scrollToBottom();
+    }
+
+    if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
+      messages.value[messageIndex].routeUrl = innerData;
+      setTimeout(() => {
+        handleRouteJump(innerData.trim(), { proxy, router });
+      }, 500);
+    } else if (innerCode === 500) {
+      messages.value[messageIndex].content += '\n\n错误: ' + (innerMsg || '');
+      scrollToBottom();
+    }
+  } else {
+    messages.value[messageIndex].content += buffer;
+    scrollToBottom();
   }
 };
 
