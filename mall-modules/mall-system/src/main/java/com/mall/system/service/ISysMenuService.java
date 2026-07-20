@@ -2,7 +2,7 @@ package com.mall.system.service;
 
 import java.util.List;
 import java.util.Set;
-import com.mall.system.domain.SysMenu;
+import com.mall.system.api.domain.SysMenu;
 import com.mall.system.domain.vo.RouterVo;
 import com.mall.system.domain.vo.TreeSelect;
 

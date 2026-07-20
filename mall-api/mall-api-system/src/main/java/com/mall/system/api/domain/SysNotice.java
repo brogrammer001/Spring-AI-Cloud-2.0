@@ -1,4 +1,4 @@
-package com.mall.system.domain;
+package com.mall.system.api.domain;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

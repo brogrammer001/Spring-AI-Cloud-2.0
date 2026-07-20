@@ -1,4 +1,4 @@
-package com.mall.system.domain;
+package com.mall.system.api.domain;
 
 import java.util.Date;
 import org.apache.commons.lang3.builder.ToStringBuilder;

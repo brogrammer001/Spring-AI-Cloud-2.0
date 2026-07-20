@@ -3,7 +3,7 @@ package com.mall.system.service.impl;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.mall.system.domain.SysNotice;
+import com.mall.system.api.domain.SysNotice;
 import com.mall.system.mapper.SysNoticeMapper;
 import com.mall.system.service.ISysNoticeService;
 

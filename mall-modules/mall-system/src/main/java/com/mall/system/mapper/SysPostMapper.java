@@ -1,7 +1,7 @@
 package com.mall.system.mapper;
 
 import java.util.List;
-import com.mall.system.domain.SysPost;
+import com.mall.system.api.domain.SysPost;
 
 /**
  * 岗位信息 数据层

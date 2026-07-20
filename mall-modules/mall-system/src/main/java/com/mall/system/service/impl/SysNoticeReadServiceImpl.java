@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.mall.system.domain.SysNotice;
-import com.mall.system.domain.SysNoticeRead;
+import com.mall.system.api.domain.SysNotice;
+import com.mall.system.api.domain.SysNoticeRead;
 import com.mall.system.mapper.SysNoticeReadMapper;
 import com.mall.system.service.ISysNoticeReadService;
 

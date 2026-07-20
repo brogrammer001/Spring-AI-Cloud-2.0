@@ -3,8 +3,8 @@ package com.mall.system.mapper;
 import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Param;
-import com.mall.system.domain.SysNotice;
-import com.mall.system.domain.SysNoticeRead;
+import com.mall.system.api.domain.SysNotice;
+import com.mall.system.api.domain.SysNoticeRead;
 
 /**
  * 公告已读记录 数据层

@@ -2,7 +2,7 @@ package com.mall.system.mapper;
 
 import java.util.List;
 import org.apache.ibatis.annotations.Param;
-import com.mall.system.domain.SysMenu;
+import com.mall.system.api.domain.SysMenu;
 
 /**
  * 菜单表 数据层

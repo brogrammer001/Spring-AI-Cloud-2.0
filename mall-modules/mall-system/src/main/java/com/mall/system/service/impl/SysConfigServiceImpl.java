@@ -11,7 +11,7 @@ import com.mall.common.core.exception.ServiceException;
 import com.mall.common.core.text.Convert;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.common.redis.service.RedisService;
-import com.mall.system.domain.SysConfig;
+import com.mall.system.api.domain.SysConfig;
 import com.mall.system.mapper.SysConfigMapper;
 import com.mall.system.service.ISysConfigService;
 

@@ -20,7 +20,7 @@ import com.mall.common.log.enums.BusinessType;
 import com.mall.common.redis.service.RedisService;
 import com.mall.common.security.annotation.RequiresPermissions;
 import com.mall.system.api.model.LoginUser;
-import com.mall.system.domain.SysUserOnline;
+import com.mall.system.api.domain.SysUserOnline;
 import com.mall.system.service.ISysUserOnlineService;
 
 /**

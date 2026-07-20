@@ -2,6 +2,7 @@ package com.mall.system.api;
 
 import com.mall.common.core.constant.SecurityConstants;
 import com.mall.common.core.constant.ServiceNameConstants;
+import java.util.List;
 import com.mall.common.core.domain.R;
 import com.mall.system.api.domain.SysUser;
 import com.mall.system.api.factory.RemoteUserFallbackFactory;
@@ -55,5 +56,29 @@ public interface RemoteUserService
      */
     @PostMapping("/user/addUser")
     public R<Boolean> addUser(@RequestBody SysUser sysUser);
+
+    @PostMapping("/api/user/list")
+    public R<List<SysUser>> getUserList(@RequestBody SysUser sysUser);
+
+    @GetMapping("/api/user/{userId}")
+    public R<SysUser> getUserById(@PathVariable("userId") Long userId);
+
+    @PostMapping("/api/user/add")
+    public R<Boolean> addUserApi(@RequestBody SysUser sysUser);
+
+    @PutMapping("/api/user/update")
+    public R<Boolean> updateUser(@RequestBody SysUser sysUser);
+
+    @DeleteMapping("/api/user/{userId}")
+    public R<Boolean> deleteUser(@PathVariable("userId") Long userId);
+
+    @PostMapping("/api/user/authRole")
+    public R<Boolean> authRole(@RequestParam("userId") Long userId, @RequestParam("roleIds") Long[] roleIds);
+
+    @GetMapping("/api/user/authRole/{userId}")
+    public R<List<Long>> getUserRoleIds(@PathVariable("userId") Long userId);
+
+    @GetMapping("/api/user/authPost/{userId}")
+    public R<List<Long>> getUserPostIds(@PathVariable("userId") Long userId);
 
 }

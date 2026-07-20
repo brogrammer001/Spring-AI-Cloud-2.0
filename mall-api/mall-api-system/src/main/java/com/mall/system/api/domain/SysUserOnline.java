@@ -1,4 +1,4 @@
-package com.mall.system.domain;
+package com.mall.system.api.domain;
 
 /**
  * 当前在线会话

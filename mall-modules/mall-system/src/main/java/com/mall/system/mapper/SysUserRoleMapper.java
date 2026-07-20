@@ -2,7 +2,7 @@ package com.mall.system.mapper;
 
 import java.util.List;
 import org.apache.ibatis.annotations.Param;
-import com.mall.system.domain.SysUserRole;
+import com.mall.system.api.domain.SysUserRole;
 
 /**
  * 用户与角色关联表 数据层

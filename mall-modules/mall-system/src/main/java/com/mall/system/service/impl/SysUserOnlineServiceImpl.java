@@ -3,7 +3,7 @@ package com.mall.system.service.impl;
 import org.springframework.stereotype.Service;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.system.api.model.LoginUser;
-import com.mall.system.domain.SysUserOnline;
+import com.mall.system.api.domain.SysUserOnline;
 import com.mall.system.service.ISysUserOnlineService;
 
 /**

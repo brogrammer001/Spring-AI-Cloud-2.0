@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.mall.common.core.constant.UserConstants;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.system.api.domain.SysDept;
-import com.mall.system.domain.SysMenu;
+import com.mall.system.api.domain.SysMenu;
 
 /**
  * Treeselect树结构实体类

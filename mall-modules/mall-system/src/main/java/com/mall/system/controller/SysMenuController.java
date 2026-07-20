@@ -8,7 +8,7 @@ import com.mall.common.log.annotation.Log;
 import com.mall.common.log.enums.BusinessType;
 import com.mall.common.security.annotation.RequiresPermissions;
 import com.mall.common.security.utils.SecurityUtils;
-import com.mall.system.domain.SysMenu;
+import com.mall.system.api.domain.SysMenu;
 import com.mall.system.service.ISysMenuService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;

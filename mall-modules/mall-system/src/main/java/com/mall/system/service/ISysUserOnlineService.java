@@ -1,7 +1,7 @@
 package com.mall.system.service;
 
 import com.mall.system.api.model.LoginUser;
-import com.mall.system.domain.SysUserOnline;
+import com.mall.system.api.domain.SysUserOnline;
 
 /**
  * 在线用户 服务层

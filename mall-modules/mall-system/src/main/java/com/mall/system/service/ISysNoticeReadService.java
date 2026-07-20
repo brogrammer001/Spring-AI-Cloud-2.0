@@ -2,7 +2,7 @@ package com.mall.system.service;
 
 import java.util.List;
 import java.util.Map;
-import com.mall.system.domain.SysNotice;
+import com.mall.system.api.domain.SysNotice;
 
 /**
  * 公告已读记录 服务层

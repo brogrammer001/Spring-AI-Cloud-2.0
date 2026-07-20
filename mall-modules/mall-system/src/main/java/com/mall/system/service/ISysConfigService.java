@@ -1,7 +1,7 @@
 package com.mall.system.service;
 
 import java.util.List;
-import com.mall.system.domain.SysConfig;
+import com.mall.system.api.domain.SysConfig;
 
 /**
  * 参数配置 服务层

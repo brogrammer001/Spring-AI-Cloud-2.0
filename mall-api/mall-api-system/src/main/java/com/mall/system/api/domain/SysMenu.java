@@ -1,4 +1,4 @@
-package com.mall.system.domain;
+package com.mall.system.api.domain;
 
 import java.util.ArrayList;
 import java.util.List;

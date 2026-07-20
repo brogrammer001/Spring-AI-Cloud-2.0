@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import com.mall.common.core.constant.UserConstants;
 import com.mall.common.core.exception.ServiceException;
 import com.mall.common.core.utils.StringUtils;
-import com.mall.system.domain.SysPost;
+import com.mall.system.api.domain.SysPost;
 import com.mall.system.mapper.SysPostMapper;
 import com.mall.system.mapper.SysUserPostMapper;
 import com.mall.system.service.ISysPostService;

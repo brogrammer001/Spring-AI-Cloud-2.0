@@ -1,7 +1,7 @@
 package com.mall.system.mapper;
 
 import java.util.List;
-import com.mall.system.domain.SysUserPost;
+import com.mall.system.api.domain.SysUserPost;
 
 /**
  * 用户与岗位关联表 数据层

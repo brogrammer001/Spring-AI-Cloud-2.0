@@ -1,7 +1,7 @@
 package com.mall.system.mapper;
 
 import java.util.List;
-import com.mall.system.domain.SysRoleDept;
+import com.mall.system.api.domain.SysRoleDept;
 
 /**
  * 角色与部门关联表 数据层

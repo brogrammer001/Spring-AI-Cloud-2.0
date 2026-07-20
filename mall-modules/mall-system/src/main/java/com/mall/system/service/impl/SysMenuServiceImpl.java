@@ -20,7 +20,7 @@ import com.mall.common.core.text.Convert;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.common.security.utils.SecurityUtils;
 import com.mall.system.api.domain.SysRole;
-import com.mall.system.domain.SysMenu;
+import com.mall.system.api.domain.SysMenu;
 import com.mall.system.domain.vo.MetaVo;
 import com.mall.system.domain.vo.RouterVo;
 import com.mall.system.domain.vo.TreeSelect;

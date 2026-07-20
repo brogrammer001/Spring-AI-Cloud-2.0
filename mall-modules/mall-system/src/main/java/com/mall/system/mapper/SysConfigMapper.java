@@ -1,7 +1,7 @@
 package com.mall.system.mapper;
 
 import java.util.List;
-import com.mall.system.domain.SysConfig;
+import com.mall.system.api.domain.SysConfig;
 
 /**
  * 参数配置 数据层

@@ -3,7 +3,7 @@ package com.mall.system.service;
 import java.util.List;
 import java.util.Set;
 import com.mall.system.api.domain.SysRole;
-import com.mall.system.domain.SysUserRole;
+import com.mall.system.api.domain.SysUserRole;
 
 /**
  * 角色业务层

@@ -23,7 +23,7 @@ import com.mall.common.security.utils.SecurityUtils;
 import com.mall.system.api.domain.SysDept;
 import com.mall.system.api.domain.SysRole;
 import com.mall.system.api.domain.SysUser;
-import com.mall.system.domain.SysUserRole;
+import com.mall.system.api.domain.SysUserRole;
 import com.mall.system.service.ISysDeptService;
 import com.mall.system.service.ISysRoleService;
 import com.mall.system.service.ISysUserService;

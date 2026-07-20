@@ -258,6 +258,8 @@ const initRecentConversations = async () => {
     }
   } catch (error) {
     console.error('获取对话列表失败:', error);
+  } finally {
+    activeId.value = null;
   }
 };
 

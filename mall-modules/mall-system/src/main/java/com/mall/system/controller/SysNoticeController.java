@@ -20,7 +20,7 @@ import com.mall.common.log.annotation.Log;
 import com.mall.common.log.enums.BusinessType;
 import com.mall.common.security.annotation.RequiresPermissions;
 import com.mall.common.security.utils.SecurityUtils;
-import com.mall.system.domain.SysNotice;
+import com.mall.system.api.domain.SysNotice;
 import com.mall.system.service.ISysNoticeReadService;
 import com.mall.system.service.ISysNoticeService;
 
