@@ -1,30 +1,30 @@
 package com.mall.chatmcp.bo;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 
 public class UserPostBo {
 
-    @NotNull(message = "用户ID不能为空")
-    @JsonPropertyDescription("用户ID")
-    private Long userId;
+    @NotBlank(message = "用户账号不能为空")
+    @JsonPropertyDescription("用户账号，例如 zhangsan")
+    private String userName;
 
-    @JsonPropertyDescription("岗位ID列表，用于绑定用户的岗位")
-    private Long[] postIds;
+    @JsonPropertyDescription("岗位名称列表，用于绑定用户的岗位，例如 经理、主管")
+    private String[] postNames;
 
-    public Long getUserId() {
-        return userId;
+    public String getUserName() {
+        return userName;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setUserName(String userName) {
+        this.userName = userName;
     }
 
-    public Long[] getPostIds() {
-        return postIds;
+    public String[] getPostNames() {
+        return postNames;
     }
 
-    public void setPostIds(Long[] postIds) {
-        this.postIds = postIds;
+    public void setPostNames(String[] postNames) {
+        this.postNames = postNames;
     }
 }

@@ -1,19 +1,21 @@
 package com.mall.chatmcp.config;
 
-import com.mall.chatmcp.sevice.ChatMcpService;
+import com.mall.chatmcp.sevice.BaseToolService;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
+
 @Configuration
 public class McpServerConfig {
 
     @Bean
-    public ToolCallbackProvider tools(ChatMcpService chatMcpService)
+    public ToolCallbackProvider tools(List<BaseToolService> allTools)
     {
         return MethodToolCallbackProvider.builder()
-            .toolObjects(chatMcpService)
+            .toolObjects(allTools)
             .build();
     }
 }

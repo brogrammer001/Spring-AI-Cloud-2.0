@@ -1,6 +1,5 @@
 package com.mall.chatmcp.bo;
 
-
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.mall.common.core.xss.Xss;
 import jakarta.validation.constraints.Email;
@@ -8,14 +7,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-
 public class SysUserBo {
-
-    @JsonPropertyDescription("用户ID，修改和删除操作时必填")
-    private Long userId;
 
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
     private String operationType;
+
+    @JsonPropertyDescription("用户ID，修改和删除操作时必填")
+    private Long userId;
 
     @Xss(message = "用户账号不能包含脚本字符")
     @NotBlank(message = "用户账号不能为空")
@@ -29,8 +27,6 @@ public class SysUserBo {
     @JsonPropertyDescription("用户昵称，例如 张三、李四")
     private String nickName;
 
-    @NotBlank(message = "部门名称不能为空")
-    @Size(min = 0, max = 30, message = "部门名称长度不能超过30个字符")
     @JsonPropertyDescription("部门名称，例如 财务部、研发部")
     private String deptName;
 
@@ -46,6 +42,22 @@ public class SysUserBo {
     @Pattern(regexp = "^[男女]$", message = "性别填写错误，只能填写'男'或'女'")
     @JsonPropertyDescription("性别，只能是男或女")
     private String sex;
+
+    public String getOperationType() {
+        return operationType;
+    }
+
+    public void setOperationType(String operationType) {
+        this.operationType = operationType;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
 
     public String getUserName() {
         return userName;
@@ -93,21 +105,5 @@ public class SysUserBo {
 
     public void setSex(String sex) {
         this.sex = sex;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public String getOperationType() {
-        return operationType;
-    }
-
-    public void setOperationType(String operationType) {
-        this.operationType = operationType;
     }
 }

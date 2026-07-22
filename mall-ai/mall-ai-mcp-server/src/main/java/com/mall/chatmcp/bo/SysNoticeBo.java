@@ -1,17 +1,19 @@
 package com.mall.chatmcp.bo;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.mall.common.core.xss.Xss;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public class SysNoticeBo {
 
-    @JsonPropertyDescription("公告ID，修改和删除操作时必填")
-    private Long noticeId;
-
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
     private String operationType;
 
+    @JsonPropertyDescription("公告ID，修改和删除操作时必填")
+    private Long noticeId;
+
+    @Xss(message = "公告标题不能包含脚本字符")
     @NotBlank(message = "公告标题不能为空")
     @Size(min = 0, max = 50, message = "公告标题不能超过50个字符")
     @JsonPropertyDescription("公告标题")
@@ -29,20 +31,20 @@ public class SysNoticeBo {
     @JsonPropertyDescription("备注")
     private String remark;
 
-    public Long getNoticeId() {
-        return noticeId;
-    }
-
-    public void setNoticeId(Long noticeId) {
-        this.noticeId = noticeId;
-    }
-
     public String getOperationType() {
         return operationType;
     }
 
     public void setOperationType(String operationType) {
         this.operationType = operationType;
+    }
+
+    public Long getNoticeId() {
+        return noticeId;
+    }
+
+    public void setNoticeId(Long noticeId) {
+        this.noticeId = noticeId;
     }
 
     public String getNoticeTitle() {

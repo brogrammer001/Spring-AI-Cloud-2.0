@@ -1,32 +1,30 @@
 package com.mall.chatmcp.bo;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import jakarta.validation.constraints.NotNull;
-
-import java.util.List;
+import jakarta.validation.constraints.NotBlank;
 
 public class RoleDeptBo {
 
-    @NotNull(message = "角色ID不能为空")
-    @JsonPropertyDescription("角色ID")
-    private Long roleId;
+    @NotBlank(message = "角色名称不能为空")
+    @JsonPropertyDescription("角色名称，例如 管理员")
+    private String roleName;
 
-    @JsonPropertyDescription("部门ID列表，用于绑定角色的数据权限范围")
-    private Long[] deptIds;
+    @JsonPropertyDescription("部门名称列表，用于绑定角色的数据权限范围，例如 财务部、研发部")
+    private String[] deptNames;
 
-    public Long getRoleId() {
-        return roleId;
+    public String getRoleName() {
+        return roleName;
     }
 
-    public void setRoleId(Long roleId) {
-        this.roleId = roleId;
+    public void setRoleName(String roleName) {
+        this.roleName = roleName;
     }
 
-    public Long[] getDeptIds() {
-        return deptIds;
+    public String[] getDeptNames() {
+        return deptNames;
     }
 
-    public void setDeptIds(Long[] deptIds) {
-        this.deptIds = deptIds;
+    public void setDeptNames(String[] deptNames) {
+        this.deptNames = deptNames;
     }
 }

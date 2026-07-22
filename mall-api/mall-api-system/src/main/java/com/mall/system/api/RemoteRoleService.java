@@ -32,4 +32,7 @@ public interface RemoteRoleService {
     @GetMapping("/api/role/authMenu/{roleId}")
     public R<List<Long>> getRoleMenuIds(@PathVariable("roleId") Long roleId);
 
+    @PutMapping("/api/role/authMenu")
+    public R<Boolean> authMenu(@RequestBody SysRole role);
+
 }

@@ -66,4 +66,10 @@ public class SysRoleApi extends BaseController {
         return R.ok(menuIds);
     }
 
+    @PutMapping("/authMenu")
+    @InnerAuth
+    public R<Boolean> authMenu(@RequestBody SysRole role) {
+        return R.ok(roleService.insertRoleMenu(role) > 0);
+    }
+
 }

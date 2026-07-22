@@ -1,30 +1,30 @@
 package com.mall.chatmcp.bo;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 
 public class RoleMenuBo {
 
-    @NotNull(message = "角色ID不能为空")
-    @JsonPropertyDescription("角色ID")
-    private Long roleId;
+    @NotBlank(message = "角色名称不能为空")
+    @JsonPropertyDescription("角色名称，例如 管理员")
+    private String roleName;
 
-    @JsonPropertyDescription("菜单ID列表，用于绑定角色的菜单权限")
-    private Long[] menuIds;
+    @JsonPropertyDescription("菜单名称列表，用于绑定角色的菜单权限")
+    private String[] menuNames;
 
-    public Long getRoleId() {
-        return roleId;
+    public String getRoleName() {
+        return roleName;
     }
 
-    public void setRoleId(Long roleId) {
-        this.roleId = roleId;
+    public void setRoleName(String roleName) {
+        this.roleName = roleName;
     }
 
-    public Long[] getMenuIds() {
-        return menuIds;
+    public String[] getMenuNames() {
+        return menuNames;
     }
 
-    public void setMenuIds(Long[] menuIds) {
-        this.menuIds = menuIds;
+    public void setMenuNames(String[] menuNames) {
+        this.menuNames = menuNames;
     }
 }

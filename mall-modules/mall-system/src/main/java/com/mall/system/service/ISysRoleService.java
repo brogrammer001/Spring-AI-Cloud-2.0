@@ -170,4 +170,12 @@ public interface ISysRoleService
      * @return 结果
      */
     public int insertAuthUsers(Long roleId, Long[] userIds);
+
+    /**
+     * 新增角色菜单信息
+     * 
+     * @param role 角色对象
+     * @return 结果
+     */
+    public int insertRoleMenu(SysRole role);
 }

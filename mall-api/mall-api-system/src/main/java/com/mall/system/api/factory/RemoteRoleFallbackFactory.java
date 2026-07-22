@@ -54,6 +54,11 @@ public class RemoteRoleFallbackFactory implements FallbackFactory<RemoteRoleServ
             public R<List<Long>> getRoleMenuIds(Long roleId) {
                 return R.fail("获取角色菜单列表失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Boolean> authMenu(SysRole role) {
+                return R.fail("角色菜单权限分配失败:" + throwable.getMessage());
+            }
         };
     }
 }
