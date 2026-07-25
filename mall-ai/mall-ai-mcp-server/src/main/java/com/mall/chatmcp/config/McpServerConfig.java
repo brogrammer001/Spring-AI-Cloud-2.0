@@ -12,10 +12,9 @@ import java.util.List;
 public class McpServerConfig {
 
     @Bean
-    public ToolCallbackProvider tools(List<BaseToolService> allTools)
-    {
+    public ToolCallbackProvider tools(List<BaseToolService> allTools) {
         return MethodToolCallbackProvider.builder()
-            .toolObjects(allTools)
+            .toolObjects(allTools.toArray())
             .build();
     }
 }

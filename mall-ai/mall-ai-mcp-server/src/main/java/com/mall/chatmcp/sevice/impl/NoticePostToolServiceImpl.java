@@ -2,7 +2,6 @@ package com.mall.chatmcp.sevice.impl;
 
 import com.mall.chatmcp.bo.SysNoticeBo;
 import com.mall.chatmcp.bo.SysPostBo;
-import com.mall.chatmcp.sevice.BaseToolService;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
 import com.mall.system.api.RemoteNoticeService;
@@ -13,12 +12,10 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.validation.BeanPropertyBindingResult;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.Validator;
 
 @Service
-public class NoticePostToolServiceImpl implements BaseToolService {
+public class NoticePostToolServiceImpl extends BaseToolServiceImpl {
 
     @Autowired
     private RemoteNoticeService remoteNoticeService;
@@ -27,7 +24,9 @@ public class NoticePostToolServiceImpl implements BaseToolService {
     private RemotePostService remotePostService;
 
     @Autowired
-    private Validator validator;
+    public void setValidator(Validator validator) {
+        super.setValidator(validator);
+    }
 
     @Tool(description = "通知公告的新增、修改、删除。参数包含 operationType(add/update/delete)和公告实体。 [JSON]")
     public AjaxResult noticeCrud(SysNoticeBo noticeBo) {
@@ -35,25 +34,21 @@ public class NoticePostToolServiceImpl implements BaseToolService {
         if (operationType == null || operationType.isEmpty()) {
             return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
         }
-        try {
+
+        return executeWithErrorHandling(() -> {
             return switch (operationType.toLowerCase()) {
                 case "add" -> handleNoticeAdd(noticeBo);
                 case "update" -> handleNoticeUpdate(noticeBo);
                 case "delete" -> handleNoticeDelete(noticeBo);
                 default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
             };
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，操作失败，请稍后再试。");
-        }
+        }, "通知公告操作");
     }
 
     private AjaxResult handleNoticeAdd(SysNoticeBo noticeBo) {
-        BindingResult bindingResult = new BeanPropertyBindingResult(noticeBo, "sysNoticeBo");
-        validator.validate(noticeBo, bindingResult);
-        if (bindingResult.hasErrors()) {
-            StringBuilder errorMsg = new StringBuilder("新增失败，原因：");
-            bindingResult.getFieldErrors().forEach(error -> errorMsg.append(error.getDefaultMessage()).append("；"));
-            return AjaxResult.error(errorMsg.toString());
+        AjaxResult validateResult = validate(noticeBo, "sysNoticeBo");
+        if (validateResult != null) {
+            return validateResult;
         }
         SysNotice sysNotice = new SysNotice();
         BeanUtils.copyProperties(noticeBo, sysNotice);
@@ -85,25 +80,21 @@ public class NoticePostToolServiceImpl implements BaseToolService {
         if (operationType == null || operationType.isEmpty()) {
             return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
         }
-        try {
+
+        return executeWithErrorHandling(() -> {
             return switch (operationType.toLowerCase()) {
                 case "add" -> handlePostAdd(postBo);
                 case "update" -> handlePostUpdate(postBo);
                 case "delete" -> handlePostDelete(postBo);
                 default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
             };
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，操作失败，请稍后再试。");
-        }
+        }, "岗位操作");
     }
 
     private AjaxResult handlePostAdd(SysPostBo postBo) {
-        BindingResult bindingResult = new BeanPropertyBindingResult(postBo, "sysPostBo");
-        validator.validate(postBo, bindingResult);
-        if (bindingResult.hasErrors()) {
-            StringBuilder errorMsg = new StringBuilder("新增失败，原因：");
-            bindingResult.getFieldErrors().forEach(error -> errorMsg.append(error.getDefaultMessage()).append("；"));
-            return AjaxResult.error(errorMsg.toString());
+        AjaxResult validateResult = validate(postBo, "sysPostBo");
+        if (validateResult != null) {
+            return validateResult;
         }
         SysPost sysPost = new SysPost();
         BeanUtils.copyProperties(postBo, sysPost);

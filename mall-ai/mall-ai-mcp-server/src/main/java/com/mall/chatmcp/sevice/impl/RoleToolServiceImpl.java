@@ -3,7 +3,6 @@ package com.mall.chatmcp.sevice.impl;
 import com.mall.chatmcp.bo.RoleDeptBo;
 import com.mall.chatmcp.bo.RoleMenuBo;
 import com.mall.chatmcp.bo.SysRoleBo;
-import com.mall.chatmcp.sevice.BaseToolService;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
 import com.mall.system.api.RemoteDeptService;
@@ -16,14 +15,12 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.validation.BeanPropertyBindingResult;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.Validator;
 
 import java.util.List;
 
 @Service
-public class RoleToolServiceImpl implements BaseToolService {
+public class RoleToolServiceImpl extends BaseToolServiceImpl {
 
     @Autowired
     private RemoteRoleService remoteRoleService;
@@ -35,7 +32,9 @@ public class RoleToolServiceImpl implements BaseToolService {
     private RemoteMenuService remoteMenuService;
 
     @Autowired
-    private Validator validator;
+    public void setValidator(Validator validator) {
+        super.setValidator(validator);
+    }
 
     @Tool(description = "角色数据的新增、修改、删除。参数包含 operationType(add/update/delete)和角色实体。 [JSON]")
     public AjaxResult roleCrud(SysRoleBo roleBo) {
@@ -43,26 +42,23 @@ public class RoleToolServiceImpl implements BaseToolService {
         if (operationType == null || operationType.isEmpty()) {
             return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
         }
-        try {
+
+        return executeWithErrorHandling(() -> {
             return switch (operationType.toLowerCase()) {
                 case "add" -> handleRoleAdd(roleBo);
                 case "update" -> handleRoleUpdate(roleBo);
                 case "delete" -> handleRoleDelete(roleBo);
                 default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
             };
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，操作失败，请稍后再试。");
-        }
+        }, "角色操作");
     }
 
     private AjaxResult handleRoleAdd(SysRoleBo roleBo) {
-        BindingResult bindingResult = new BeanPropertyBindingResult(roleBo, "sysRoleBo");
-        validator.validate(roleBo, bindingResult);
-        if (bindingResult.hasErrors()) {
-            StringBuilder errorMsg = new StringBuilder("新增失败，原因：");
-            bindingResult.getFieldErrors().forEach(error -> errorMsg.append(error.getDefaultMessage()).append("；"));
-            return AjaxResult.error(errorMsg.toString());
+        AjaxResult validateResult = validate(roleBo, "sysRoleBo");
+        if (validateResult != null) {
+            return validateResult;
         }
+
         SysRole sysRole = new SysRole();
         BeanUtils.copyProperties(roleBo, sysRole);
 
@@ -94,12 +90,12 @@ public class RoleToolServiceImpl implements BaseToolService {
 
     @Tool(description = "为角色分配数据权限范围（部门）。 [JSON]")
     public AjaxResult roleDeptAuth(RoleDeptBo roleDeptBo) {
-        Long roleId = getRoleIdByName(roleDeptBo.getRoleName());
-        if (roleId == null) {
-            return AjaxResult.error("角色不存在：" + roleDeptBo.getRoleName());
-        }
+        return executeWithErrorHandling(() -> {
+            Long roleId = getRoleIdByName(roleDeptBo.getRoleName());
+            if (roleId == null) {
+                return AjaxResult.error("角色不存在：" + roleDeptBo.getRoleName());
+            }
 
-        try {
             if (roleDeptBo.getDeptNames() != null && roleDeptBo.getDeptNames().length > 0) {
                 Long[] deptIds = new Long[roleDeptBo.getDeptNames().length];
                 for (int i = 0; i < roleDeptBo.getDeptNames().length; i++) {
@@ -117,19 +113,17 @@ public class RoleToolServiceImpl implements BaseToolService {
             } else {
                 return AjaxResult.error("请传入部门名称列表");
             }
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，角色数据权限分配失败，请稍后再试。");
-        }
+        }, "角色数据权限分配");
     }
 
     @Tool(description = "为角色分配菜单权限。 [JSON]")
     public AjaxResult roleMenuAuth(RoleMenuBo roleMenuBo) {
-        Long roleId = getRoleIdByName(roleMenuBo.getRoleName());
-        if (roleId == null) {
-            return AjaxResult.error("角色不存在：" + roleMenuBo.getRoleName());
-        }
+        return executeWithErrorHandling(() -> {
+            Long roleId = getRoleIdByName(roleMenuBo.getRoleName());
+            if (roleId == null) {
+                return AjaxResult.error("角色不存在：" + roleMenuBo.getRoleName());
+            }
 
-        try {
             if (roleMenuBo.getMenuNames() != null && roleMenuBo.getMenuNames().length > 0) {
                 Long[] menuIds = new Long[roleMenuBo.getMenuNames().length];
                 for (int i = 0; i < roleMenuBo.getMenuNames().length; i++) {
@@ -147,9 +141,7 @@ public class RoleToolServiceImpl implements BaseToolService {
             } else {
                 return AjaxResult.error("请传入菜单名称列表");
             }
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，角色菜单权限操作失败，请稍后再试。");
-        }
+        }, "角色菜单权限分配");
     }
 
     private Long getRoleIdByName(String roleName) {

@@ -1,14 +1,15 @@
 package com.mall.common.security.feign;
 
-import java.util.Map;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.stereotype.Component;
 import com.mall.common.core.constant.SecurityConstants;
 import com.mall.common.core.utils.ServletUtils;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.common.core.utils.ip.IpUtils;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 /**
  * feign 请求拦截器
@@ -46,7 +47,8 @@ public class FeignRequestInterceptor implements RequestInterceptor
             {
                 requestTemplate.header(SecurityConstants.AUTHORIZATION_HEADER, authentication);
             }
-
+            //添加 认证请求头
+            requestTemplate.header(SecurityConstants.FROM_SOURCE, SecurityConstants.INNER);
             // 配置客户端IP
             requestTemplate.header("X-Forwarded-For", IpUtils.getIpAddr());
         }

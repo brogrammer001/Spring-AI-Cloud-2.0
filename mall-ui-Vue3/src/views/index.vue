@@ -581,6 +581,24 @@ const sendMessage = async () => {
             break;
           }
 
+          if (code === 500) {
+            if (msg && typeof msg === "string") {
+              if (msg.startsWith('{')) {
+                try {
+                  const innerJson = JSON.parse(msg);
+                  const innerMsg = innerJson.msg || msg;
+                  messages.value[messageIndex].content += innerMsg;
+                } catch (e) {
+                  messages.value[messageIndex].content += msg;
+                }
+              } else {
+                messages.value[messageIndex].content += msg;
+              }
+            }
+            scrollToBottom();
+            continue;
+          }
+
           if (msg && typeof msg === "string") {
             if (!isInnerJson && msg.startsWith('{')) {
               isInnerJson = true;

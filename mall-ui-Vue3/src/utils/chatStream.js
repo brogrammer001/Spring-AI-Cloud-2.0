@@ -34,6 +34,24 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
             return;
           }
 
+          if (code === 500) {
+            if (msg && typeof msg === 'string') {
+              if (msg.startsWith('{')) {
+                try {
+                  const innerJson = JSON.parse(msg);
+                  const innerMsg = innerJson.msg || msg;
+                  onTextChange && onTextChange(innerMsg);
+                } catch (e) {
+                  onTextChange && onTextChange(msg);
+                }
+              } else {
+                onTextChange && onTextChange(msg);
+              }
+            }
+            onJsonChunk && onJsonChunk(jsonData);
+            continue;
+          }
+
           if (msg && typeof msg === 'string') {
             if (!isInnerJson && msg.startsWith('{')) {
               isInnerJson = true;
@@ -63,6 +81,24 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
 
           if (code === -1) {
             onDone && onDone();
+            return;
+          }
+
+          if (code === 500) {
+            if (msg && typeof msg === 'string') {
+              if (msg.startsWith('{')) {
+                try {
+                  const innerJson = JSON.parse(msg);
+                  const innerMsg = innerJson.msg || msg;
+                  onTextChange && onTextChange(innerMsg);
+                } catch (e) {
+                  onTextChange && onTextChange(msg);
+                }
+              } else {
+                onTextChange && onTextChange(msg);
+              }
+            }
+            onJsonChunk && onJsonChunk(jsonData);
             return;
           }
 

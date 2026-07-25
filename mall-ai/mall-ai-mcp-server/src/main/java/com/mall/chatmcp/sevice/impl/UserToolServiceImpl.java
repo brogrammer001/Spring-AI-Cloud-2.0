@@ -1,32 +1,29 @@
 package com.mall.chatmcp.sevice.impl;
 
 import com.mall.chatmcp.bo.SysUserBo;
-import com.mall.chatmcp.bo.UserRoleBo;
-import com.mall.chatmcp.bo.UserPostBo;
 import com.mall.chatmcp.bo.UserDeptBo;
-import com.mall.chatmcp.sevice.BaseToolService;
+import com.mall.chatmcp.bo.UserPostBo;
+import com.mall.chatmcp.bo.UserRoleBo;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
-import com.mall.system.api.RemoteUserService;
 import com.mall.system.api.RemoteDeptService;
-import com.mall.system.api.RemoteRoleService;
 import com.mall.system.api.RemotePostService;
-import com.mall.system.api.domain.SysUser;
+import com.mall.system.api.RemoteRoleService;
+import com.mall.system.api.RemoteUserService;
 import com.mall.system.api.domain.SysDept;
-import com.mall.system.api.domain.SysRole;
 import com.mall.system.api.domain.SysPost;
+import com.mall.system.api.domain.SysRole;
+import com.mall.system.api.domain.SysUser;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.validation.BeanPropertyBindingResult;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.Validator;
 
 import java.util.List;
 
 @Service
-public class UserToolServiceImpl implements BaseToolService {
+public class UserToolServiceImpl extends BaseToolServiceImpl {
 
     @Autowired
     private RemoteUserService remoteUserService;
@@ -41,7 +38,9 @@ public class UserToolServiceImpl implements BaseToolService {
     private RemotePostService remotePostService;
 
     @Autowired
-    private Validator validator;
+    public void setValidator(Validator validator) {
+        super.setValidator(validator);
+    }
 
     @Tool(description = "用户数据的新增、修改、删除。参数包含 operationType(add/update/delete)和用户实体。 [JSON]")
     public AjaxResult userCrud(SysUserBo userBo) {
@@ -50,25 +49,18 @@ public class UserToolServiceImpl implements BaseToolService {
             return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
         }
 
-        try {
-            return switch (operationType.toLowerCase()) {
-                case "add" -> handleAdd(userBo);
-                case "update" -> handleUpdate(userBo);
-                case "delete" -> handleDelete(userBo);
-                default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
-            };
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，操作失败，请稍后再试。");
-        }
+        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
+            case "add" -> handleAdd(userBo);
+            case "update" -> handleUpdate(userBo);
+            case "delete" -> handleDelete(userBo);
+            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+        }, "用户操作");
     }
 
     private AjaxResult handleAdd(SysUserBo userBo) {
-        BindingResult bindingResult = new BeanPropertyBindingResult(userBo, "sysUserBo");
-        validator.validate(userBo, bindingResult);
-        if (bindingResult.hasErrors()) {
-            StringBuilder errorMsg = new StringBuilder("新增失败，原因：");
-            bindingResult.getFieldErrors().forEach(error -> errorMsg.append(error.getDefaultMessage()).append("；"));
-            return AjaxResult.error(errorMsg.toString());
+        AjaxResult validateResult = validate(userBo, "sysUserBo");
+        if (validateResult != null) {
+            return validateResult;
         }
 
         SysUser sysUser = new SysUser();
@@ -95,12 +87,7 @@ public class UserToolServiceImpl implements BaseToolService {
         sysUser.setStatus("0");
 
         R<Boolean> result = remoteUserService.addUserApi(sysUser);
-
-        if (result.getCode() == 200 && result.getData()) {
-            return AjaxResult.success("新增成功");
-        } else {
-            return AjaxResult.error(result.getMsg());
-        }
+        return result.getCode() == 200 && result.getData() ? AjaxResult.success("新增成功") : AjaxResult.error(result.getMsg());
     }
 
     private Long getDeptIdByName(String deptName) {
@@ -139,12 +126,7 @@ public class UserToolServiceImpl implements BaseToolService {
         }
 
         R<Boolean> result = remoteUserService.updateUser(sysUser);
-
-        if (result.getCode() == 200 && result.getData()) {
-            return AjaxResult.success("修改成功");
-        } else {
-            return AjaxResult.error(result.getMsg());
-        }
+        return result.getCode() == 200 && result.getData() ? AjaxResult.success("修改成功") : AjaxResult.error(result.getMsg());
     }
 
     private AjaxResult handleDelete(SysUserBo userBo) {
@@ -153,22 +135,17 @@ public class UserToolServiceImpl implements BaseToolService {
         }
 
         R<Boolean> result = remoteUserService.deleteUser(userBo.getUserId());
-
-        if (result.getCode() == 200 && result.getData()) {
-            return AjaxResult.success("删除成功");
-        } else {
-            return AjaxResult.error(result.getMsg());
-        }
+        return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());
     }
 
     @Tool(description = "为用户分配角色。 [JSON]")
     public AjaxResult userRoleAuth(UserRoleBo userRoleBo) {
-        Long userId = getUserIdByUserName(userRoleBo.getUserName());
-        if (userId == null) {
-            return AjaxResult.error("用户不存在：" + userRoleBo.getUserName());
-        }
+        return executeWithErrorHandling(() -> {
+            Long userId = getUserIdByUserName(userRoleBo.getUserName());
+            if (userId == null) {
+                return AjaxResult.error("用户不存在：" + userRoleBo.getUserName());
+            }
 
-        try {
             if (userRoleBo.getRoleNames() != null && userRoleBo.getRoleNames().length > 0) {
                 Long[] roleIds = new Long[userRoleBo.getRoleNames().length];
                 for (int i = 0; i < userRoleBo.getRoleNames().length; i++) {
@@ -183,19 +160,17 @@ public class UserToolServiceImpl implements BaseToolService {
             } else {
                 return AjaxResult.error("请传入角色名称列表");
             }
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，用户角色分配失败，请稍后再试。");
-        }
+        }, "用户角色分配");
     }
 
     @Tool(description = "为用户分配岗位。 [JSON]")
     public AjaxResult userPostAuth(UserPostBo userPostBo) {
-        Long userId = getUserIdByUserName(userPostBo.getUserName());
-        if (userId == null) {
-            return AjaxResult.error("用户不存在：" + userPostBo.getUserName());
-        }
+        return executeWithErrorHandling(() -> {
+            Long userId = getUserIdByUserName(userPostBo.getUserName());
+            if (userId == null) {
+                return AjaxResult.error("用户不存在：" + userPostBo.getUserName());
+            }
 
-        try {
             if (userPostBo.getPostNames() != null && userPostBo.getPostNames().length > 0) {
                 StringBuilder errorMsg = new StringBuilder();
                 for (String postName : userPostBo.getPostNames()) {
@@ -214,19 +189,17 @@ public class UserToolServiceImpl implements BaseToolService {
             } else {
                 return AjaxResult.error("请传入岗位名称列表");
             }
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，用户岗位操作失败，请稍后再试。");
-        }
+        }, "用户岗位分配");
     }
 
     @Tool(description = "修改用户所属部门。 [JSON]")
     public AjaxResult userDeptAuth(UserDeptBo userDeptBo) {
-        Long userId = getUserIdByUserName(userDeptBo.getUserName());
-        if (userId == null) {
-            return AjaxResult.error("用户不存在：" + userDeptBo.getUserName());
-        }
+        return executeWithErrorHandling(() -> {
+            Long userId = getUserIdByUserName(userDeptBo.getUserName());
+            if (userId == null) {
+                return AjaxResult.error("用户不存在：" + userDeptBo.getUserName());
+            }
 
-        try {
             if (userDeptBo.getDeptName() != null && !userDeptBo.getDeptName().isEmpty()) {
                 Long deptId = getDeptIdByName(userDeptBo.getDeptName());
                 if (deptId == null) {
@@ -240,9 +213,7 @@ public class UserToolServiceImpl implements BaseToolService {
             } else {
                 return AjaxResult.error("请传入部门名称");
             }
-        } catch (Exception e) {
-            return AjaxResult.error("系统内部异常，用户部门操作失败，请稍后再试。");
-        }
+        }, "用户部门修改");
     }
 
     private Long getUserIdByUserName(String userName) {
