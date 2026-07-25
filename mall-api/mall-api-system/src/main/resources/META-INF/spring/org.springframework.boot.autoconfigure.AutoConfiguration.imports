@@ -1,3 +1,8 @@
-com.mall.system.api.factory.RemoteUserFallbackFactory
-com.mall.system.api.factory.RemoteLogFallbackFactory
+com.mall.system.api.factory.RemoteDeptFallbackFactory
 com.mall.system.api.factory.RemoteFileFallbackFactory
+com.mall.system.api.factory.RemoteLogFallbackFactory
+com.mall.system.api.factory.RemoteMenuFallbackFactory
+com.mall.system.api.factory.RemoteNoticeFallbackFactory
+com.mall.system.api.factory.RemotePostFallbackFactory
+com.mall.system.api.factory.RemoteRoleFallbackFactory
+com.mall.system.api.factory.RemoteUserFallbackFactory

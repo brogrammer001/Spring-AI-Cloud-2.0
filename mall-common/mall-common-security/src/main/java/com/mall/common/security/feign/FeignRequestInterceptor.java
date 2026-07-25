@@ -47,10 +47,10 @@ public class FeignRequestInterceptor implements RequestInterceptor
             {
                 requestTemplate.header(SecurityConstants.AUTHORIZATION_HEADER, authentication);
             }
-            //添加 认证请求头
-            requestTemplate.header(SecurityConstants.FROM_SOURCE, SecurityConstants.INNER);
             // 配置客户端IP
             requestTemplate.header("X-Forwarded-For", IpUtils.getIpAddr());
         }
+        //添加 认证请求头
+        requestTemplate.header(SecurityConstants.FROM_SOURCE, SecurityConstants.INNER);
     }
 }

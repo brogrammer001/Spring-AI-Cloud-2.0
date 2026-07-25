@@ -4,10 +4,10 @@ import com.mall.aichat.domain.KbDocumentChunk;
 import com.mall.aichat.mapper.KbDocumentChunkMapper;
 import com.mall.aichat.service.IKbDocumentChunkService;
 import com.mall.common.core.utils.DateUtils;
-import jakarta.annotation.Resource;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,7 +24,8 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
     @Autowired
     private KbDocumentChunkMapper kbDocumentChunkMapper;
 
-    @Resource(name = "knowledgeVectorStore")
+    @Autowired(required = false)
+    @Qualifier("knowledgeVectorStore")
     private VectorStore vectorStore;
 
     /**

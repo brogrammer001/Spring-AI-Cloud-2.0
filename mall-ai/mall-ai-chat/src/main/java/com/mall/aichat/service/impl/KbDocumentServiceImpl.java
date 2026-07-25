@@ -1,7 +1,6 @@
 package com.mall.aichat.service.impl;
 
 import com.knuddels.jtokkit.api.EncodingType;
-import com.mall.aichat.config.MinerUService;
 import com.mall.aichat.domain.KbDocument;
 import com.mall.aichat.domain.KbDocumentChunk;
 import com.mall.aichat.domain.MinerUResult;
@@ -24,6 +23,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
@@ -49,7 +49,8 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
     @Autowired
     private KbDocumentMapper kbDocumentMapper;
 
-    @Resource(name = "knowledgeVectorStore")
+    @Autowired(required = false)
+    @Qualifier("knowledgeVectorStore")
     private VectorStore vectorStore;
 
     @Autowired

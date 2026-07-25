@@ -19,6 +19,15 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
         const trimmedLine = line.trim();
         if (!trimmedLine) continue;
 
+        if (trimmedLine.startsWith('event:')) {
+          const eventType = trimmedLine.substring(6).trim();
+          if (eventType === 'done') {
+            onDone && onDone();
+            return;
+          }
+          continue;
+        }
+
         let content = trimmedLine;
         if (content.startsWith('data:')) {
           content = content.substring(5).trim();
@@ -27,30 +36,7 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
 
         try {
           const jsonData = JSON.parse(content);
-          const { msg, code } = jsonData;
-
-          if (code === -1) {
-            onDone && onDone();
-            return;
-          }
-
-          if (code === 500) {
-            if (msg && typeof msg === 'string') {
-              if (msg.startsWith('{')) {
-                try {
-                  const innerJson = JSON.parse(msg);
-                  const innerMsg = innerJson.msg || msg;
-                  onTextChange && onTextChange(innerMsg);
-                } catch (e) {
-                  onTextChange && onTextChange(msg);
-                }
-              } else {
-                onTextChange && onTextChange(msg);
-              }
-            }
-            onJsonChunk && onJsonChunk(jsonData);
-            continue;
-          }
+          const { msg } = jsonData;
 
           if (msg && typeof msg === 'string') {
             if (!isInnerJson && msg.startsWith('{')) {
@@ -77,30 +63,7 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
       if (content) {
         try {
           const jsonData = JSON.parse(content);
-          const { msg, code } = jsonData;
-
-          if (code === -1) {
-            onDone && onDone();
-            return;
-          }
-
-          if (code === 500) {
-            if (msg && typeof msg === 'string') {
-              if (msg.startsWith('{')) {
-                try {
-                  const innerJson = JSON.parse(msg);
-                  const innerMsg = innerJson.msg || msg;
-                  onTextChange && onTextChange(innerMsg);
-                } catch (e) {
-                  onTextChange && onTextChange(msg);
-                }
-              } else {
-                onTextChange && onTextChange(msg);
-              }
-            }
-            onJsonChunk && onJsonChunk(jsonData);
-            return;
-          }
+          const { msg } = jsonData;
 
           if (msg && typeof msg === 'string') {
             if (!isInnerJson && msg.startsWith('{')) {
@@ -147,16 +110,31 @@ function tryParseInnerJson(buffer, isInnerJson, onTextChange, onJsonChunk) {
     const innerCode = parsed.code;
     const innerData = parsed.data;
 
-    if (innerMsg && typeof innerMsg === 'string') {
+    if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
       onTextChange && onTextChange(innerMsg);
-    }
-
-    if (innerCode !== undefined) {
       onJsonChunk && onJsonChunk({
         msg: innerMsg,
         code: innerCode,
         data: innerData
       });
+    } else if (innerCode === 500) {
+      onTextChange && onTextChange(innerMsg);
+      onJsonChunk && onJsonChunk({
+        msg: innerMsg,
+        code: innerCode,
+        data: innerData
+      });
+    } else {
+      if (innerMsg && typeof innerMsg === 'string') {
+        onTextChange && onTextChange(innerMsg);
+      }
+      if (innerCode !== undefined) {
+        onJsonChunk && onJsonChunk({
+          msg: innerMsg,
+          code: innerCode,
+          data: innerData
+        });
+      }
     }
     return true;
   }
@@ -184,16 +162,31 @@ function processRemainingBuffer(buffer, isInnerJson, onTextChange, onJsonChunk) 
     const innerCode = parsed.code;
     const innerData = parsed.data;
 
-    if (innerMsg && typeof innerMsg === 'string') {
+    if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
       onTextChange && onTextChange(innerMsg);
-    }
-
-    if (innerCode !== undefined) {
       onJsonChunk && onJsonChunk({
         msg: innerMsg,
         code: innerCode,
         data: innerData
       });
+    } else if (innerCode === 500) {
+      onTextChange && onTextChange(innerMsg);
+      onJsonChunk && onJsonChunk({
+        msg: innerMsg,
+        code: innerCode,
+        data: innerData
+      });
+    } else {
+      if (innerMsg && typeof innerMsg === 'string') {
+        onTextChange && onTextChange(innerMsg);
+      }
+      if (innerCode !== undefined) {
+        onJsonChunk && onJsonChunk({
+          msg: innerMsg,
+          code: innerCode,
+          data: innerData
+        });
+      }
     }
   } else {
     onTextChange && onTextChange(buffer);

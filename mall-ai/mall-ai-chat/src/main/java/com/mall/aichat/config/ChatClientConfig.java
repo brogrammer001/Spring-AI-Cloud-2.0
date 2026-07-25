@@ -5,18 +5,28 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
+import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
+import org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.tool.toolsearch.ToolIndex;
+import org.springframework.ai.tool.toolsearch.index.lucene.LuceneToolIndex;
+import org.springframework.ai.tool.toolsearch.index.vectorstore.VectorToolIndex;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 聊天客户端配置
@@ -24,14 +34,10 @@ import java.time.Duration;
 @Configuration
 public class ChatClientConfig {
 
-    // 注入 系统提示词
-    @Value("classpath:/prompts/system-prompt.md")
-    private Resource systemPromptResource;
-
     @Value("classpath:/prompts/system-prompt-simplify.md")
     private Resource systemSimplifyPromptResource;
 
-    @Value("${vector-store.chat-memory-default-topk}")
+    @Value("${vectorstore.chat-memory-default-topk}")
     private int vectorStoreChatMemoryDefaultTopK;
 
     @Value("${mineru.vl.base-url}")
@@ -43,8 +49,40 @@ public class ChatClientConfig {
     @Value("${mineru.vl.model}")
     private String model;
 
+    @Value("${vectorstore.enabled}")
+    private boolean vectorStoreEnabled;
+
+    /**
+     * 方案 A: 向量检索索引
+     * 当配置 vector.enabled = true 时生效
+     */
+    @Bean("toolIndex") // 【关键】统一 Bean 名称，这样调用方不需要改
+    @ConditionalOnProperty(name = "vector.enabled", havingValue = "true")
+    public ToolIndex vectorToolIndex(@Qualifier("toolVectorStore") VectorStore toolVectorStore) {
+        return new VectorToolIndex(toolVectorStore);
+    }
+
+    /**
+     * 方案 B: Lucene 本地索引
+     * 当配置 vector.enabled = false (或者配置不存在) 时生效
+     * matchIfMissing = true 表示如果没有配置该属性，默认使用 Lucene
+     */
+    @Bean("toolIndex") // 【关键】统一 Bean 名称
+    @ConditionalOnProperty(name = "vector.enabled", havingValue = "false", matchIfMissing = true)
+    public ToolIndex toolIndex() {
+        return new LuceneToolIndex(0.3f);
+    }
+
+    @Bean
+    public ToolSearchToolCallingAdvisor toolSearchAdvisor(@Qualifier("toolIndex") ToolIndex toolIndex) {
+        return ToolSearchToolCallingAdvisor.builder()
+            .toolIndex(toolIndex)
+            .build();
+    }
+
     /**
      * 总聊天会话
+     *
      * @param model
      * @param chatMemory
      * @param conversationVectorStore
@@ -52,23 +90,39 @@ public class ChatClientConfig {
      */
     @Bean(name = "qwenChatClient")
     public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
-                                     @Qualifier("conversationVectorStore") VectorStore conversationVectorStore,
-                                     @Qualifier("mcpAsyncToolCallbacks")ToolCallbackProvider tools
+                                     @Qualifier("conversationVectorStore") @Autowired(required = false) VectorStore conversationVectorStore,
+                                     @Qualifier("mcpAsyncToolCallbacks") ToolCallbackProvider tools,
+                                     ToolSearchToolCallingAdvisor toolSearchAdvisor
     ) {
-        return ChatClient
-            .builder(model)
+        List<Advisor> advisors = new ArrayList<>();
+
+        // 1. 基础内存（Redis/MySQL）
+        advisors.add(MessageChatMemoryAdvisor.builder(chatMemory).order(1).build());
+
+        // 2. 向量内存 - 根据 vectorEnabled 和 conversationVectorStore 是否存在来决定
+        if (vectorStoreEnabled && conversationVectorStore != null) {
+            advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore)
+                .order(2)
+                .defaultTopK(vectorStoreChatMemoryDefaultTopK)
+                .build());
+        }
+
+        // 3. 工具搜索顾问 - 如果 ToolIndex 依赖向量库，这里也需要做判断
+        advisors.add(toolSearchAdvisor);
+
+        // 4. 日志顾问
+        advisors.add(new SimpleLoggerAdvisor(3));
+
+        return ChatClient.builder(model)
             .defaultSystem(systemSimplifyPromptResource)
             .defaultTools(tools)
-            .defaultAdvisors(
-                MessageChatMemoryAdvisor.builder(chatMemory).order(1).build(), //redis/mysql存储会话记忆
-                //VectorStoreChatMemoryAdvisor.builder(conversationVectorStore).order(2).defaultTopK(vectorStoreChatMemoryDefaultTopK).build(), //向量库存储全量会话
-                new SimpleLoggerAdvisor(3)
-            )
+            .defaultAdvisors(advisors) // 传入动态构建的列表
             .build();
     }
 
     /**
      * 会话标题概述会话
+     *
      * @param model
      * @return
      */
@@ -85,6 +139,7 @@ public class ChatClientConfig {
 
     /**
      * 向量压缩会话
+     *
      * @param model
      * @return
      */
@@ -106,6 +161,7 @@ public class ChatClientConfig {
 
     /**
      * 文档解析后内容再次解析会话
+     *
      * @param model
      * @return
      */
@@ -142,6 +198,7 @@ public class ChatClientConfig {
 
     /**
      * ocr图片解析会话
+     *
      * @return
      */
     @Bean("minerUChatClient")

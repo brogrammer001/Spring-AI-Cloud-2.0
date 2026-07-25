@@ -1,4 +1,4 @@
-package com.mall.aichat.config;
+package com.mall.aichat.service.impl;
 
 import com.mall.aichat.domain.SysChatHistory;
 import com.mall.aichat.service.ISysChatHistoryService;
@@ -14,9 +14,10 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -27,18 +28,19 @@ import java.util.stream.Collectors;
 /**
  * 向量库会话配置
  */
-@Component
-public class VectorCompressionConfig {
+@Service
+public class VectorCompressionService {
 
-    private static final Logger log = LoggerFactory.getLogger(VectorCompressionConfig.class);
+    private static final Logger log = LoggerFactory.getLogger(VectorCompressionService.class);
 
-    @Resource(name = "conversationVectorStore")
+    @Autowired(required = false)
+    @Qualifier("conversationVectorStore")
     private VectorStore vectorStore;
 
     @Resource(name = "compressChatClient")
     private ChatClient chatClient; // 用于提取摘要/事实
 
-    @Value("${vector-store.compression-threshold}")
+    @Value("${vectorstore.compression-threshold}")
     private int compressionThreshold;
 
     @Autowired

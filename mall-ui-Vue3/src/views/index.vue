@@ -566,6 +566,15 @@ const sendMessage = async () => {
         const trimmedLine = line.trim();
         if (!trimmedLine) continue;
 
+        if (trimmedLine.startsWith("event:")) {
+          const eventType = trimmedLine.substring(6).trim();
+          if (eventType === "done") {
+            streamEnded = true;
+            break;
+          }
+          continue;
+        }
+
         let content = trimmedLine;
         if (content.startsWith("data:")) {
           content = content.substring(5).trim();
@@ -574,30 +583,7 @@ const sendMessage = async () => {
 
         try {
           const jsonData = JSON.parse(content);
-          const { msg, code } = jsonData;
-
-          if (code === -1) {
-            streamEnded = true;
-            break;
-          }
-
-          if (code === 500) {
-            if (msg && typeof msg === "string") {
-              if (msg.startsWith('{')) {
-                try {
-                  const innerJson = JSON.parse(msg);
-                  const innerMsg = innerJson.msg || msg;
-                  messages.value[messageIndex].content += innerMsg;
-                } catch (e) {
-                  messages.value[messageIndex].content += msg;
-                }
-              } else {
-                messages.value[messageIndex].content += msg;
-              }
-            }
-            scrollToBottom();
-            continue;
-          }
+          const { msg } = jsonData;
 
           if (msg && typeof msg === "string") {
             if (!isInnerJson && msg.startsWith('{')) {
@@ -734,19 +720,21 @@ const tryParseInnerJson = (buffer, messageIndex, isInnerJson) => {
     const innerCode = parsed.code;
     const innerData = parsed.data;
 
-    if (innerMsg && typeof innerMsg === 'string') {
-      messages.value[messageIndex].content += innerMsg;
-      scrollToBottom();
-    }
-
     if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
+      messages.value[messageIndex].content += innerMsg;
       messages.value[messageIndex].routeUrl = innerData;
+      scrollToBottom();
       setTimeout(() => {
         handleRouteJump(innerData.trim(), { proxy, router });
       }, 500);
     } else if (innerCode === 500) {
-      messages.value[messageIndex].content += '\n\n错误: ' + (innerMsg || '');
+      messages.value[messageIndex].content += innerMsg;
       scrollToBottom();
+    } else {
+      if (innerMsg && typeof innerMsg === 'string') {
+        messages.value[messageIndex].content += innerMsg;
+        scrollToBottom();
+      }
     }
     return true;
   }
@@ -776,19 +764,21 @@ const processRemainingBuffer = (buffer, messageIndex, isInnerJson) => {
     const innerCode = parsed.code;
     const innerData = parsed.data;
 
-    if (innerMsg && typeof innerMsg === 'string') {
-      messages.value[messageIndex].content += innerMsg;
-      scrollToBottom();
-    }
-
     if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
+      messages.value[messageIndex].content += innerMsg;
       messages.value[messageIndex].routeUrl = innerData;
+      scrollToBottom();
       setTimeout(() => {
         handleRouteJump(innerData.trim(), { proxy, router });
       }, 500);
     } else if (innerCode === 500) {
-      messages.value[messageIndex].content += '\n\n错误: ' + (innerMsg || '');
+      messages.value[messageIndex].content += innerMsg;
       scrollToBottom();
+    } else {
+      if (innerMsg && typeof innerMsg === 'string') {
+        messages.value[messageIndex].content += innerMsg;
+        scrollToBottom();
+      }
     }
   } else {
     messages.value[messageIndex].content += buffer;

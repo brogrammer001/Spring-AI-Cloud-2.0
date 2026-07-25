@@ -28,6 +28,11 @@ spring:
         transcription: none
       moderation: none
     chat:
+      client:
+        tool-search-advisor:
+          enabled: true
+          tool-index-type: lucene #vector
+          max-results: 3               # 每次搜索最多返回几个工具
       memory:
         repository:
           jdbc:
@@ -81,11 +86,15 @@ mineru:
     base-url: http://127.0.0.1:8890/v1     # vLLM 默认 8000；SGLang 用 30000
     api-key: 123456
     model: opendatalab/MinerU2.5-Pro-2605-1.2B   # 必须与 vllm serve 的模型名一致
-weaviate:
-  knowledge-object-class: KnowledgeBase
-  chat-memory-object-class: ConversationHistory
-vector-store:
+
+vectorstore:
+  enabled: false #开启全局向量功能
   chat-memory-default-topk: 1
   compression-threshold: 4
+  weaviate:
+    knowledge-object-class: KnowledgeBase
+    chat-memory-object-class: ConversationHistory
+    tool-index-object-class: toolIndex
+
 chat-memory:
   max-messages: 4

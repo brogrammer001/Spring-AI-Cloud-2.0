@@ -18,6 +18,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -50,14 +52,18 @@ public class AiConversationServiceImpl implements IAiConversationService {
     @Autowired
     private ISysChatHistoryService sysChatHistoryService;
 
-    @Resource(name = "conversationVectorStore")
-    private VectorStore vectorStore;
+    @Autowired(required = false)
+    @Qualifier("conversationVectorStore")
+    private VectorStore conversationVectorStore;
 
     @Resource(name = "titleChatClient")
     public ChatClient titleChatClient;
 
     @Resource(name = "taskExecutor")
     public Executor taskExecutor;
+
+    @Value("${vectorstore.enabled}")
+    private boolean vectorStoreEnabled;
 
     /**
      * 查询【请填写功能名称】
@@ -197,9 +203,11 @@ public class AiConversationServiceImpl implements IAiConversationService {
         //删除redis缓存
         mallRedisTemplate.delete(chatConversationKey);
 
-        //删除向量库会话
-        FilterExpressionBuilder b = new FilterExpressionBuilder();
-        vectorStore.delete(b.in("conversationId", conversationIds).build());
+        if (vectorStoreEnabled) {
+            //删除向量库会话
+            FilterExpressionBuilder b = new FilterExpressionBuilder();
+            conversationVectorStore.delete(b.in("conversationId", conversationIds).build());
+        }
 
         if (i == 0 || j == 0 || z == 0) {
             throw new ServiceException("删除会话失败");

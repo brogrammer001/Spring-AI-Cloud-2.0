@@ -1,19 +1,19 @@
 package com.mall.chatmcp.sevice.impl;
 
 import com.mall.chatmcp.bo.SysUserBo;
-import com.mall.chatmcp.bo.UserDeptBo;
-import com.mall.chatmcp.bo.UserPostBo;
 import com.mall.chatmcp.bo.UserRoleBo;
+import com.mall.chatmcp.bo.UserPostBo;
+import com.mall.chatmcp.bo.UserDeptBo;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
-import com.mall.system.api.RemoteDeptService;
-import com.mall.system.api.RemotePostService;
-import com.mall.system.api.RemoteRoleService;
 import com.mall.system.api.RemoteUserService;
-import com.mall.system.api.domain.SysDept;
-import com.mall.system.api.domain.SysPost;
-import com.mall.system.api.domain.SysRole;
+import com.mall.system.api.RemoteDeptService;
+import com.mall.system.api.RemoteRoleService;
+import com.mall.system.api.RemotePostService;
 import com.mall.system.api.domain.SysUser;
+import com.mall.system.api.domain.SysDept;
+import com.mall.system.api.domain.SysRole;
+import com.mall.system.api.domain.SysPost;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,11 +49,13 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
             return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
         }
 
-        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
-            case "add" -> handleAdd(userBo);
-            case "update" -> handleUpdate(userBo);
-            case "delete" -> handleDelete(userBo);
-            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+        return executeWithErrorHandling(() -> {
+            return switch (operationType.toLowerCase()) {
+                case "add" -> handleAdd(userBo);
+                case "update" -> handleUpdate(userBo);
+                case "delete" -> handleDelete(userBo);
+                default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+            };
         }, "用户操作");
     }
 

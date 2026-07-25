@@ -1,15 +1,18 @@
 package com.mall.chatmcp;
 
+import com.mall.common.security.annotation.EnableRyFeignClients;
+import com.mall.common.security.feign.FeignAutoConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
-import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.context.annotation.Import;
 
 
-@EnableFeignClients(basePackages="com.mall")
+@EnableRyFeignClients
 @SpringBootApplication(exclude = {
     DataSourceAutoConfiguration.class,
 })
+@Import({ FeignAutoConfiguration.class })
 public class MallChatMcpServerApplication {
     public static void main(String[] args) {
         SpringApplication.run(MallChatMcpServerApplication.class, args);

@@ -1,15 +1,15 @@
-package com.mall.aichat.config;
+package com.mall.aichat.service.impl;
 
 import com.mall.aichat.domain.KbKnowledgeBase;
 import com.mall.aichat.service.IKbKnowledgeBaseService;
-import jakarta.annotation.Resource;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,10 +17,11 @@ import java.util.stream.Collectors;
 /**
  * 检索向量知识库库配置
  */
-@Component
-public class RagConfig {
+@Service
+public class RagRetrieveContextService {
 
-    @Resource(name = "knowledgeVectorStore")
+    @Autowired(required = false)
+    @Qualifier("knowledgeVectorStore")
     private VectorStore vectorStore;
 
     @Autowired

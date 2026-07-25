@@ -20,6 +20,11 @@
     <dependencies>
 
         <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-tool-search-advisor</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp</artifactId>
         </dependency>

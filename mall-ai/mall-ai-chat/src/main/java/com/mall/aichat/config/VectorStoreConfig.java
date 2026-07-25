@@ -12,6 +12,7 @@ import org.springframework.ai.vectorstore.weaviate.WeaviateVectorStore;
 import org.springframework.ai.vectorstore.weaviate.WeaviateVectorStoreOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,15 +22,19 @@ import java.util.List;
  * 向量库配置
  */
 @Configuration
-public class WeaviateConfig {
+@ConditionalOnProperty(name = "vectorstore.enabled", havingValue = "true", matchIfMissing = true)
+public class VectorStoreConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(WeaviateConfig.class);
+    private static final Logger log = LoggerFactory.getLogger(VectorStoreConfig.class);
 
-    @Value("${weaviate.knowledge-object-class}")
+    @Value("${vectorstore.weaviate.knowledge-object-class}")
     private String weaviateKnowledgeObjectClass;
 
-    @Value("${weaviate.chat-memory-object-class}")
+    @Value("${vectorstore.weaviate.chat-memory-object-class}")
     private String weaviateChatMemoryObjectClass;
+
+    @Value("${vectorstore.weaviate.tool-index-object-class}")
+    private String weaviateToolIndexObjectClass;
 
     /**
      * ① 会话向量库 (用于 ChatMemoryAdvisor 检索对话历史)
@@ -62,6 +67,20 @@ public class WeaviateConfig {
     }
 
     /**
+     * ③ 工具索引向量库 (用于 ToolSearch 检索工具定义)
+     */
+    @Bean("toolVectorStore")
+    public VectorStore toolVectorStore(WeaviateClient weaviateClient, OpenAiEmbeddingModel embeddingModel) {
+        WeaviateVectorStoreOptions weaviateOptions = new WeaviateVectorStoreOptions();
+        weaviateOptions.setObjectClass(weaviateToolIndexObjectClass);
+
+        return WeaviateVectorStore.builder(weaviateClient, embeddingModel)
+            .options(weaviateOptions)
+            // 工具检索不需要复杂的元数据过滤，或者可以根据业务需要添加
+            .build();
+    }
+
+    /**
      * 统一的 Schema 自动初始化器
      */
     @Bean
@@ -80,6 +99,13 @@ public class WeaviateConfig {
                 Property.builder().name("metadata").dataType(List.of("text")).build(),
                 Property.builder().name(weaviateOptions.getContentFieldName()).dataType(List.of("text")).build(),
                 Property.builder().name(weaviateOptions.getMetaFieldPrefix() + "knowledgeId").dataType(List.of("text")).build()
+            ));
+
+            // 3. 创建工具索引 Schema
+            createSchemaIfNotExists(weaviateClient, weaviateToolIndexObjectClass, List.of(
+                Property.builder().name("metadata").dataType(List.of("text")).build(),
+                Property.builder().name(weaviateOptions.getContentFieldName()).dataType(List.of("text")).build()
+                // 工具索引通常只存 name 和 description，不需要额外的业务 metadata
             ));
         };
     }

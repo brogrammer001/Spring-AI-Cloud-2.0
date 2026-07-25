@@ -36,6 +36,10 @@ public class SaLlmConfig {
     @Value("${mineru.token}")
     private String token;
 
+    /**
+     * 配置 MinerU请求接口
+     * @return
+     */
     @Bean
     public RestClient mineruRestClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -68,6 +72,10 @@ public class SaLlmConfig {
         return new FullHistoryChatMemory(memory, sysChatHistoryService, mallRedisTemplate);
     }
 
+    /**
+     * 配置线程池
+     * @return
+     */
     @Bean("taskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

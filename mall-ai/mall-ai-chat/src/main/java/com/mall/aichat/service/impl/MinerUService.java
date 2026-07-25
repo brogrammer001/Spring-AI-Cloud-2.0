@@ -1,4 +1,4 @@
-package com.mall.aichat.config;
+package com.mall.aichat.service.impl;
 
 import com.mall.aichat.domain.MinerUBatchResult;
 import com.mall.aichat.domain.MinerUResult;
@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.io.ByteArrayInputStream;
@@ -30,7 +30,7 @@ import java.util.zip.ZipInputStream;
 /**
  * MinerU解析文档配置
  */
-@Component
+@Service
 public class MinerUService {
 
     private static final Logger log = LoggerFactory.getLogger(MinerUService.class);
