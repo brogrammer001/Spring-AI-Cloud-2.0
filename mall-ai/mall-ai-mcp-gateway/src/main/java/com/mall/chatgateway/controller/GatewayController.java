@@ -1,7 +1,5 @@
 package com.mall.chatgateway.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +15,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/gateway")
 public class GatewayController {
     private final ToolCallbackProvider toolCallbackProvider;
-    private final static Logger log = LoggerFactory.getLogger(GatewayController.class);
 
     public GatewayController(ToolCallbackProvider toolCallbackProvider) {
         this.toolCallbackProvider = toolCallbackProvider;
@@ -32,7 +29,8 @@ public class GatewayController {
         return Arrays.stream(toolCallbacks)
             .map(tool -> Map.of(
                 "name", tool.getToolDefinition().name(),
-                "description", tool.getToolDefinition().description()
+                "description", tool.getToolDefinition().description(),
+                "inputSchema", tool.getToolDefinition().inputSchema()
             ))
             .collect(Collectors.toList());
     }

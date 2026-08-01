@@ -28,7 +28,7 @@ public class NoticePostToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "通知公告的新增、修改、删除。参数包含 operationType(add/update/delete)和公告实体。 [JSON]")
+    @Tool(description = "通知公告的新增、修改、删除。参数包含 operationType(add/update/delete)和公告实体。 ")
     public AjaxResult noticeCrud(SysNoticeBo noticeBo) {
         String operationType = noticeBo.getOperationType();
         if (operationType == null || operationType.isEmpty()) {
@@ -74,7 +74,7 @@ public class NoticePostToolServiceImpl extends BaseToolServiceImpl {
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());
     }
 
-    @Tool(description = "岗位数据的新增、修改、删除。参数包含 operationType(add/update/delete)和岗位实体。 [JSON]")
+    @Tool(description = "岗位数据的新增、修改、删除。参数包含 operationType(add/update/delete)和岗位实体。 ")
     public AjaxResult postCrud(SysPostBo postBo) {
         String operationType = postBo.getOperationType();
         if (operationType == null || operationType.isEmpty()) {

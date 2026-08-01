@@ -75,6 +75,9 @@ logging:
     org.springframework.ai: DEBUG
     org.springframework.web.client: DEBUG
     org.springframework.http: DEBUG
+    org.springframework.ai.mcp: TRACE
+    io.modelcontextprotocol: TRACE
+    org.springframework.web.reactive.function.client: DEBUG
 
 mineru:
   base-url: https://mineru.net

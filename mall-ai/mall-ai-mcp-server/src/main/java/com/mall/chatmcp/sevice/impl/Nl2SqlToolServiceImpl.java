@@ -35,7 +35,7 @@ public class Nl2SqlToolServiceImpl {
             Pattern.DOTALL
     );
 
-    @Tool(description = "自然语言转SQL查询工具。用户输入自然语言问题，系统自动生成并执行SQL语句返回结果。 [JSON]")
+    @Tool(description = "自然语言转SQL查询工具。用户输入自然语言问题，系统自动生成并执行SQL语句返回结果。 ")
     public AjaxResult nl2SqlQuery(SqlQueryBo sqlQueryBo) {
         BindingResult bindingResult = new BeanPropertyBindingResult(sqlQueryBo, "sqlQueryBo");
         validator.validate(sqlQueryBo, bindingResult);
@@ -275,7 +275,7 @@ public class Nl2SqlToolServiceImpl {
         }
     }
 
-    @Tool(description = "获取指定表的详细结构信息，包括字段名、数据类型、是否可空、备注等。 [JSON]")
+    @Tool(description = "获取指定表的详细结构信息，包括字段名、数据类型、是否可空、备注等。 ")
     public AjaxResult getTableStructure(SqlQueryBo sqlQueryBo) {
         if (sqlQueryBo.getTableNames() == null || sqlQueryBo.getTableNames().length == 0) {
             return AjaxResult.error("请指定表名");

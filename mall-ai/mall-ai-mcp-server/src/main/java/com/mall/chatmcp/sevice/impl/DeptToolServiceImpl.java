@@ -24,7 +24,7 @@ public class DeptToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "部门数据的新增、修改、删除。参数包含 operationType(add/update/delete)和部门实体。 [JSON]")
+    @Tool(description = "部门数据的新增、修改、删除。参数包含 operationType(add/update/delete)和部门实体。 ")
     public AjaxResult deptCrud(SysDeptBo deptBo) {
         String operationType = deptBo.getOperationType();
         if (operationType == null || operationType.isEmpty()) {

@@ -36,7 +36,7 @@ public class RoleToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "角色数据的新增、修改、删除。参数包含 operationType(add/update/delete)和角色实体。 [JSON]")
+    @Tool(description = "角色数据的新增、修改、删除。参数包含 operationType(add/update/delete)和角色实体。 ")
     public AjaxResult roleCrud(SysRoleBo roleBo) {
         String operationType = roleBo.getOperationType();
         if (operationType == null || operationType.isEmpty()) {
@@ -88,7 +88,7 @@ public class RoleToolServiceImpl extends BaseToolServiceImpl {
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());
     }
 
-    @Tool(description = "为角色分配数据权限范围（部门）。 [JSON]")
+    @Tool(description = "为角色分配数据权限范围（部门）。 ")
     public AjaxResult roleDeptAuth(RoleDeptBo roleDeptBo) {
         return executeWithErrorHandling(() -> {
             Long roleId = getRoleIdByName(roleDeptBo.getRoleName());
@@ -116,7 +116,7 @@ public class RoleToolServiceImpl extends BaseToolServiceImpl {
         }, "角色数据权限分配");
     }
 
-    @Tool(description = "为角色分配菜单权限。 [JSON]")
+    @Tool(description = "为角色分配菜单权限。 ")
     public AjaxResult roleMenuAuth(RoleMenuBo roleMenuBo) {
         return executeWithErrorHandling(() -> {
             Long roleId = getRoleIdByName(roleMenuBo.getRoleName());

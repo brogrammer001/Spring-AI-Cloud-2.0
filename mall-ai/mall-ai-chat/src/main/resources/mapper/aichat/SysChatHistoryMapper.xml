@@ -12,10 +12,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="sequenceId"    column="sequence_id"    />
         <result property="userName"    column="user_name"    />
         <result property="isCompression"    column="is_compression"    />
+        <result property="toolCalls"    column="tool_calls"    />
     </resultMap>
 
     <sql id="selectSysChatHistoryVo">
-        select id, conversation_id, content, type, timestamp, sequence_id, is_compression from sys_chat_history t1
+        select id, conversation_id, content, type, timestamp, sequence_id, is_compression, tool_calls from sys_chat_history t1
     </sql>
 
     <select id="selectSysChatHistoryList" parameterType="SysChatHistory" resultMap="SysChatHistoryResult">
@@ -27,6 +28,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         TIMESTAMP,
         sequence_id,
         is_compression,
+        tool_calls,
         u.user_name
         FROM
         sys_chat_history t1
@@ -40,6 +42,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="timestamp != null "> and t1.timestamp = #{timestamp}</if>
             <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
             <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
+            <if test="toolCalls != null  and toolCalls != ''"> and t1.tool_calls = #{toolCalls}</if>
         </where>
         order by t1.sequence_id asc
     </select>
@@ -53,6 +56,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         TIMESTAMP,
         sequence_id,
         is_compression,
+        tool_calls,
         u.user_name
         FROM
         sys_chat_history t1
@@ -78,6 +82,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="timestamp != null "> and t1.timestamp = #{timestamp}</if>
             <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
             <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
+            <if test="toolCalls != null  and toolCalls != ''"> and t1.tool_calls = #{toolCalls}</if>
         </where>
     </select>
 
@@ -90,6 +95,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="timestamp != null">timestamp,</if>
             <if test="sequenceId != null">sequence_id,</if>
             <if test="isCompression != null">is_compression,</if>
+            <if test="toolCalls != null and toolCalls != ''">tool_calls,</if>
             <if test="id != null">id,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -99,6 +105,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="timestamp != null">#{timestamp},</if>
             <if test="sequenceId != null">#{sequenceId},</if>
             <if test="isCompression != null">#{isCompression},</if>
+            <if test="toolCalls != null and toolCalls != ''">#{toolCalls},</if>
             <if test="id != null">#{id},</if>
          </trim>
     </insert>
@@ -111,6 +118,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="timestamp != null">timestamp = #{timestamp},</if>
             <if test="sequenceId != null">sequence_id = #{sequenceId},</if>
             <if test="isCompression != null">is_compression = #{isCompression},</if>
+            <if test="toolCalls != null">tool_calls = #{toolCalls},</if>
         </trim>
         where id = #{id}
     </update>

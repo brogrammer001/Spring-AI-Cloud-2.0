@@ -6,6 +6,8 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.mall.common.core.constant.Constants;
 import com.mall.common.core.utils.StringUtils;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -33,12 +35,12 @@ public class RedisCachedAndMysqlMemoryRepository implements ChatMemoryRepository
     }
 
     @Override
-    public List<String> findConversationIds() {
+    public @NonNull List<String> findConversationIds() {
         return jdbcChatMemoryRepository.findConversationIds();
     }
 
     @Override
-    public List<Message> findByConversationId(String conversationId) {
+    public @Nullable List<Message> findByConversationId(@NonNull String conversationId) {
         String key = Constants.CHAT_MEMORY_KEY + conversationId;
         try {
             // 1. 先查 Redis
@@ -58,26 +60,21 @@ public class RedisCachedAndMysqlMemoryRepository implements ChatMemoryRepository
     }
 
     @Override
-    public void saveAll(String conversationId, List<Message> messages) {
+    public void saveAll(@NonNull String conversationId, @NonNull List<Message> messages) {
         try {
             // 1. 先落库
             jdbcChatMemoryRepository.saveAll(conversationId, messages);
             // 2. 更新缓存
-            mallRedisTemplate.opsForValue().set(Constants.CHAT_MEMORY_KEY + conversationId,
-                serialize(messages), TTL_DAYS, TimeUnit.DAYS);
+            mallRedisTemplate.opsForValue().set(Constants.CHAT_MEMORY_KEY + conversationId, serialize(messages), TTL_DAYS, TimeUnit.DAYS);
         } catch (Exception e) {
             // 缓存更新失败不影响主流程，可打印日志
         }
     }
 
     @Override
-    public void deleteByConversationId(String conversationId) {
+    public void deleteByConversationId(@NonNull String conversationId) {
         //统一删除方法AiConversationServiceImpl.deleteByConversationId
     }
-
-    // ==========================================
-    // 核心优化：序列化与反序列化方法
-    // ==========================================
 
     private String serialize(List<Message> messages) {
         // Feature.WriteClassName: 关键特性！

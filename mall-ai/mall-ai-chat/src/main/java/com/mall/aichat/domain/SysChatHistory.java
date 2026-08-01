@@ -50,6 +50,10 @@ public class SysChatHistory extends BaseEntity
     @Excel(name = "是否压缩")
     private String isCompression;
 
+    /** 工具调用参数JSON */
+    @Excel(name = "工具调用参数")
+    private String toolCalls;
+
     @TableField(exist = false)
     private String userName;
 
@@ -59,6 +63,14 @@ public class SysChatHistory extends BaseEntity
 
     public void setIsCompression(String isCompression) {
         this.isCompression = isCompression;
+    }
+
+    public String getToolCalls() {
+        return toolCalls;
+    }
+
+    public void setToolCalls(String toolCalls) {
+        this.toolCalls = toolCalls;
     }
 
     public String getUserName() {
@@ -135,6 +147,7 @@ public class SysChatHistory extends BaseEntity
             .append("type", getType())
             .append("timestamp", getTimestamp())
             .append("sequenceId", getSequenceId())
+            .append("toolCalls", getToolCalls())
             .toString();
     }
 }

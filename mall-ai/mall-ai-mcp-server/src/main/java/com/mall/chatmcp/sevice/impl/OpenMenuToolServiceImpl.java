@@ -17,7 +17,7 @@ public class OpenMenuToolServiceImpl extends BaseToolServiceImpl {
     @Autowired
     private RemoteMenuService remoteMenuService;
 
-    @Tool(description = "菜单导航工具。输入：菜单名称。功能：获取菜单组件路径以供前端跳转。 [JSON]")
+    @Tool(description = "菜单导航工具。输入：菜单名称。功能：获取菜单组件路径以供前端跳转。 [JSON]", returnDirect = true)
     public AjaxResult getMenu(@ToolParam(description = "菜单名称") String menuName) {
         return executeWithErrorHandling(() -> {
             SysMenuVo menu = new SysMenuVo();

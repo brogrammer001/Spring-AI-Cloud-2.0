@@ -65,7 +65,7 @@ public class ChatController {
                 AssistantMessage output = chatResponse.getResult().getOutput();
 
                 // 【核心】获取并处理工具调用信息
-                if (!output.getToolCalls().isEmpty()) {
+                if (output.hasToolCalls()) {
                     // 记录工具调用信息 (可在此处做埋点、鉴权或日志上报)
                     log.info("会话 [{}] 触发工具调用: {}", conversationId, output.getToolCalls());
 
@@ -76,8 +76,6 @@ public class ChatController {
                         .data(AjaxResult.success("正在调用外部工具..."))
                         .build());
 
-                    // 注意：如果 Spring AI 底层自动执行了工具并返回了最终文本，
-                    // 这个 chunk 本身不包含文本，所以不用往下发文本包。
                 }
 
                 // 【正常分支】提取文本内容发给前端
@@ -93,7 +91,7 @@ public class ChatController {
                 return Flux.empty();
             })
             // 4. 增加超时控制，防止大模型卡死导致连接挂死
-            .timeout(Duration.ofSeconds(60))
+            .timeout(Duration.ofSeconds(600))
             // 5. 结束标记：显式指定事件名为 done
             .concatWith(Flux.just(
                 ServerSentEvent.<AjaxResult>builder()

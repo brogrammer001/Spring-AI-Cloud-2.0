@@ -39,7 +39,7 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
           const { msg } = jsonData;
 
           if (msg && typeof msg === 'string') {
-            if (!isInnerJson && msg.startsWith('{')) {
+            if (!isInnerJson && (msg.startsWith('{') || msg.startsWith('['))) {
               isInnerJson = true;
             }
             innerBuffer += msg;
@@ -66,7 +66,7 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
           const { msg } = jsonData;
 
           if (msg && typeof msg === 'string') {
-            if (!isInnerJson && msg.startsWith('{')) {
+            if (!isInnerJson && (msg.startsWith('{') || msg.startsWith('['))) {
               isInnerJson = true;
             }
             innerBuffer += msg;
@@ -90,6 +90,38 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
   }
 }
 
+function parseNestedJson(buffer) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(buffer);
+  } catch (e) {
+    return null;
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    if (parsed.msg !== undefined && parsed.code !== undefined) {
+      return parsed;
+    }
+  }
+
+  if (Array.isArray(parsed) && parsed.length > 0) {
+    const firstItem = parsed[0];
+    if (firstItem && firstItem.text) {
+      let textParsed = null;
+      try {
+        textParsed = JSON.parse(firstItem.text);
+      } catch (e) {
+        return null;
+      }
+      if (textParsed && typeof textParsed === 'object') {
+        return textParsed;
+      }
+    }
+  }
+
+  return null;
+}
+
 function tryParseInnerJson(buffer, isInnerJson, onTextChange, onJsonChunk) {
   if (!buffer) return false;
 
@@ -98,14 +130,9 @@ function tryParseInnerJson(buffer, isInnerJson, onTextChange, onJsonChunk) {
     return true;
   }
 
-  let parsed = null;
-  try {
-    parsed = JSON.parse(buffer);
-  } catch (e) {
-    return false;
-  }
+  const parsed = parseNestedJson(buffer);
 
-  if (parsed && typeof parsed === 'object') {
+  if (parsed) {
     const innerMsg = parsed.msg || '';
     const innerCode = parsed.code;
     const innerData = parsed.data;
@@ -149,15 +176,9 @@ function processRemainingBuffer(buffer, isInnerJson, onTextChange, onJsonChunk) 
     return;
   }
 
-  let parsed = null;
-  try {
-    parsed = JSON.parse(buffer);
-  } catch (e) {
-    onTextChange && onTextChange(buffer);
-    return;
-  }
+  const parsed = parseNestedJson(buffer);
 
-  if (parsed && typeof parsed === 'object') {
+  if (parsed) {
     const innerMsg = parsed.msg || '';
     const innerCode = parsed.code;
     const innerData = parsed.data;

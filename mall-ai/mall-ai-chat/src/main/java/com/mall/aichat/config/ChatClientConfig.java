@@ -1,5 +1,6 @@
 package com.mall.aichat.config;
 
+import com.mall.aichat.advisor.WrappedMcpToolCallbackProvider;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
@@ -9,9 +10,9 @@ import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.mcp.AsyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.toolsearch.ToolIndex;
 import org.springframework.ai.tool.toolsearch.index.lucene.LuceneToolIndex;
 import org.springframework.ai.tool.toolsearch.index.vectorstore.VectorToolIndex;
@@ -91,8 +92,8 @@ public class ChatClientConfig {
     @Bean(name = "qwenChatClient")
     public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
                                      @Qualifier("conversationVectorStore") @Autowired(required = false) VectorStore conversationVectorStore,
-                                     @Qualifier("mcpAsyncToolCallbacks") ToolCallbackProvider tools,
-                                     ToolSearchToolCallingAdvisor toolSearchAdvisor
+                                     ToolSearchToolCallingAdvisor toolSearchAdvisor,
+                                     @Qualifier("mcpAsyncToolCallbacks") AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
 
@@ -113,9 +114,11 @@ public class ChatClientConfig {
         // 4. 日志顾问
         advisors.add(new SimpleLoggerAdvisor(3));
 
+        WrappedMcpToolCallbackProvider wrappedMcpToolCallbackProvider = new WrappedMcpToolCallbackProvider(tools);
+
         return ChatClient.builder(model)
             .defaultSystem(systemSimplifyPromptResource)
-            .defaultTools(tools)
+            .defaultTools(wrappedMcpToolCallbackProvider)
             .defaultAdvisors(advisors) // 传入动态构建的列表
             .build();
     }

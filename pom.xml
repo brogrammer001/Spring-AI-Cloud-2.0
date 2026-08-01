@@ -51,11 +51,6 @@
     <!-- 依赖声明 -->
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.modelcontextprotocol.sdk</groupId>
-                <artifactId>mcp</artifactId>
-                <version>${spring-ai.version}</version>
-            </dependency>
 
             <dependency>
                 <groupId>io.modelcontextprotocol.sdk</groupId>
@@ -73,12 +68,6 @@
                 <groupId>com.github.victools</groupId>
                 <artifactId>jsonschema-module-jackson</artifactId>
                 <version>${jsonschema-module-jackson.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.alibaba.cloud.ai</groupId>
-                <artifactId>spring-ai-alibaba-starter-mcp-distributed</artifactId>
-                <version>${SpringAIAlibaba.version}</version>
             </dependency>
 
             <dependency>

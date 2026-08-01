@@ -586,7 +586,7 @@ const sendMessage = async () => {
           const { msg } = jsonData;
 
           if (msg && typeof msg === "string") {
-            if (!isInnerJson && msg.startsWith('{')) {
+            if (!isInnerJson && (msg.startsWith('{') || msg.startsWith('['))) {
               isInnerJson = true;
             }
             innerBuffer += msg;
@@ -699,6 +699,38 @@ const processChunk = (dataPart, messageIndex, currentConversationId) => {
   }
 };
 
+const parseNestedJson = (buffer) => {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(buffer);
+  } catch (e) {
+    return null;
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    if (parsed.msg !== undefined && parsed.code !== undefined) {
+      return parsed;
+    }
+  }
+
+  if (Array.isArray(parsed) && parsed.length > 0) {
+    const firstItem = parsed[0];
+    if (firstItem && firstItem.text) {
+      let textParsed = null;
+      try {
+        textParsed = JSON.parse(firstItem.text);
+      } catch (e) {
+        return null;
+      }
+      if (textParsed && typeof textParsed === 'object') {
+        return textParsed;
+      }
+    }
+  }
+
+  return null;
+};
+
 const tryParseInnerJson = (buffer, messageIndex, isInnerJson) => {
   if (!buffer) return false;
 
@@ -708,14 +740,9 @@ const tryParseInnerJson = (buffer, messageIndex, isInnerJson) => {
     return true;
   }
 
-  let parsed = null;
-  try {
-    parsed = JSON.parse(buffer);
-  } catch (e) {
-    return false;
-  }
+  const parsed = parseNestedJson(buffer);
 
-  if (parsed && typeof parsed === 'object') {
+  if (parsed) {
     const innerMsg = parsed.msg || '';
     const innerCode = parsed.code;
     const innerData = parsed.data;
@@ -750,16 +777,9 @@ const processRemainingBuffer = (buffer, messageIndex, isInnerJson) => {
     return;
   }
 
-  let parsed = null;
-  try {
-    parsed = JSON.parse(buffer);
-  } catch (e) {
-    messages.value[messageIndex].content += buffer;
-    scrollToBottom();
-    return;
-  }
+  const parsed = parseNestedJson(buffer);
 
-  if (parsed && typeof parsed === 'object') {
+  if (parsed) {
     const innerMsg = parsed.msg || '';
     const innerCode = parsed.code;
     const innerData = parsed.data;

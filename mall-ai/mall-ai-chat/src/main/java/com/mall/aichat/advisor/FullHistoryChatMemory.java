@@ -1,5 +1,6 @@
 package com.mall.aichat.advisor;
 
+import com.alibaba.fastjson2.JSON;
 import com.mall.aichat.domain.SysChatHistory;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
@@ -12,6 +13,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 public class FullHistoryChatMemory implements ChatMemory {
 
@@ -32,14 +34,24 @@ public class FullHistoryChatMemory implements ChatMemory {
         delegateWindowMemory.add(conversationId, messages);
 
         List<SysChatHistory> sysChatHistories = messages.stream()
-            .filter(m -> !(m instanceof ToolResponseMessage)
-                && !(m instanceof AssistantMessage am && am.hasToolCalls()))
+            .filter(m -> !(m instanceof ToolResponseMessage))
             .map(message -> {
                 Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
                 SysChatHistory sysChatHistory = new SysChatHistory();
                 sysChatHistory.setId(IdUtils.fastUUID());
                 sysChatHistory.setConversationId(conversationId);
-                sysChatHistory.setContent(message.getText());
+
+                // 处理内容
+                String contentToStore = message.getText();
+                sysChatHistory.setContent(contentToStore);
+                // 如果是包含工具调用的 AssistantMessage，必须把 ToolCalls 序列化存入
+                if (message instanceof AssistantMessage am && am.hasToolCalls()) {
+                    // 注意：你需要把 toolCalls 转换成 JSON 字符串存下来
+                    sysChatHistory.setToolCalls(JSON.toJSONString(am.getToolCalls()));
+                    Map<String, Object> metadata = am.getMetadata();
+
+                    sysChatHistory.setContent((String) metadata.get("reasoningContent"));
+                }
                 sysChatHistory.setTimestamp(new Date());
                 sysChatHistory.setIsCompression("N");
                 sysChatHistory.setType(message.getMessageType().getValue());

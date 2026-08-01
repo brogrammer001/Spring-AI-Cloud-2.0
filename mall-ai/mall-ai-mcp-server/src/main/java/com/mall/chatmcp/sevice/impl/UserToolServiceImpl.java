@@ -1,19 +1,19 @@
 package com.mall.chatmcp.sevice.impl;
 
 import com.mall.chatmcp.bo.SysUserBo;
-import com.mall.chatmcp.bo.UserRoleBo;
-import com.mall.chatmcp.bo.UserPostBo;
 import com.mall.chatmcp.bo.UserDeptBo;
+import com.mall.chatmcp.bo.UserPostBo;
+import com.mall.chatmcp.bo.UserRoleBo;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
-import com.mall.system.api.RemoteUserService;
 import com.mall.system.api.RemoteDeptService;
-import com.mall.system.api.RemoteRoleService;
 import com.mall.system.api.RemotePostService;
-import com.mall.system.api.domain.SysUser;
+import com.mall.system.api.RemoteRoleService;
+import com.mall.system.api.RemoteUserService;
 import com.mall.system.api.domain.SysDept;
-import com.mall.system.api.domain.SysRole;
 import com.mall.system.api.domain.SysPost;
+import com.mall.system.api.domain.SysRole;
+import com.mall.system.api.domain.SysUser;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +42,7 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "用户数据的新增、修改、删除。参数包含 operationType(add/update/delete)和用户实体。 [JSON]")
+    @Tool(description = "用户数据的新增、修改、删除。参数包含 operationType(add/update/delete)和用户实体。 ")
     public AjaxResult userCrud(SysUserBo userBo) {
         String operationType = userBo.getOperationType();
         if (operationType == null || operationType.isEmpty()) {
@@ -140,7 +140,7 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());
     }
 
-    @Tool(description = "为用户分配角色。 [JSON]")
+    @Tool(description = "为用户分配角色。 ")
     public AjaxResult userRoleAuth(UserRoleBo userRoleBo) {
         return executeWithErrorHandling(() -> {
             Long userId = getUserIdByUserName(userRoleBo.getUserName());
@@ -165,7 +165,7 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
         }, "用户角色分配");
     }
 
-    @Tool(description = "为用户分配岗位。 [JSON]")
+    @Tool(description = "为用户分配岗位。 ")
     public AjaxResult userPostAuth(UserPostBo userPostBo) {
         return executeWithErrorHandling(() -> {
             Long userId = getUserIdByUserName(userPostBo.getUserName());
@@ -194,7 +194,7 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
         }, "用户岗位分配");
     }
 
-    @Tool(description = "修改用户所属部门。 [JSON]")
+    @Tool(description = "修改用户所属部门。 ")
     public AjaxResult userDeptAuth(UserDeptBo userDeptBo) {
         return executeWithErrorHandling(() -> {
             Long userId = getUserIdByUserName(userDeptBo.getUserName());

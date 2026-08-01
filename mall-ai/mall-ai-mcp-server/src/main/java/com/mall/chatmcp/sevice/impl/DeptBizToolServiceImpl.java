@@ -35,7 +35,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "创建部门并设置负责人，自动为负责人分配部门管理员角色。参数：部门信息(dept)、负责人用户名(adminUserName)。 [JSON]")
+    @Tool(description = "创建部门并设置负责人，自动为负责人分配部门管理员角色。参数：部门信息(dept)、负责人用户名(adminUserName)。")
     public AjaxResult createDeptWithAdmin(
             @ToolParam(description = "部门信息") SysDeptBo dept,
             @ToolParam(description = "负责人用户名") String adminUserName) {
@@ -98,7 +98,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         }, "创建部门并设置负责人");
     }
 
-    @Tool(description = "批量创建部门结构。参数：部门信息列表(deptList)。按顺序创建，支持父子关系。 [JSON]")
+    @Tool(description = "批量创建部门结构。参数：部门信息列表(deptList)。按顺序创建，支持父子关系。 ")
     public AjaxResult batchCreateDepts(
             @ToolParam(description = "部门信息列表") List<SysDeptBo> deptList) {
 
