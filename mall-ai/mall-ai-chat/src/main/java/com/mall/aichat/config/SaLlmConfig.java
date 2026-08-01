@@ -1,8 +1,6 @@
 package com.mall.aichat.config;
 
-import com.mall.aichat.advisor.FullHistoryChatMemory;
 import com.mall.aichat.advisor.RedisCachedAndMysqlMemoryRepository;
-import com.mall.aichat.service.ISysChatHistoryService;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -63,13 +61,12 @@ public class SaLlmConfig {
      * @return
      */
     @Bean
-    public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcChatMemoryRepository, ISysChatHistoryService sysChatHistoryService, StringRedisTemplate mallRedisTemplate) {
+    public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcChatMemoryRepository, StringRedisTemplate mallRedisTemplate) {
         ChatMemoryRepository chatMemoryRepository = new RedisCachedAndMysqlMemoryRepository(jdbcChatMemoryRepository, mallRedisTemplate);
-        MessageWindowChatMemory memory = MessageWindowChatMemory.builder()
+        return MessageWindowChatMemory.builder()
             .maxMessages(chatMemoryMaxMessages) //达到4条时，会直接删除最老的2条对话，偶数 ，向下取整
             .chatMemoryRepository(chatMemoryRepository)
             .build();
-        return new FullHistoryChatMemory(memory, sysChatHistoryService, mallRedisTemplate);
     }
 
     /**

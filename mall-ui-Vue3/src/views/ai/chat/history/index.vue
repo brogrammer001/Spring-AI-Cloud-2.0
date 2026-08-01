@@ -69,6 +69,13 @@
           <dict-tag :options="sys_ai_role" :value="scope.row.type" />
         </template>
       </el-table-column>
+      <el-table-column label="工具调用" align="center" prop="toolCalls" width="300">
+        <template #default="scope">
+          <el-tooltip :content="formatToolCalls(scope.row.toolCalls)" placement="top">
+            <span class="truncate-text">{{ formatToolCalls(scope.row.toolCalls) }}</span>
+          </el-tooltip>
+        </template>
+      </el-table-column>
       <el-table-column label="时间" align="center" prop="timestamp" width="180" />
       <el-table-column label="排序" align="center" prop="sequenceId" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
@@ -102,6 +109,9 @@
                 :value="dict.value"
             >{{ dict.label }}</el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="工具调用">
+          <el-input v-model="detailForm.toolCalls" type="textarea" :rows="5" disabled />
         </el-form-item>
         <el-form-item label="时间">
           <el-input v-model="detailForm.timestamp" disabled />
@@ -138,6 +148,7 @@ const detailForm = reactive({
   userName: '',
   content: '',
   type: '',
+  toolCalls: '',
   timestamp: '',
   sequenceId: ''
 })
@@ -203,6 +214,25 @@ function handleExport() {
   }, `history_${new Date().getTime()}.xlsx`)
 }
 
+/** 格式化工具调用内容 */
+function formatToolCalls(toolCalls) {
+  if (toolCalls === null || toolCalls === undefined || toolCalls === '') {
+    return ''
+  }
+  if (typeof toolCalls === 'string') {
+    try {
+      const parsed = JSON.parse(toolCalls)
+      return JSON.stringify(parsed, null, 2)
+    } catch (e) {
+      return toolCalls
+    }
+  }
+  if (typeof toolCalls === 'object') {
+    return JSON.stringify(toolCalls, null, 2)
+  }
+  return String(toolCalls)
+}
+
 /** 详情按钮操作 */
 function handleDetail(row) {
   const id = row.id || row.conversationId
@@ -215,6 +245,7 @@ function handleDetail(row) {
     detailForm.userName = data.userName || ''
     detailForm.content = data.content || ''
     detailForm.type = data.type || ''
+    detailForm.toolCalls = formatToolCalls(data.toolCalls)
     detailForm.timestamp = data.timestamp || ''
     detailForm.sequenceId = data.sequenceId || ''
     openDetail.value = true

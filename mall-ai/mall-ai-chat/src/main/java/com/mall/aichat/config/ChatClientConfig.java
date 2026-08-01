@@ -1,6 +1,9 @@
 package com.mall.aichat.config;
 
+import com.mall.aichat.advisor.FullHistoryChatMemoryAdvisor;
+import com.mall.aichat.advisor.ReturnDirectChatMemoryAdvisor;
 import com.mall.aichat.advisor.WrappedMcpToolCallbackProvider;
+import com.mall.aichat.service.ISysChatHistoryService;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
@@ -23,7 +26,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.core.io.Resource;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -93,12 +98,14 @@ public class ChatClientConfig {
     public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
                                      @Qualifier("conversationVectorStore") @Autowired(required = false) VectorStore conversationVectorStore,
                                      ToolSearchToolCallingAdvisor toolSearchAdvisor,
+                                     ISysChatHistoryService sysChatHistoryService,
+                                     StringRedisTemplate mallRedisTemplate,
                                      @Qualifier("mcpAsyncToolCallbacks") AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
 
         // 1. 基础内存（Redis/MySQL）
-        advisors.add(MessageChatMemoryAdvisor.builder(chatMemory).order(1).build());
+        advisors.add(MessageChatMemoryAdvisor.builder(chatMemory).order(Ordered.HIGHEST_PRECEDENCE + 199).build());
 
         // 2. 向量内存 - 根据 vectorEnabled 和 conversationVectorStore 是否存在来决定
         if (vectorStoreEnabled && conversationVectorStore != null) {
@@ -108,11 +115,17 @@ public class ChatClientConfig {
                 .build());
         }
 
-        // 3. 工具搜索顾问 - 如果 ToolIndex 依赖向量库，这里也需要做判断
-        advisors.add(toolSearchAdvisor);
+        //保存全量消息
+        advisors.add(FullHistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, chatMemory).order(3).build());
+
+        //存储标记了returnDirect=true的工具结果
+        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, chatMemory).order(Ordered.HIGHEST_PRECEDENCE + 200).build());
 
         // 4. 日志顾问
-        advisors.add(new SimpleLoggerAdvisor(3));
+        advisors.add(new SimpleLoggerAdvisor(4));
+
+        // 工具搜索顾问 - 如果 ToolIndex 依赖向量库，这里也需要做判断
+        advisors.add(toolSearchAdvisor);
 
         WrappedMcpToolCallbackProvider wrappedMcpToolCallbackProvider = new WrappedMcpToolCallbackProvider(tools);
 

@@ -313,19 +313,31 @@ const switchConversation = async (id) => {
           let displayContent = item.content;
           let routeUrl = null;
           if (role === 'assistant' && typeof displayContent === 'string') {
-            try {
-              const parsed = JSON.parse(displayContent);
-              if (parsed) {
-                if (parsed.msg) {
-                  displayContent = parsed.msg;
-                } else if (parsed.content) {
-                  displayContent = parsed.content;
-                }
-                if (parsed.code === 8001 && parsed.data && typeof parsed.data === 'string') {
-                  routeUrl = parsed.data;
-                }
+            const nested = parseNestedJson(displayContent);
+            if (nested) {
+              if (nested.msg) {
+                displayContent = nested.msg;
+              } else if (nested.content) {
+                displayContent = nested.content;
               }
-            } catch (e) { }
+              if (nested.code === 8001 && nested.data && typeof nested.data === 'string' && nested.data.trim()) {
+                routeUrl = nested.data;
+              }
+            } else {
+              try {
+                const parsed = JSON.parse(displayContent);
+                if (parsed) {
+                  if (parsed.msg) {
+                    displayContent = parsed.msg;
+                  } else if (parsed.content) {
+                    displayContent = parsed.content;
+                  }
+                  if (parsed.code === 8001 && parsed.data && typeof parsed.data === 'string') {
+                    routeUrl = parsed.data;
+                  }
+                }
+              } catch (e) { }
+            }
           }
           return {
             role: role,

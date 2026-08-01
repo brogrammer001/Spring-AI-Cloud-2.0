@@ -35,7 +35,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         LEFT JOIN ai_conversation t2 ON t1.conversation_id = t2.conversation_id
         LEFT JOIN `mall-system`.sys_user u ON t2.user_id = u.user_id
         <where>
-            AND t1.type &lt;&gt; 'COMPRESS'
             <if test="conversationId != null  and conversationId != ''"> and t1.conversation_id = #{conversationId}</if>
             <if test="content != null  and content != ''"> and t1.content = #{content}</if>
             <if test="type != null  and type != ''"> and t1.type = #{type}</if>
@@ -62,14 +61,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         sys_chat_history t1
         LEFT JOIN ai_conversation t2 ON t1.conversation_id = t2.conversation_id
         LEFT JOIN `mall-system`.sys_user u ON t2.user_id = u.user_id
-        where t1.id = #{id} AND t1.type &lt;&gt; 'COMPRESS'
+        where t1.id = #{id}
         order by sequence_id asc
     </select>
 
     <select id="selectSysChatHistoryByConversationId" parameterType="String" resultMap="SysChatHistoryResult">
         <include refid="selectSysChatHistoryVo"/>
         where conversation_id = #{conversationId}
-        AND t1.type &lt;&gt; 'COMPRESS'
+        AND t1.type NOT IN ('COMPRESS', 'TOOL') AND t1.tool_calls IS NULL
         order by sequence_id asc
     </select>
 
