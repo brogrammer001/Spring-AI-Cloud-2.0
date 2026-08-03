@@ -10,9 +10,6 @@ public class SysDeptBo {
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
     private String operationType;
 
-    @JsonPropertyDescription("部门ID，修改和删除操作时必填")
-    private Long deptId;
-
     @JsonPropertyDescription("父部门名称，为空则为顶级部门")
     private String parentName;
 
@@ -47,14 +44,6 @@ public class SysDeptBo {
 
     public void setOperationType(String operationType) {
         this.operationType = operationType;
-    }
-
-    public Long getDeptId() {
-        return deptId;
-    }
-
-    public void setDeptId(Long deptId) {
-        this.deptId = deptId;
     }
 
     public String getParentName() {

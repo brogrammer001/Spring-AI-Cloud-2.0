@@ -56,6 +56,10 @@ public class AiConversationServiceImpl implements IAiConversationService {
     @Qualifier("conversationVectorStore")
     private VectorStore conversationVectorStore;
 
+    @Autowired(required = false)
+    @Qualifier("toolVectorStore")
+    private VectorStore toolVectorStore;
+
     @Resource(name = "titleChatClient")
     public ChatClient titleChatClient;
 
@@ -206,7 +210,10 @@ public class AiConversationServiceImpl implements IAiConversationService {
         if (vectorStoreEnabled) {
             //删除向量库会话
             FilterExpressionBuilder b = new FilterExpressionBuilder();
+            //删除会话向量
             conversationVectorStore.delete(b.in("conversationId", conversationIds).build());
+            //删除工具搜索向量
+            toolVectorStore.delete(b.in("sessionId", conversationIds).build());
         }
 
         if (i == 0 || j == 0 || z == 0) {

@@ -77,6 +77,9 @@ public class VectorStoreConfig {
         return WeaviateVectorStore.builder(weaviateClient, embeddingModel)
             .options(weaviateOptions)
             // 工具检索不需要复杂的元数据过滤，或者可以根据业务需要添加
+            .filterMetadataFields(List.of(
+                WeaviateVectorStore.MetadataField.text("sessionId")
+            ))
             .build();
     }
 
@@ -104,7 +107,8 @@ public class VectorStoreConfig {
             // 3. 创建工具索引 Schema
             createSchemaIfNotExists(weaviateClient, weaviateToolIndexObjectClass, List.of(
                 Property.builder().name("metadata").dataType(List.of("text")).build(),
-                Property.builder().name(weaviateOptions.getContentFieldName()).dataType(List.of("text")).build()
+                Property.builder().name(weaviateOptions.getContentFieldName()).dataType(List.of("text")).build(),
+                Property.builder().name(weaviateOptions.getMetaFieldPrefix() + "sessionId").dataType(List.of("text")).build()
                 // 工具索引通常只存 name 和 description，不需要额外的业务 metadata
             ));
         };

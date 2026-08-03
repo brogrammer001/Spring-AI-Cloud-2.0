@@ -63,21 +63,6 @@ public class ChatController {
             // 3. 使用 flatMap 处理文本和工具调用分支
             .flatMap(chatResponse -> {
                 AssistantMessage output = chatResponse.getResult().getOutput();
-
-                // 【核心】获取并处理工具调用信息
-                if (output.hasToolCalls()) {
-                    // 记录工具调用信息 (可在此处做埋点、鉴权或日志上报)
-                    log.info("会话 [{}] 触发工具调用: {}", conversationId, output.getToolCalls());
-
-                    // 可选：通过 SSE 将"正在调用工具"的状态推送给前端，提升用户体验
-                    // 前端可以通过监听 event="tool_call" 来展示 loading 动画
-                    return Flux.just(ServerSentEvent.<AjaxResult>builder()
-                        .event("tool_call")
-                        .data(AjaxResult.success("正在调用外部工具..."))
-                        .build());
-
-                }
-
                 // 【正常分支】提取文本内容发给前端
                 String textContent = output.getText();
                 if (StringUtils.isNotEmpty(textContent)) {

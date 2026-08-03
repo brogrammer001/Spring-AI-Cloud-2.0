@@ -13,12 +13,15 @@ import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.DefaultChatGenerationMetadata;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -60,34 +63,44 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
                 chatClientResponse -> this.after(chatClientResponse, conversationId)));
     }
 
-    private void saveHistory(String conversationId, List<Message> messageList) {
-        List<SysChatHistory> list = messageList.stream().map(message -> {
-            Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
-            SysChatHistory history = new SysChatHistory();
-            history.setId(IdUtils.fastUUID());
-            history.setConversationId(conversationId);
-            history.setContent(message.getText());
-            history.setTimestamp(new Date());
-            history.setIsCompression("N");
-            history.setType(message.getMessageType().getValue());
-            history.setSequenceId(sequenceId);
-            return history;
-        }).toList();
-        if (list.isEmpty()) return;
-        sysChatHistoryService.saveBatch(list);
-    }
-
 
     public void after(ChatClientResponse chatClientResponse, String conversationId) {
-        List<Message> assistantMessages = new ArrayList<>();
-        if (chatClientResponse.chatResponse() != null) {
-            assistantMessages = chatClientResponse.chatResponse()
+        ChatResponse chatResponse = chatClientResponse.chatResponse();
+        if (chatResponse == null) {
+            return;
+        }
+
+        Generation result = chatResponse.getResult();
+        ChatGenerationMetadata generationMetadata = result.getMetadata();
+        String finishReason = generationMetadata.getFinishReason();
+
+        if ("returnDirect".equals(finishReason)) {
+            System.out.println(generationMetadata);
+
+            DefaultChatGenerationMetadata defaultChatGenerationMetadata = (DefaultChatGenerationMetadata) generationMetadata;
+            String toolName = defaultChatGenerationMetadata.get("toolName");
+
+            List<Message> assistantMessages = chatClientResponse.chatResponse()
                 .getResults()
                 .stream()
                 .map(g -> (Message) g.getOutput())
                 .toList();
+
+            List<SysChatHistory> list = assistantMessages.stream().map(message -> {
+                Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
+                SysChatHistory history = new SysChatHistory();
+                history.setId(IdUtils.fastUUID());
+                history.setConversationId(conversationId);
+                history.setContent(message.getText());
+                history.setTimestamp(new Date());
+                history.setIsCompression("N");
+                history.setType(message.getMessageType().getValue());
+                history.setSequenceId(sequenceId);
+                return history;
+            }).toList();
+            if (list.isEmpty()) return;
+            sysChatHistoryService.saveBatch(list);
         }
-        this.saveHistory(conversationId, assistantMessages);
     }
 
     public static ReturnDirectChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate, ChatMemory chatMemory) {

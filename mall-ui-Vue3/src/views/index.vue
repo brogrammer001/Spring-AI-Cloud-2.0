@@ -206,7 +206,10 @@ const renderMessage = (message) => {
       content += '\n```';
     }
 
-    content = content.replace(/(\*\*|__)$/, '');
+    // 仅在流式输出中移除结尾未闭合的加粗标记，流结束后保留原始内容
+    if (message.isStreaming) {
+      content = content.replace(/(\*\*|__)$/, '');
+    }
 
     let html = md.render(content);
 

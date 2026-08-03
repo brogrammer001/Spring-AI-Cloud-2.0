@@ -26,7 +26,7 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
 
     @Autowired(required = false)
     @Qualifier("knowledgeVectorStore")
-    private VectorStore vectorStore;
+    private VectorStore knowledgeVectorStore;
 
     /**
      * 查询文档切片
@@ -87,7 +87,7 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
     public int deleteKbDocumentChunkByIds(String[] ids) {
         int i = kbDocumentChunkMapper.deleteKbDocumentChunkByIds(ids);
 
-        vectorStore.delete(List.of(ids));
+        knowledgeVectorStore.delete(List.of(ids));
         return i;
     }
 
@@ -110,7 +110,7 @@ public class KbDocumentChunkServiceImpl implements IKbDocumentChunkService
         FilterExpressionBuilder b = new FilterExpressionBuilder();
 
         // 构建过滤条件：meta_knowledge_id == knowledgeId
-        vectorStore.delete(b.in("knowledgeId", knowledgeIds).build());
+        knowledgeVectorStore.delete(b.in("knowledgeId", knowledgeIds).build());
         return i;
     }
 }

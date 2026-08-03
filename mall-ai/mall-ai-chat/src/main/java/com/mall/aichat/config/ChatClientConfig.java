@@ -63,7 +63,7 @@ public class ChatClientConfig {
      * 当配置 vector.enabled = true 时生效
      */
     @Bean("toolIndex") // 【关键】统一 Bean 名称，这样调用方不需要改
-    @ConditionalOnProperty(name = "vector.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "vectorstore.enabled", havingValue = "true")
     public ToolIndex vectorToolIndex(@Qualifier("toolVectorStore") VectorStore toolVectorStore) {
         return new VectorToolIndex(toolVectorStore);
     }
@@ -74,7 +74,7 @@ public class ChatClientConfig {
      * matchIfMissing = true 表示如果没有配置该属性，默认使用 Lucene
      */
     @Bean("toolIndex") // 【关键】统一 Bean 名称
-    @ConditionalOnProperty(name = "vector.enabled", havingValue = "false", matchIfMissing = true)
+    @ConditionalOnProperty(name = "vectorstore.enabled", havingValue = "false", matchIfMissing = true)
     public ToolIndex toolIndex() {
         return new LuceneToolIndex(0.3f);
     }

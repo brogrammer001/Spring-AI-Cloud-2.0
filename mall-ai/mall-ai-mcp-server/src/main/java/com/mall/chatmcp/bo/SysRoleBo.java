@@ -10,9 +10,6 @@ public class SysRoleBo {
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
     private String operationType;
 
-    @JsonPropertyDescription("角色ID，修改和删除操作时必填")
-    private Long roleId;
-
     @NotBlank(message = "角色名称不能为空")
     @Size(min = 0, max = 30, message = "角色名称长度不能超过30个字符")
     @JsonPropertyDescription("角色名称，例如 管理员、普通用户")
@@ -42,14 +39,6 @@ public class SysRoleBo {
 
     public void setOperationType(String operationType) {
         this.operationType = operationType;
-    }
-
-    public Long getRoleId() {
-        return roleId;
-    }
-
-    public void setRoleId(Long roleId) {
-        this.roleId = roleId;
     }
 
     public String getRoleName() {

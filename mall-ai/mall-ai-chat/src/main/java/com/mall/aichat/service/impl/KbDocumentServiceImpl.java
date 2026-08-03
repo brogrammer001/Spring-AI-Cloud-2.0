@@ -51,7 +51,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
     @Autowired(required = false)
     @Qualifier("knowledgeVectorStore")
-    private VectorStore vectorStore;
+    private VectorStore knowledgeVectorStore;
 
     @Autowired
     private IKbDocumentChunkService iKbDocumentChunkService;
@@ -187,7 +187,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
             chunks.forEach(chunk -> chunk.getMetadata().put("knowledgeId", kbDocument.getKnowledgeId()));
 
             // 5. 批量存入 Weaviate (Spring AI 会自动调用 Embedding 模型生成向量并入库)
-            vectorStore.add(chunks);
+            knowledgeVectorStore.add(chunks);
 
             // 6. 将切片信息同步保存到 MySQL (用于 UI 界面展示和统计)
             List<KbDocumentChunk> dbChunks = chunks.stream().map(chunk -> {

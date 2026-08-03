@@ -10,9 +10,6 @@ public class SysPostBo {
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
     private String operationType;
 
-    @JsonPropertyDescription("岗位ID，修改和删除操作时必填")
-    private Long postId;
-
     @NotBlank(message = "岗位编码不能为空")
     @Size(min = 0, max = 64, message = "岗位编码长度不能超过64个字符")
     @JsonPropertyDescription("岗位编码")
@@ -39,14 +36,6 @@ public class SysPostBo {
 
     public void setOperationType(String operationType) {
         this.operationType = operationType;
-    }
-
-    public Long getPostId() {
-        return postId;
-    }
-
-    public void setPostId(Long postId) {
-        this.postId = postId;
     }
 
     public String getPostCode() {

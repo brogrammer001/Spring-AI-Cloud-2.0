@@ -12,9 +12,6 @@ public class SysUserBo {
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
     private String operationType;
 
-    @JsonPropertyDescription("用户ID，修改和删除操作时必填")
-    private Long userId;
-
     @Xss(message = "用户账号不能包含脚本字符")
     @NotBlank(message = "用户账号不能为空")
     @Size(min = 0, max = 30, message = "用户账号长度不能超过30个字符")
@@ -43,20 +40,15 @@ public class SysUserBo {
     @JsonPropertyDescription("性别，只能是男或女")
     private String sex;
 
+    @JsonPropertyDescription("用户状态：有效/启用表示正常，无效/停用表示禁用，仅在update操作时使用")
+    private String status;
+
     public String getOperationType() {
         return operationType;
     }
 
     public void setOperationType(String operationType) {
         this.operationType = operationType;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
     }
 
     public String getUserName() {
@@ -105,5 +97,13 @@ public class SysUserBo {
 
     public void setSex(String sex) {
         this.sex = sex;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

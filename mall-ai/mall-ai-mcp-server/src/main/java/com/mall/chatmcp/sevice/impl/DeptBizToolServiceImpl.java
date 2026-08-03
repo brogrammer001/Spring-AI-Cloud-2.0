@@ -113,7 +113,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
             for (SysDeptBo deptBo : deptList) {
                 AjaxResult validateResult = validate(deptBo, "sysDeptBo");
                 if (validateResult != null) {
-                    if (failMsg.length() > 0) {
+                    if (!failMsg.isEmpty()) {
                         failMsg.append("；");
                     }
                     failMsg.append(deptBo.getDeptName()).append("：").append(validateResult.get("msg"));
@@ -126,7 +126,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
                 if (deptBo.getParentName() != null && !deptBo.getParentName().isEmpty()) {
                     Long parentId = getDeptIdByName(deptBo.getParentName());
                     if (parentId == null) {
-                        if (failMsg.length() > 0) {
+                        if (!failMsg.isEmpty()) {
                             failMsg.append("；");
                         }
                         failMsg.append(deptBo.getDeptName()).append("：父部门不存在").append(deptBo.getParentName());
@@ -146,15 +146,15 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
                     }
                     successMsg.append(deptBo.getDeptName());
                 } else {
-                    if (failMsg.length() > 0) {
+                    if (!failMsg.isEmpty()) {
                         failMsg.append("；");
                     }
                     failMsg.append(deptBo.getDeptName()).append("：").append(result.getMsg());
                 }
             }
 
-            if (failMsg.length() > 0) {
-                return AjaxResult.error(successMsg.toString() + "。以下部门创建失败：" + failMsg.toString());
+            if (!failMsg.isEmpty()) {
+                return AjaxResult.error(successMsg + "。以下部门创建失败：" + failMsg);
             }
             return AjaxResult.success(successMsg.toString());
         }, "批量创建部门");
@@ -168,7 +168,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
             if (result.getData().size() > 1) {
                 return null;
             }
-            return result.getData().get(0).getUserId();
+            return result.getData().getFirst().getUserId();
         }
         return null;
     }
@@ -178,7 +178,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         query.setDeptName(deptName);
         R<List<SysDept>> result = remoteDeptService.getDeptList(query);
         if (result.getCode() == 200 && result.getData() != null && !result.getData().isEmpty()) {
-            return result.getData().get(0).getDeptId();
+            return result.getData().getFirst().getDeptId();
         }
         return null;
     }
@@ -197,7 +197,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         R<List<SysRole>> result = remoteRoleService.getRoleList(query);
 
         if (result.getCode() == 200 && result.getData() != null && !result.getData().isEmpty()) {
-            return result.getData().get(0).getRoleId();
+            return result.getData().getFirst().getRoleId();
         }
 
         SysRole newRole = new SysRole();
@@ -211,7 +211,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         if (addResult.getCode() == 200 && addResult.getData()) {
             result = remoteRoleService.getRoleList(query);
             if (result.getCode() == 200 && result.getData() != null && !result.getData().isEmpty()) {
-                return result.getData().get(0).getRoleId();
+                return result.getData().getFirst().getRoleId();
             }
         }
 
