@@ -106,17 +106,17 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
             R<SysFile> fileR = remoteFileService.getFile(kbDocument.getFilePath());
 
-            String filePath;
+            String filePath = "";
             if (fileR.getCode() == Constants.SUCCESS) {
                 SysFile sysFile = fileR.getData();
                 filePath = sysFile.getUrl();
-            } else {
-                filePath = "";
             }
 
             FileSystemResource fileResource = new FileSystemResource(filePath);
             String filename = fileResource.getFilename();
             boolean isImage = filename.toLowerCase().endsWith(".png") || filename.toLowerCase().endsWith(".jpg") ;
+
+            boolean isMd = filename.toLowerCase().endsWith(".md");
 
             List<Document> documents = new ArrayList<>();
 
@@ -125,7 +125,11 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 // 2. 使用 Spring AI 读取文档
                 parseDocument = this.parseDocument(fileResource);
                 parseDocument = this.cleanMinerUContent(parseDocument);
-            }else {
+            } else if (isMd) {
+                // Markdown文件直接读取内容，无需MinerU解析
+                parseDocument = Files.readString(fileResource.getFile().toPath());
+                parseDocument = this.cleanMinerUContent(parseDocument);
+            } else {
                 MinerUResult minerUResult = minerUService.parseMarkdown(fileResource);
 
                 String markdownContent = minerUResult.markdown();
@@ -148,11 +152,17 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 throw new RuntimeException("内容解析失败");
             }
 
-            String finalParseDocument = parseDocument;
-            String finalResult = reparsingChatClient.prompt()
-                .user(u -> u.text(finalParseDocument))
-                .call()
-                .content();
+            String finalResult;
+            if (isMd) {
+                // Markdown文件已是文本格式，无需重新解析
+                finalResult = parseDocument;
+            } else {
+                String finalParseDocument = parseDocument;
+                finalResult = reparsingChatClient.prompt()
+                    .user(u -> u.text(finalParseDocument))
+                    .call()
+                    .content();
+            }
 
             Document document = Document.builder()
                 .text(finalResult)

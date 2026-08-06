@@ -35,7 +35,7 @@ public class VectorCompressionService {
 
     @Autowired(required = false)
     @Qualifier("conversationVectorStore")
-    private VectorStore vectorStore;
+    private VectorStore conversationVectorStore;
 
     @Resource(name = "compressChatClient")
     private ChatClient chatClient; // 用于提取摘要/事实
@@ -108,10 +108,10 @@ public class VectorCompressionService {
 
         // 删除旧向量
         FilterExpressionBuilder b = new FilterExpressionBuilder();
-        vectorStore.delete(b.eq("conversationId", conversationId).build());
+        conversationVectorStore.delete(b.eq("conversationId", conversationId).build());
 
         //将压缩的内容放入向量库
-        vectorStore.add(newFacts);
+        conversationVectorStore.add(newFacts);
 
         //更新压缩标识
         sysChatHistoryList.stream().peek(history -> history.setIsCompression("Y")).forEach(sysChatHistoryService::updateSysChatHistory);

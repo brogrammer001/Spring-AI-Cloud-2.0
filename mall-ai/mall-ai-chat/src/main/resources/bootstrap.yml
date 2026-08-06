@@ -42,7 +42,7 @@ spring:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${aliQwen-api}
       chat:
-        model: qwen3.7-plus-2026-05-26
+        model: qwen3.7-max-2026-05-17
       embedding:
         model: Qwen3-Embedding-8B-Q5_K_M
         base-url: http://127.0.0.1:8889/v1 # 2.0版本需要带上 /v1 后缀
@@ -91,7 +91,7 @@ mineru:
     model: opendatalab/MinerU2.5-Pro-2605-1.2B   # 必须与 vllm serve 的模型名一致
 
 vectorstore:
-  enabled: false #开启全局向量功能
+  enabled: true #开启全局向量功能
   chat-memory-default-topk: 1
   compression-threshold: 4
   weaviate:

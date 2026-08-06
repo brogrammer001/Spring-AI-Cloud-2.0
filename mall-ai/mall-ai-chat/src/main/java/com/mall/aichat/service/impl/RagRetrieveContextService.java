@@ -22,7 +22,7 @@ public class RagRetrieveContextService {
 
     @Autowired(required = false)
     @Qualifier("knowledgeVectorStore")
-    private VectorStore vectorStore;
+    private VectorStore knowledgeVectorStore;
 
     @Autowired
     private IKbKnowledgeBaseService kbKnowledgeBaseService;
@@ -53,7 +53,7 @@ public class RagRetrieveContextService {
             .build();
 
         // 执行向量检索
-        List<Document> results = vectorStore.similaritySearch(request);
+        List<Document> results = knowledgeVectorStore.similaritySearch(request);
 
         if (results.isEmpty()) {
             return "";
