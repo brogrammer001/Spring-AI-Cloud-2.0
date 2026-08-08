@@ -1,6 +1,7 @@
 package com.mall.aichat.advisor;
 
 import com.alibaba.fastjson2.JSON;
+import com.mall.aichat.config.AgentEventSinkManager;
 import com.mall.aichat.domain.SysChatHistory;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
@@ -17,6 +18,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
@@ -33,13 +35,17 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
 
     private ISysChatHistoryService sysChatHistoryService;
 
+    private AgentEventSinkManager agentEventSinkManager;
+
     private final ChatMemory chatMemory;
 
-    public FullHistoryChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService, ChatMemory chatMemory) {
+    public FullHistoryChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService,
+                                        ChatMemory chatMemory, AgentEventSinkManager agentEventSinkManager) {
         this.order = order;
         this.stringRedisTemplate = stringRedisTemplate;
         this.sysChatHistoryService = sysChatHistoryService;
         this.chatMemory = chatMemory;
+        this.agentEventSinkManager = agentEventSinkManager;
     }
 
     @Override
@@ -60,6 +66,50 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
             .publishOn(BaseAdvisor.DEFAULT_SCHEDULER)
             .map(chatClientRequest -> this.before(chatClientRequest, conversationId))
             .flatMapMany(chain::nextStream)
+            .flatMap(chatClientResponse -> {
+                if (chatClientResponse.chatResponse() == null || chatClientResponse.chatResponse().getResults().isEmpty()) {
+                    return Flux.just(chatClientResponse);
+                }
+
+                Generation generation = chatClientResponse.chatResponse().getResults().getFirst();
+                Message output = generation.getOutput();
+
+                // 1. 拦截大模型发起的工具调用指令
+                if (output instanceof AssistantMessage am && am.hasToolCalls()) {
+                    AssistantMessage.ToolCall toolCall = am.getToolCalls().getFirst();
+                    String toolName = toolCall.name();
+                    // 推送 calling 状态
+                    agentEventSinkManager.emitThought(conversationId, toolName);
+                }
+
+                // 检测是否是工具调用请求
+                /*if (output instanceof AssistantMessage am && am.hasToolCalls()) {
+                    String toolName = am.getToolCalls().getFirst().name();
+                    String thinkingText = "正在为您调用工具: [" + toolName + "]，请稍候...\n";
+
+                    // 构造新的 AssistantMessage，保留 toolCalls，修改 text
+                    // 注意：Spring AI 不同版本 Builder 略有差异，请根据你的版本调整
+                    AssistantMessage newMessage = AssistantMessage.builder()
+                        .content(thinkingText)
+                        .toolCalls(am.getToolCalls())
+                        .build();
+
+                    Generation newGen = new Generation(newMessage);
+
+                    ChatResponse newChatResponse = ChatResponse.builder()
+                        .generations(List.of(newGen))
+                        .build();
+
+                    ChatClientResponse newClientResponse = ChatClientResponse.builder()
+                        .chatResponse(newChatResponse)
+                        .context(chatClientResponse.context())
+                        .build();
+
+                    // 返回修改后的响应，替换掉原有的（框架依然能从 toolCalls 执行工具）
+                    return Flux.just(newClientResponse);
+                }*/
+                return Flux.just(chatClientResponse);
+            })
             .transform(flux -> new ChatClientMessageAggregator().aggregateChatClientResponse(flux,
                 chatClientResponse -> this.after(chatClientResponse, conversationId)));
     }
@@ -179,8 +229,9 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
         this.saveHistory(conversationId, assistantMessages);
     }
 
-    public static FullHistoryChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate, ChatMemory chatMemory) {
-        return new FullHistoryChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate, chatMemory);
+    public static FullHistoryChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate,
+                                                               ChatMemory chatMemory, AgentEventSinkManager agentEventSinkManager) {
+        return new FullHistoryChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate, chatMemory, agentEventSinkManager);
     }
 
     public static final class Builder {
@@ -191,13 +242,16 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
 
         private ISysChatHistoryService sysChatHistoryService;
 
+        private AgentEventSinkManager agentEventSinkManager;
+
         private final ChatMemory chatMemory;
 
-        private Builder(ISysChatHistoryService sysChatHistoryService,StringRedisTemplate stringRedisTemplate, ChatMemory chatMemory) {
+        private Builder(ISysChatHistoryService sysChatHistoryService,StringRedisTemplate stringRedisTemplate, ChatMemory chatMemory, AgentEventSinkManager agentEventSinkManager) {
             Assert.notNull(sysChatHistoryService, "chatMemory cannot be null");
             this.chatMemory = chatMemory;
             this.sysChatHistoryService = sysChatHistoryService;
             this.stringRedisTemplate = stringRedisTemplate;
+            this.agentEventSinkManager = agentEventSinkManager;
         }
 
         /**
@@ -217,7 +271,7 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
          * @return the advisor
          */
         public FullHistoryChatMemoryAdvisor build() {
-            return new FullHistoryChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService, this.chatMemory);
+            return new FullHistoryChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService, this.chatMemory, this.agentEventSinkManager);
         }
 
     }

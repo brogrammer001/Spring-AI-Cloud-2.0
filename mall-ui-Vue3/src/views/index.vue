@@ -62,6 +62,47 @@
                 </div>
                 <div
                   :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
+                  <!-- 工具调用区块（类似 Deepseek 风格：独立卡片、可折叠） -->
+                  <div v-if="message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0"
+                       class="mb-3 space-y-1.5">
+                    <div class="flex items-center text-xs font-medium mb-1"
+                         :class="settingsStore.isDark ? 'text-indigo-300' : 'text-indigo-600'">
+                      <i class="fas fa-wand-magic-sparkles mr-1.5"></i> 已调用工具
+                    </div>
+                    <div v-for="(tc, tcIdx) in message.toolCalls" :key="tcIdx"
+                         :class="['flex items-start gap-2.5 px-2.5 py-2 rounded-md text-xs',
+                                  settingsStore.isDark ? 'bg-indigo-900/40 border border-indigo-700/50 text-indigo-200'
+                                                        : 'bg-indigo-50 border border-indigo-100 text-indigo-700']">
+                      <span class="flex-shrink-0 mt-0.5">
+                        <!-- 工具图标 -->
+                        <i class="fas"
+                           :class="tc.toolName.toLowerCase().includes('search') ? 'fa-magnifying-glass'
+                                  : tc.toolName.toLowerCase().includes('menu') ? 'fa-bars'
+                                  : tc.toolName.toLowerCase().includes('sql') || tc.toolName.toLowerCase().includes('query') ? 'fa-database'
+                                  : 'fa-plug'"></i>
+                      </span>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="font-semibold font-mono">{{ tc.toolName }}</span>
+                          <span v-if="tc.status === 'running'"
+                                :class="['inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]',
+                                         settingsStore.isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700']">
+                            <i class="fas fa-circle-notch fa-spin"></i> 调用中
+                          </span>
+                          <span v-else-if="tc.status === 'done'"
+                                :class="['inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]',
+                                         settingsStore.isDark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700']">
+                            <i class="fas fa-check"></i> 完成
+                          </span>
+                        </div>
+                        <div class="mt-0.5 truncate"
+                             :class="settingsStore.isDark ? 'text-indigo-300/70' : 'text-indigo-500/80'"
+                             :title="tc.description">
+                          {{ tc.description }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div class="markdown-body" v-html="renderMessage(message)"></div>
                   <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-1 mt-1">
                     <div
@@ -215,14 +256,21 @@ const renderMessage = (message) => {
 
     html = html.replace(/<pre><code><\/code><\/pre>/g, '');
 
+    // 给 markdown 渲染出的 table 包裹滚动容器，防止宽度撑爆聊天框
+    html = html.replace(/<table[^>]*>[\s\S]*?<\/table>/g, (match) => {
+      // 限制单元格最大宽度并允许换行
+      const styled = match.replace(/<t([hd])([^>]*)>/g, '<t$1$2 style="max-width: 260px; word-break: break-word; overflow-wrap: anywhere;">');
+      return `<div style="overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">${styled}</div>`;
+    });
+
     // 数据查询结果表格渲染（code=9999）
     if (message.dataTable && Array.isArray(message.dataTable) && message.dataTable.length > 0) {
       const tableHtml = renderDataTable(message.dataTable);
       if (tableHtml) {
         const rowCountLabel = message.dataRowCount != null ? `（共 ${message.dataRowCount} 条）` : '';
-        html += `<div class="mt-3 data-table-wrap">
+        html += `<div class="mt-3 data-table-wrap" style="max-width: 100%;">
                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">查询结果${rowCountLabel}</div>
-                   <div class="overflow-x-auto">${tableHtml}</div>
+                   <div style="overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">${tableHtml}</div>
                  </div>`;
       }
     }
@@ -319,7 +367,7 @@ const switchConversation = async (id) => {
     }
     try {
       if (!draftMessages || draftMessages.length === 0) {
-        messages.value = [{ role: 'assistant', content: '正在加载历史记录...', isLoading: true, visibleChars: 0, isStreaming: false }];
+        messages.value = [{ role: 'assistant', content: '正在加载历史记录...', isLoading: true, visibleChars: 0, isStreaming: false, toolCalls: [] }];
       }
       const response = await getChatMemoryListByConversationId(id);
       if (response.data && Array.isArray(response.data)) {
@@ -329,6 +377,32 @@ const switchConversation = async (id) => {
           let routeUrl = null;
           let dataTable = null;
           let dataRowCount = null;
+          let toolCalls = [];
+
+          // 从历史记录还原 toolCalls（优先独立字段，其次 metadata 内，其次从 content 解析）
+          if (role === 'assistant') {
+            if (Array.isArray(item.toolCalls) && item.toolCalls.length > 0) {
+              toolCalls = item.toolCalls.map(tc => ({
+                toolName: tc.toolName || tc.tool_name || tc.name || '未知工具',
+                description: tc.description || tc.desc || '',
+                status: tc.status || 'done',
+                index: tc.index,
+                startTime: tc.startTime || tc.start_time
+              }));
+            } else if (item.metadata && typeof item.metadata === 'object') {
+              const metaTc = item.metadata.toolCalls || item.metadata.tool_calls;
+              if (Array.isArray(metaTc) && metaTc.length > 0) {
+                toolCalls = metaTc.map(tc => ({
+                  toolName: tc.toolName || tc.tool_name || tc.name || '未知工具',
+                  description: tc.description || tc.desc || '',
+                  status: tc.status || 'done',
+                  index: tc.index,
+                  startTime: tc.startTime || tc.start_time
+                }));
+              }
+            }
+          }
+
           if (role === 'assistant' && typeof displayContent === 'string') {
             const nested = parseNestedJson(displayContent);
             const candidates = nested ? [nested] : [];
@@ -364,6 +438,7 @@ const switchConversation = async (id) => {
             routeUrl: routeUrl,
             dataTable: dataTable,
             dataRowCount: dataRowCount,
+            toolCalls: toolCalls,
             isLoading: false,
             visibleChars: displayContent.length,
             isStreaming: false
@@ -374,13 +449,13 @@ const switchConversation = async (id) => {
         removeDraftFromStorage(id);
       } else {
         if (!draftMessages || draftMessages.length === 0) {
-          messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
+          messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false, toolCalls: [] }];
         }
       }
     } catch (error) {
       console.error('获取历史记录失败:', error);
       if (!draftMessages || draftMessages.length === 0) {
-        messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false }];
+        messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false, toolCalls: [] }];
       }
     }
     scrollToBottom();
@@ -421,7 +496,7 @@ const startNewConversation = () => {
   }
   activeId.value = null;
   userInput.value = '';
-  const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false };
+  const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false, toolCalls: [] };
   messages.value = [initialMsg];
   nextTick(() => {
     if (messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
@@ -515,7 +590,7 @@ const sendMessage = async () => {
 
   const userMessage = { role: 'user', content, isLoading: false, visibleChars: content.length, isStreaming: false };
   messages.value.push(userMessage);
-  const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true };
+  const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true, toolCalls: [] };
   messages.value.push(assistantMessage);
 
   userInput.value = '';
@@ -601,7 +676,7 @@ const sendMessage = async () => {
 
         if (trimmedLine.startsWith("event:")) {
           const eventType = trimmedLine.substring(6).trim();
-          if (eventType === "done") {
+          if (eventType === "done" || eventType === "message_end") {
             streamEnded = true;
             break;
           }
@@ -616,13 +691,78 @@ const sendMessage = async () => {
 
         try {
           const jsonData = JSON.parse(content);
-          const { msg } = jsonData;
 
-          if (msg && typeof msg === "string") {
-            if (!isInnerJson && (msg.startsWith('{') || msg.startsWith('['))) {
+          // 通过 JSON event 字段判断消息结束（新格式无 SSE event 行）
+          if (jsonData.event === "message_end") {
+            if (jsonData.messageId) {
+              messages.value[messageIndex].messageId = jsonData.messageId;
+            }
+            if (jsonData.conversationId) {
+              messages.value[messageIndex].conversationId = jsonData.conversationId;
+            }
+            streamEnded = true;
+            break;
+          }
+
+          // 工具调用事件：单独存到 toolCalls 数组，不混入消息正文
+          if (jsonData.event === "tool_call") {
+            const rawText = (jsonData.content != null ? jsonData.content : jsonData.msg) || '';
+            // 兼容两种格式：1) 直接工具名 "toolSearchTool"  2) 包装文案 "正在为您调用工具: [xxx]，请稍候"
+            const toolMatch = rawText.match(/\[([^\]]+)\]/);
+            let toolName = '';
+            let desc = '';
+            if (toolMatch) {
+              toolName = toolMatch[1];
+              desc = rawText.replace(/^\s*正在为您调用工具[:：]\s*/, '').replace(/[，,]\s*请稍候\s*$/, '').trim();
+            } else {
+              // 直接工具名格式
+              toolName = rawText.trim();
+              desc = '';
+            }
+            if (!toolName) toolName = '未知工具';
+            if (!messages.value[messageIndex].toolCalls) {
+              messages.value[messageIndex].toolCalls = [];
+            }
+            // 避免同一工具重复添加（如流式重复输出）
+            const exists = messages.value[messageIndex].toolCalls.some(t => t.toolName === toolName);
+            if (!exists) {
+              // 收到新的工具调用时，把上一轮仍处于"调用中"的工具标记为"完成"
+              messages.value[messageIndex].toolCalls.forEach(t => {
+                if (t.status === 'running') {
+                  t.status = 'done';
+                  t.endTime = Date.now();
+                }
+              });
+              messages.value[messageIndex].toolCalls.push({
+                toolName,
+                description: desc,
+                status: 'running',
+                index: jsonData.index,
+                startTime: Date.now()
+              });
+            }
+            scrollToBottom();
+            continue;
+          }
+
+          // 收到 message 事件（开始输出消息内容）时，把上一轮仍处于"调用中"的工具标记为"完成"
+          if (jsonData.event === "message" && messages.value[messageIndex].toolCalls) {
+            messages.value[messageIndex].toolCalls.forEach(t => {
+              if (t.status === 'running') {
+                t.status = 'done';
+                t.endTime = Date.now();
+              }
+            });
+          }
+
+          // 提取文本：优先 content（新格式），其次 msg（旧格式兼容）
+          const text = jsonData.content != null ? jsonData.content : jsonData.msg;
+
+          if (text && typeof text === "string") {
+            if (!isInnerJson && (text.startsWith('{') || text.startsWith('['))) {
               isInnerJson = true;
             }
-            innerBuffer += msg;
+            innerBuffer += text;
             if (tryParseInnerJson(innerBuffer, messageIndex, isInnerJson)) {
               innerBuffer = "";
             }
@@ -639,6 +779,10 @@ const sendMessage = async () => {
     if (messages.value[messageIndex].content === '') {
       messages.value[messageIndex].content = '(无返回内容)';
       messages.value[messageIndex].visibleChars = 6;
+    }
+    // tool_call 状态标记完成
+    if (messages.value[messageIndex].toolCalls && messages.value[messageIndex].toolCalls.length > 0) {
+      messages.value[messageIndex].toolCalls.forEach(tc => { tc.status = 'done'; });
     }
     messages.value[messageIndex].isLoading = false;
     messages.value[messageIndex].isStreaming = false;
@@ -865,17 +1009,20 @@ const processRemainingBuffer = (buffer, messageIndex, isInnerJson) => {
 const renderDataTable = (data) => {
   if (!data || !data.length) return '';
   const headers = Object.keys(data[0]);
-  let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 12px;">';
+  // 不强制 width:100%，让列多时自然撑开由外层容器 overflow-x 滚动；
+  // 单元格限制最大宽度并允许换行，避免长内容（hash/URL）撑爆
+  let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; min-width: 100%; width: auto; font-size: 12px; table-layout: auto;">';
   html += '<thead><tr>';
   headers.forEach(header => {
-    html += `<th style="background: #f5f5f5; padding: 8px; text-align: left;">${header}</th>`;
+    html += `<th style="background: #f5f5f5; padding: 6px 8px; text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${header}">${header}</th>`;
   });
   html += '</tr></thead><tbody>';
   data.forEach(row => {
     html += '<tr>';
     headers.forEach(header => {
       const value = row[header];
-      html += `<td style="padding: 8px; border-top: 1px solid #eee;">${value !== undefined ? value : ''}</td>`;
+      const text = value !== undefined && value !== null ? String(value) : '';
+      html += `<td style="padding: 6px 8px; border-top: 1px solid #eee; max-width: 220px; word-break: break-all; overflow-wrap: anywhere;">${text}</td>`;
     });
     html += '</tr>';
   });

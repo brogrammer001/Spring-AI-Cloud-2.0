@@ -58,6 +58,7 @@ public class VectorCompressionService {
             sysChatHistory.setIsCompression("N");
             sysChatHistory.setConversationId(conversationId);
             List<SysChatHistory> sysChatHistories = sysChatHistoryService.selectSysChatHistoryListAll(sysChatHistory);
+            sysChatHistories = sysChatHistories.stream().filter(history -> !"TOOL".equals(history.getType())).toList();
 
             if (sysChatHistories.size() > compressionThreshold + 1) {
                 this.doCompress(conversationId, sysChatHistories);

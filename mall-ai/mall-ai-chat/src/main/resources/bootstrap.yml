@@ -90,8 +90,13 @@ mineru:
     api-key: 123456
     model: opendatalab/MinerU2.5-Pro-2605-1.2B   # 必须与 vllm serve 的模型名一致
 
+reranker:
+  enabled: false
+  base-url: http://127.0.0.1:8887
+  top-n: 3
+
 vectorstore:
-  enabled: true #开启全局向量功能
+  enabled: false #开启全局向量功能
   chat-memory-default-topk: 1
   compression-threshold: 4
   weaviate:

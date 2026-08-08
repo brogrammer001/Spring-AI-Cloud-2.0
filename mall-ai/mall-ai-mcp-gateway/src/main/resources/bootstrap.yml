@@ -51,6 +51,7 @@ spring:
           nacos:
             serviceNames:
               - mall-ai-mcp-server
+              - mcp-echarts
           streamable:
             enabled: true
         # Nacos 注册中心配置

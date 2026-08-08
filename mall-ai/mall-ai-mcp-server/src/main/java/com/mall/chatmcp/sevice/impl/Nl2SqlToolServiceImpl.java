@@ -37,7 +37,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         Pattern.CASE_INSENSITIVE
     );
 
-    @Tool(description = "数据库查询工具。用于统计、列表、报表等数据查询场景。输入自然语言问题，自动生成并执行SQL。优先从知识库获取schemaInfo传入，避免重复查库。", returnDirect = true)
+    @Tool(description = "数据库查询工具。用于统计、列表、报表等数据查询场景。输入自然语言问题，自动生成并执行SQL。优先从知识库获取schemaInfo传入，避免重复查库。[JSON]", returnDirect = true)
     public AjaxResult nl2SqlQuery(@ToolParam(description = "查询问题，如：查询所有用户信息") String question,
                                   @ToolParam(description = "表名列表，可选。如：['sys_user']。已传schemaInfo时可留空") String[] tableNames,
                                   @ToolParam(description = "表结构信息，可选。如：Table: sys_user (user_id bigint, user_name varchar);") String schemaInfo) {
@@ -88,11 +88,10 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
                         result.put("result", queryResult);
                         result.put("rowCount", queryResult.size());
 
-                        String summary = summarizeResult(question, queryResult);
+                        String summary = summarizeResult(queryResult);
                         result.put("summary", summary);
 
                         return new AjaxResult(9999, "查询成功", result);
-
                     } catch (Exception e) {
                         // 捕获SQL执行异常
                         lastError = "SQL执行错误: " + e.getMessage();
@@ -281,7 +280,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         throw new RuntimeException(result.getMsg());
     }
 
-    private String summarizeResult(String question, List<Map<String, Object>> result) {
+    private String summarizeResult(List<Map<String, Object>> result) {
         if (result == null || result.isEmpty()) {
             return "未查询到相关数据。";
         }

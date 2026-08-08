@@ -1,9 +1,10 @@
 package com.mall.aichat.controller;
 
+import com.mall.aichat.config.AgentEventSinkManager;
+import com.mall.aichat.domain.ChatStreamEvent;
 import com.mall.aichat.service.impl.RagRetrieveContextService;
 import com.mall.aichat.service.impl.VectorCompressionService;
 import com.mall.common.core.utils.StringUtils;
-import com.mall.common.core.web.domain.AjaxResult;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +20,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 @RequestMapping("/ai")
-public class ChatController {
+public class ChatAgent {
 
-    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
+    private static final Logger log = LoggerFactory.getLogger(ChatAgent.class);
     @Resource(name = "qwenChatClient")
     private ChatClient qwenChatClient;
 
@@ -36,11 +41,14 @@ public class ChatController {
     @Autowired
     private VectorCompressionService vectorCompressionConfig;
 
+    @Autowired
+    private AgentEventSinkManager agentEventSinkManager;
+
     @Value("${vectorstore.enabled}")
     private boolean vectorStoreEnabled;
 
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<AjaxResult>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
+    public Flux<ServerSentEvent<ChatStreamEvent>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
 
         // 1. 构建请求
         var promptSpec = qwenChatClient.prompt()
@@ -55,32 +63,40 @@ public class ChatController {
             }
         }
 
-        return promptSpec.stream()
+        // 获取该会话的旁路 Sink
+        Sinks.Many<ServerSentEvent<ChatStreamEvent>> thinkingSink = agentEventSinkManager.getOrCreate(conversationId);
+
+        AtomicInteger idx = new AtomicInteger(0);
+        String messageId = UUID.randomUUID().toString();
+
+        Flux<ServerSentEvent<ChatStreamEvent>> serverSentEventFlux = promptSpec.stream()
             // 1. 替换为 .chatResponse() 获取完整响应对象
             .chatResponse()
             // 2. 过滤掉大模型返回的空数据包 (无 result 或无 output)
             .filter(chatResponse -> chatResponse.getResult() != null)
             // 3. 使用 flatMap 处理文本和工具调用分支
-            .flatMap(chatResponse -> {
-                AssistantMessage output = chatResponse.getResult().getOutput();
-                // 【正常分支】提取文本内容发给前端
-                String textContent = output.getText();
-                if (StringUtils.isNotEmpty(textContent)) {
-                    return Flux.just(ServerSentEvent.<AjaxResult>builder()
-                        .event("message") // 显式指定事件名为 message
-                        .data(AjaxResult.success(textContent))
-                        .build());
-                }
+            .flatMap(r -> {
+                AssistantMessage output = r.getResult().getOutput();
+                String text = output.getText();
 
-                // 过滤掉既无工具调用又无文本的空 chunk
-                return Flux.empty();
+                if (StringUtils.isEmpty(text)) return Flux.empty();
+                return Flux.just(ServerSentEvent.<ChatStreamEvent>builder()
+                    .data(ChatStreamEvent.chunk(conversationId, text, idx.getAndIncrement()))
+                    .build());
             })
+            .doFinally(sig -> {
+                log.info("Main LLM stream finished with signal: {}, closing thinking sink.", sig);
+                agentEventSinkManager.complete(conversationId);
+            });
+        // ★ 合并：主流 + 旁路思考流
+        return Flux.merge(serverSentEventFlux, thinkingSink.asFlux())
             // 4. 增加超时控制，防止大模型卡死导致连接挂死
             .timeout(Duration.ofSeconds(600))
             // 5. 结束标记：显式指定事件名为 done
             .concatWith(Flux.just(
-                ServerSentEvent.<AjaxResult>builder()
-                    .event("done")
+                ServerSentEvent.<ChatStreamEvent>builder()
+                    .data(ChatStreamEvent.end(conversationId, messageId,
+                        Map.of("usage", Map.of())))  // 这里可以从最后 ChatResponse 拿 usage
                     .build()
             ))
             // 6. 使用 doFinally 替代 doOnComplete
@@ -98,14 +114,11 @@ public class ChatController {
             // 7. 客户端主动断开处理
             .doOnCancel(() -> log.info("Client disconnected prematurely for conversation: {}", conversationId))
             // 8. 异常处理：显式指定事件名为 error，并将底层异常脱敏
-            .onErrorResume(e -> {
-                log.error("Stream error for conversation {}: {}", conversationId, e.getMessage(), e);
-                return Flux.just(ServerSentEvent.<AjaxResult>builder()
-                    .event("error")
-                    .data(AjaxResult.error("服务开小差了，请稍后再试")) // 对外脱敏
+            .onErrorResume(e -> Flux.just(
+                ServerSentEvent.<ChatStreamEvent>builder()
+                    .data(ChatStreamEvent.error("INTERNAL_ERROR", "服务开小差了"))
                     .build()
-                );
-            });
+            ));
     }
 
 }

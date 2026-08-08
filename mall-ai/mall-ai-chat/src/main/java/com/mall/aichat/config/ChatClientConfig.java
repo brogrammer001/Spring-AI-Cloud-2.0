@@ -58,6 +58,9 @@ public class ChatClientConfig {
     @Value("${vectorstore.enabled}")
     private boolean vectorStoreEnabled;
 
+    @Value("${spring.ai.mcp.client.enabled}")
+    private boolean mcpEnabled;
+
     /**
      * 方案 A: 向量检索索引
      * 当配置 vector.enabled = true 时生效
@@ -100,6 +103,7 @@ public class ChatClientConfig {
                                      ToolSearchToolCallingAdvisor toolSearchAdvisor,
                                      ISysChatHistoryService sysChatHistoryService,
                                      StringRedisTemplate mallRedisTemplate,
+                                     AgentEventSinkManager agentEventSinkManager,
                                      @Qualifier("mcpAsyncToolCallbacks") @Autowired(required = false) AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
@@ -116,7 +120,7 @@ public class ChatClientConfig {
         }
 
         //保存全量消息
-        advisors.add(FullHistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, chatMemory).order(3).build());
+        advisors.add(FullHistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, chatMemory, agentEventSinkManager).order(3).build());
 
         //存储标记了returnDirect=true的工具结果
         advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, chatMemory).order(Ordered.HIGHEST_PRECEDENCE + 200).build());
@@ -127,13 +131,15 @@ public class ChatClientConfig {
         // 工具搜索顾问 - 如果 ToolIndex 依赖向量库，这里也需要做判断
         advisors.add(toolSearchAdvisor);
 
-        WrappedMcpToolCallbackProvider wrappedMcpToolCallbackProvider = new WrappedMcpToolCallbackProvider(tools);
-
-        return ChatClient.builder(model)
+        ChatClient.Builder builder = ChatClient.builder(model)
             .defaultSystem(systemSimplifyPromptResource)
-            .defaultTools(wrappedMcpToolCallbackProvider)
-            .defaultAdvisors(advisors) // 传入动态构建的列表
-            .build();
+            .defaultAdvisors(advisors);
+
+        if (mcpEnabled) {
+            WrappedMcpToolCallbackProvider wrappedMcpToolCallbackProvider = new WrappedMcpToolCallbackProvider(tools);
+            builder.defaultTools(wrappedMcpToolCallbackProvider);
+        }
+        return builder.build();
     }
 
     /**
@@ -171,43 +177,6 @@ public class ChatClientConfig {
                 ]
                 对话记录：
                 %s
-                """)
-            .build();
-    }
-
-    /**
-     * 文档解析后内容再次解析会话
-     *
-     * @param model
-     * @return
-     */
-    @Bean(name = "reparsingChatClient")
-    public ChatClient reparsingChatClient(OpenAiChatModel model) {
-        return ChatClient
-            .builder(model)
-            .defaultSystem("""
-                 你是一个专业的文档数据清洗与质量审核专家。你的任务是处理由 MinerU 等 PDF 解析工具输出的 Markdown 文本，进行清洗、验证与重组。
-                # 核心任务与规则
-                ## 1. 去除死循环与解析标签（强制执行）
-                - 必须彻底清除 MinerU 解析异常产生的死循环标签，例如连续重复的 `<|txt_contd_tgt|>`, `<|txt_contd_src|>`。
-                - 清除所有类似 `<|xxx|>` 格式的系统残留标签。
-                ## 2. 语言一致性校验（重点）
-                针对“图片解析出英文内容”的情况，请按以下逻辑判断保留还是清洗：
-                - **场景 A：原文确实是英文**
-                  如果文档主体是中文，但该英文片段属于：专业术语、公式变量、代码片段、参考文献、图表英文标题，且语义通顺，**请予以保留**。
-                - **场景 B：解析错误/模型幻觉**
-                  如果文档主体是中文，出现的英文片段符合以下特征，**请判定为异常并尝试修复或删除**：
-                  1. **语义断裂**：该英文无法与上下文连接，显得突兀。
-                  2. **描述性幻觉**：内容看起来像是多模态模型对图片的英文描述（如 "Figure shows a graph of..."），而非文档正文内容。
-                  3. **OCR乱码**：英文单词拼写错误严重，或混杂了无意义的符号。
-                  *处理方式：若判断为解析错误，请直接删除该片段，或标注 `[图片解析异常]`。*
-                ## 3. 格式修复与重组
-                - 修复断裂的段落。
-                - 修复 Markdown 表格格式。
-                - 去除页眉页脚、页码、乱码行。
-                ## 4. 输出要求
-                - 直接输出清洗后的 Markdown 内容。
-                - 若遇到无法修复的严重乱码，输出 `[CONTENT_ERROR: 解析失败]`。
                 """)
             .build();
     }

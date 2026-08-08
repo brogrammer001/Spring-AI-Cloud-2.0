@@ -21,7 +21,7 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
 
         if (trimmedLine.startsWith('event:')) {
           const eventType = trimmedLine.substring(6).trim();
-          if (eventType === 'done') {
+          if (eventType === 'done' || eventType === 'message_end') {
             onDone && onDone();
             return;
           }
@@ -36,13 +36,22 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
 
         try {
           const jsonData = JSON.parse(content);
-          const { msg } = jsonData;
 
-          if (msg && typeof msg === 'string') {
-            if (!isInnerJson && (msg.startsWith('{') || msg.startsWith('['))) {
+          // 通过 JSON event 字段判断消息结束（新格式无 SSE event 行）
+          if (jsonData.event === 'message_end') {
+            onJsonChunk && onJsonChunk(jsonData);
+            onDone && onDone();
+            return;
+          }
+
+          // 提取文本：优先 content（新格式），其次 msg（旧格式兼容）
+          const text = jsonData.content != null ? jsonData.content : jsonData.msg;
+
+          if (text && typeof text === 'string') {
+            if (!isInnerJson && (text.startsWith('{') || text.startsWith('['))) {
               isInnerJson = true;
             }
-            innerBuffer += msg;
+            innerBuffer += text;
             if (tryParseInnerJson(innerBuffer, isInnerJson, onTextChange, onJsonChunk)) {
               innerBuffer = '';
             }
@@ -63,13 +72,20 @@ export async function parseStream({ response, onTextChange, onDone, onJsonChunk,
       if (content) {
         try {
           const jsonData = JSON.parse(content);
-          const { msg } = jsonData;
 
-          if (msg && typeof msg === 'string') {
-            if (!isInnerJson && (msg.startsWith('{') || msg.startsWith('['))) {
+          if (jsonData.event === 'message_end') {
+            processRemainingBuffer(innerBuffer, isInnerJson, onTextChange, onJsonChunk);
+            onDone && onDone();
+            return;
+          }
+
+          const text = jsonData.content != null ? jsonData.content : jsonData.msg;
+
+          if (text && typeof text === 'string') {
+            if (!isInnerJson && (text.startsWith('{') || text.startsWith('['))) {
               isInnerJson = true;
             }
-            innerBuffer += msg;
+            innerBuffer += text;
             if (tryParseInnerJson(innerBuffer, isInnerJson, onTextChange, onJsonChunk)) {
               innerBuffer = '';
             }
