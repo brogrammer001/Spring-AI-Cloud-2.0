@@ -191,6 +191,9 @@
           <el-form-item label="分块大小" prop="chunkSize">
             <el-input-number v-model="form.chunkSize" :min="1" placeholder="请输入分块大小（字符数）" />
           </el-form-item>
+          <el-form-item label="分隔符" prop="chunkSeparator">
+            <el-input v-model="form.chunkSeparator" placeholder="请输入分块分隔符（可留空）" clearable />
+          </el-form-item>
         </el-form>
         <template #footer>
           <div class="dialog-footer">
@@ -377,6 +380,7 @@ function reset() {
     status: null,
     chunkCount: 10,
     chunkSize: 500,
+    chunkSeparator: null,
     createTime: null
   }
 }
@@ -418,6 +422,7 @@ function submitForm() {
           fileType:    form.value.fileType,
           chunkCount:  form.value.chunkCount,
           chunkSize:   form.value.chunkSize,
+          chunkSeparator:   form.value.chunkSeparator,
           status:      0
         }
 
@@ -463,6 +468,7 @@ function submitForm() {
       fileType:    form.value.fileType,
       chunkCount:  form.value.chunkCount,
       chunkSize:   form.value.chunkSize,
+      chunkSeparator:   form.value.chunkSeparator,
       status:      form.value.status
     }
 

@@ -215,6 +215,18 @@ const renderMessage = (message) => {
 
     html = html.replace(/<pre><code><\/code><\/pre>/g, '');
 
+    // 数据查询结果表格渲染（code=9999）
+    if (message.dataTable && Array.isArray(message.dataTable) && message.dataTable.length > 0) {
+      const tableHtml = renderDataTable(message.dataTable);
+      if (tableHtml) {
+        const rowCountLabel = message.dataRowCount != null ? `（共 ${message.dataRowCount} 条）` : '';
+        html += `<div class="mt-3 data-table-wrap">
+                   <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">查询结果${rowCountLabel}</div>
+                   <div class="overflow-x-auto">${tableHtml}</div>
+                 </div>`;
+      }
+    }
+
     if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
       html += `<div class="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
              <a href="javascript:void(0)"
@@ -315,37 +327,43 @@ const switchConversation = async (id) => {
           const role = item.type === 'USER' ? 'user' : 'assistant';
           let displayContent = item.content;
           let routeUrl = null;
+          let dataTable = null;
+          let dataRowCount = null;
           if (role === 'assistant' && typeof displayContent === 'string') {
             const nested = parseNestedJson(displayContent);
-            if (nested) {
-              if (nested.msg) {
-                displayContent = nested.msg;
-              } else if (nested.content) {
-                displayContent = nested.content;
-              }
-              if (nested.code === 8001 && nested.data && typeof nested.data === 'string' && nested.data.trim()) {
-                routeUrl = nested.data;
-              }
-            } else {
+            const candidates = nested ? [nested] : [];
+            if (!nested) {
               try {
                 const parsed = JSON.parse(displayContent);
-                if (parsed) {
-                  if (parsed.msg) {
-                    displayContent = parsed.msg;
-                  } else if (parsed.content) {
-                    displayContent = parsed.content;
-                  }
-                  if (parsed.code === 8001 && parsed.data && typeof parsed.data === 'string') {
-                    routeUrl = parsed.data;
-                  }
-                }
+                if (parsed) candidates.push(parsed);
               } catch (e) { }
+            }
+            for (const parsed of candidates) {
+              if (parsed.msg) {
+                displayContent = parsed.msg;
+              } else if (parsed.content) {
+                displayContent = parsed.content;
+              }
+              if (parsed.code === 8001 && parsed.data && typeof parsed.data === 'string' && parsed.data.trim()) {
+                routeUrl = parsed.data;
+              }
+              if (parsed.code === 9999 && parsed.data && typeof parsed.data === 'object') {
+                const rows = Array.isArray(parsed.data.result) ? parsed.data.result : [];
+                dataTable = rows;
+                dataRowCount = parsed.data.rowCount;
+                if (parsed.data.summary) {
+                  displayContent = (displayContent || '') + '\n\n' + parsed.data.summary;
+                }
+              }
+              break;
             }
           }
           return {
             role: role,
             content: displayContent,
             routeUrl: routeUrl,
+            dataTable: dataTable,
+            dataRowCount: dataRowCount,
             isLoading: false,
             visibleChars: displayContent.length,
             isStreaming: false
@@ -769,6 +787,18 @@ const tryParseInnerJson = (buffer, messageIndex, isInnerJson) => {
       setTimeout(() => {
         handleRouteJump(innerData.trim(), { proxy, router });
       }, 500);
+    } else if (innerCode === 9999 && innerData && typeof innerData === 'object') {
+      // 数据查询结果：data 为对象，含 result(数组)/summary/generatedSql/rowCount
+      const rows = Array.isArray(innerData.result) ? innerData.result : [];
+      const summary = innerData.summary || '';
+      const rowCount = innerData.rowCount;
+      messages.value[messageIndex].content += innerMsg;
+      if (summary) {
+        messages.value[messageIndex].content += '\n\n' + summary;
+      }
+      messages.value[messageIndex].dataTable = rows;
+      messages.value[messageIndex].dataRowCount = rowCount;
+      scrollToBottom();
     } else if (innerCode === 500) {
       messages.value[messageIndex].content += innerMsg;
       scrollToBottom();
@@ -806,6 +836,17 @@ const processRemainingBuffer = (buffer, messageIndex, isInnerJson) => {
       setTimeout(() => {
         handleRouteJump(innerData.trim(), { proxy, router });
       }, 500);
+    } else if (innerCode === 9999 && innerData && typeof innerData === 'object') {
+      const rows = Array.isArray(innerData.result) ? innerData.result : [];
+      const summary = innerData.summary || '';
+      const rowCount = innerData.rowCount;
+      messages.value[messageIndex].content += innerMsg;
+      if (summary) {
+        messages.value[messageIndex].content += '\n\n' + summary;
+      }
+      messages.value[messageIndex].dataTable = rows;
+      messages.value[messageIndex].dataRowCount = rowCount;
+      scrollToBottom();
     } else if (innerCode === 500) {
       messages.value[messageIndex].content += innerMsg;
       scrollToBottom();

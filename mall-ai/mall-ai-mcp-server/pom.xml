@@ -73,5 +73,11 @@
             <artifactId>mcp-core</artifactId>
         </dependency>
 
+        <!-- Spring AI OpenAI Model -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+
     </dependencies>
 </project>

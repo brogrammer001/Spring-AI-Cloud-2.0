@@ -100,7 +100,7 @@ public class ChatClientConfig {
                                      ToolSearchToolCallingAdvisor toolSearchAdvisor,
                                      ISysChatHistoryService sysChatHistoryService,
                                      StringRedisTemplate mallRedisTemplate,
-                                     @Qualifier("mcpAsyncToolCallbacks") AsyncMcpToolCallbackProvider tools
+                                     @Qualifier("mcpAsyncToolCallbacks") @Autowired(required = false) AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
 

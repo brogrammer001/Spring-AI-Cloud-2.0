@@ -27,12 +27,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 
-import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,9 +60,6 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
     @Resource(name = "minerUChatClient")
     private ChatClient minerUChatClient;
-
-    @Resource(name = "reparsingChatClient")
-    private ChatClient reparsingChatClient;
 
     @Autowired
     private MinerUService minerUService;
@@ -97,6 +93,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int insertKbDocument(KbDocument kbDocument) {
         int i = 0;
         try {
@@ -104,105 +101,48 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
             kbDocument.setId(IdUtils.fastUUID());
             i = kbDocumentMapper.insertKbDocument(kbDocument);
 
+            // 获取并解析文件
             R<SysFile> fileR = remoteFileService.getFile(kbDocument.getFilePath());
-
-            String filePath = "";
-            if (fileR.getCode() == Constants.SUCCESS) {
-                SysFile sysFile = fileR.getData();
-                filePath = sysFile.getUrl();
+            if (fileR.getCode() != Constants.SUCCESS || fileR.getData() == null) {
+                throw new RuntimeException("远程获取文件失败: " + (fileR.getMsg() != null ? fileR.getMsg() : "未知错误"));
             }
 
+            String filePath = fileR.getData().getUrl();
             FileSystemResource fileResource = new FileSystemResource(filePath);
             String filename = fileResource.getFilename();
-            boolean isImage = filename.toLowerCase().endsWith(".png") || filename.toLowerCase().endsWith(".jpg") ;
 
-            boolean isMd = filename.toLowerCase().endsWith(".md");
-
-            List<Document> documents = new ArrayList<>();
-
-            String parseDocument;
-            if (isImage) {
-                // 2. 使用 Spring AI 读取文档
-                parseDocument = this.parseDocument(fileResource);
-                parseDocument = this.cleanMinerUContent(parseDocument);
-            } else if (isMd) {
-                // Markdown文件直接读取内容，无需MinerU解析
-                parseDocument = Files.readString(fileResource.getFile().toPath());
-                parseDocument = this.cleanMinerUContent(parseDocument);
-            } else {
-                MinerUResult minerUResult = minerUService.parseMarkdown(fileResource);
-
-                String markdownContent = minerUResult.markdown();
-
-                if (minerUResult.images() != null && !minerUResult.images().isEmpty()) {
-                    for (MinerUResult.ImageData imageData : minerUResult.images()) {
-                        String imageText = this.parseDocument(new ByteArrayResource(imageData.data()));
-                        String imagePlaceholder = "![](images/" + imageData.name() + ")";
-
-                        // 为了避免替换文本中包含特殊字符影响格式，可以加上换行
-                        String replacementText = "\n[" + imageText + "]\n";
-                        markdownContent = markdownContent.replace(imagePlaceholder, replacementText);
-                    }
-                }
-
-                parseDocument = this.cleanMinerUContent(markdownContent);
+            // 提取纯文本/Markdown内容
+            String rawContent = this.extractText(fileResource, filename);
+            if (StringUtils.isEmpty(rawContent)) {
+                throw new RuntimeException("文档内容提取失败，内容为空");
             }
 
-            if (StringUtils.isEmpty(parseDocument)) {
-                throw new RuntimeException("内容解析失败");
-            }
+            // 内容清洗 (移除冗余标签)
+            String cleanedContent = this.cleanContent(rawContent);
 
-            String finalResult;
-            if (isMd) {
-                // Markdown文件已是文本格式，无需重新解析
-                finalResult = parseDocument;
-            } else {
-                String finalParseDocument = parseDocument;
-                finalResult = reparsingChatClient.prompt()
-                    .user(u -> u.text(finalParseDocument))
-                    .call()
-                    .content();
-            }
-
+            // 构建初始 Document
             Document document = Document.builder()
-                .text(finalResult)
+                .text(cleanedContent)
                 .metadata(Map.of(
                     "filename", kbDocument.getFileName(),
                     "knowledgeId", kbDocument.getKnowledgeId(),
                     "source", kbDocument.getFilePath()
                 ))
                 .build();
-            documents.add(document);
 
-            // 补充元数据
-            documents.forEach(doc -> {
-                doc.getMetadata().put("filename", kbDocument.getFileName());
-                doc.getMetadata().put("knowledgeId", kbDocument.getKnowledgeId());
-                doc.getMetadata().put("source", kbDocument.getFilePath());
-            });
+            // 通用智能切分 (不再硬编码特定业务逻辑)
+            List<Document> chunks = this.generalSmartSplit(document, kbDocument);
 
-            // 3. 分块 (TokenTextSplitter 按 token 数量切分)
-            TokenTextSplitter splitter = TokenTextSplitter.builder()
-                .withChunkSize(kbDocument.getChunkSize().intValue())                    // 目标每块约 800 tokens
-                .withMinChunkSizeChars((int) (kbDocument.getChunkSize() * 0.5))            // 最小字符数阈值
-                .withMinChunkLengthToEmbed(5)          // 小于此长度的碎片会被丢弃
-                .withMaxNumChunks(10000)               // 单个文本最多生成多少块
-                .withKeepSeparator(true)               // 保留换行等分隔符
-                .withPunctuationMarks(List.of('.', '?', '!', '\n'))  // 用于在句尾截断的标点
-                .withEncodingType(EncodingType.CL100K_BASE)   // 编码类型，默认即是该值
-                .build();
-            List<Document> chunks = splitter.apply(documents);
+            // 存入向量库
+            if (knowledgeVectorStore != null) {
+                knowledgeVectorStore.add(chunks);
+            } else {
+                log.warn("VectorStore 未配置，跳过向量化步骤。");
+            }
 
-            // 4. 为每个切片附加 Metadata (用于后续在 Weaviate 中过滤)
-            chunks.forEach(chunk -> chunk.getMetadata().put("knowledgeId", kbDocument.getKnowledgeId()));
-
-            // 5. 批量存入 Weaviate (Spring AI 会自动调用 Embedding 模型生成向量并入库)
-            knowledgeVectorStore.add(chunks);
-
-            // 6. 将切片信息同步保存到 MySQL (用于 UI 界面展示和统计)
+            // 8. 同步 MySQL Chunk 记录
             List<KbDocumentChunk> dbChunks = chunks.stream().map(chunk -> {
                 KbDocumentChunk dbChunk = new KbDocumentChunk();
-                // Spring AI 添加完后会生成 UUID 放在 metadata 的 _id 中
                 dbChunk.setId(chunk.getId());
                 dbChunk.setDocumentId(kbDocument.getId());
                 dbChunk.setKnowledgeId(kbDocument.getKnowledgeId());
@@ -210,8 +150,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 return dbChunk;
             }).toList();
 
-            dbChunks.forEach(iKbDocumentChunkService::insertKbDocumentChunk); // 批量插入 MySQL
-
+            dbChunks.forEach(iKbDocumentChunkService::insertKbDocumentChunk);
         } catch (Exception e) {
             kbDocument.setStatus(1L); // 失败
             kbDocumentMapper.updateKbDocument(kbDocument);
@@ -221,76 +160,130 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
         return i;
     }
 
-    public String cleanMinerUContent(String rawText) {
-        if (rawText == null) return "";
+    /**
+     * 提取文本内容
+     * 参照Dify，按文件类型路由到不同的提取器
+     */
+    private String extractText(FileSystemResource fileResource, String filename) throws Exception {
+        String lowerFilename = filename.toLowerCase();
 
-        // 1. 针对死循环标签的强力正则清洗（在大模型处理前先止损）
-        // 匹配类似 <|txt_contd_tgt|> <|txt_contd_src|> 的连续重复
-        String pattern = "(<\\|txt_contd_tgt\\|>|<\\|txt_contd_src\\|>)+";
-        String cleanedText = rawText.replaceAll(pattern, "");
+        if (lowerFilename.endsWith(".md")) {
+            return Files.readString(fileResource.getFile().toPath());
+        } else if (isImageFile(lowerFilename)) {
+            return parseImageWithLLM(fileResource);
+        } else {
+            // 默认使用 MinerU 处理 PDF/Word 等复杂文档
+            MinerUResult minerUResult = minerUService.parseMarkdown(fileResource);
+            String markdownContent = minerUResult.markdown();
 
-        // 2. 简单的页码正则（大模型处理正则很贵，不如代码处理）
-        // 假设页码是独立一行的数字
-        cleanedText = cleanedText.replaceAll("(?m)^\\s*\\d+\\s*$", "");
-
-        return cleanedText;
-    }
-
-    public String parseDocument(org.springframework.core.io.Resource resource) {
-        String filename = resource.getFilename();
-        MimeType mimeType;
-
-        // 1. 动态推断文件的实际 MIME 类型
-        try {
-            if (resource instanceof FileSystemResource fileSystemResource) {
-                // 如果是磁盘文件，优先使用系统底层的探测
-                Path filePath = fileSystemResource.getFile().toPath();
-                String contentType = Files.probeContentType(filePath);
-                if (contentType != null) {
-                    mimeType = MimeTypeUtils.parseMimeType(contentType);
-                } else {
-                    mimeType = guessMimeType(filename);
+            // 处理文档内嵌的图片：将图片转为文本描述替换回原文
+            if (minerUResult.images() != null && !minerUResult.images().isEmpty()) {
+                for (MinerUResult.ImageData imageData : minerUResult.images()) {
+                    String imageText = parseImageWithLLM(new ByteArrayResource(imageData.data()));
+                    String imagePlaceholder = "![](images/" + imageData.name() + ")";
+                    // 防止替换失败，使用正则
+                    String replacementText = "\n[图片说明: " + imageText + "]\n";
+                    markdownContent = markdownContent.replace(imagePlaceholder, replacementText);
                 }
-            } else {
-                // 如果是 ByteArrayResource 或其他内存资源，只能靠文件名推断
-                mimeType = guessMimeType(filename);
             }
-        } catch (IOException e) {
-            // 探测失败时兜底
-            mimeType = guessMimeType(filename);
+            return markdownContent;
         }
-
-        // 2. 使用 Builder 构造 Media
-        Media media = Media.builder()
-            .mimeType(mimeType)
-            .data(resource)
-            .build();
-
-        String instruction = "1";
-        return minerUChatClient.prompt()
-            .user(u -> u.text(instruction).media(media))
-            .call()
-            .content();
     }
 
     /**
-     * 辅助方法：根据文件名后缀推断 MimeType
+     * 规则清洗：处理明显的 OCR 噪声
      */
+    private String cleanContent(String rawText) {
+        if (rawText == null) return "";
+
+        // 1. 移除 MinerU 等工具的特殊标签
+        String cleanedText = rawText.replaceAll("(<\\|txt_contd_tgt\\|>|<\\|txt_contd_src\\|>)+", "");
+
+        // 2. 移除仅含数字的独立行 (通常是页码)
+        cleanedText = cleanedText.replaceAll("(?m)^\\s*\\d+\\s*$", "");
+
+        // 3. 【新增】移除常见的 OCR 噪声字符，如连续的乱码符号
+        cleanedText = cleanedText.replaceAll("[■□▲△○●⊛※]{2,}", "");
+
+        // 4. 【新增】处理 OCR 常见的多余空格，特别是中文字符之间的空格
+        cleanedText = cleanedText.replaceAll("([\\u4e00-\\u9fa5])\\s+([\\u4e00-\\u9fa5])", "$1$2");
+
+        // 5. 规范化空行
+        cleanedText = cleanedText.replaceAll("\\n{3,}", "\n\n");
+
+        return cleanedText.trim();
+    }
+
+    /**
+     * 通用智能切分策略
+     * 改进：1. 移除硬编码表判断 2. 支持配置化 3. 更好的段落保持
+     */
+    private List<Document> generalSmartSplit(Document document, KbDocument kbDocument) {
+        // 1. 先按段落进行粗切分，保证语义完整性
+        String text = document.getText();
+        String separator = StringUtils.isNotEmpty(kbDocument.getChunkSeparator()) ? kbDocument.getChunkSeparator() : "\\n\\n";
+        String[] paragraphs = text.split(separator); // 按自定义分段符分段，默认按空行
+        List<Document> preSplitDocs = new ArrayList<>();
+
+        for (String para : paragraphs) {
+            String trimmed = para.trim();
+            if (StringUtils.isNotEmpty(trimmed)) {
+                preSplitDocs.add(new Document(trimmed, document.getMetadata()));
+            }
+        }
+
+        // 如果粗切分后只有一段，说明是没有标准段落的文档，直接交给 Token 切分器
+        if (preSplitDocs.size() <= 1) {
+            preSplitDocs = List.of(document);
+        }
+
+        // 2. Token 级别细切分，防止超长
+        int chunkSize = kbDocument.getChunkSize() != null ? kbDocument.getChunkSize().intValue() : 500;
+
+        // 参考 Dify: 提供重叠度以保留上下文，虽然 Spring AI 的 TokenTextSplitter 不直接支持 overlap，
+        // 但可以通过设置 minChunkSizeChars 来尽量保证完整性
+        TokenTextSplitter splitter = TokenTextSplitter.builder()
+            .withChunkSize(chunkSize)
+            .withMinChunkSizeChars((int) (chunkSize * 0.1))
+            .withMinChunkLengthToEmbed(5)
+            .withMaxNumChunks(10000)
+            .withKeepSeparator(true)
+            // 增加更多的标点符号切分支持
+            .withPunctuationMarks(List.of('.', '?', '!', '。', '？', '！', '\n', ';', '；'))
+            .withEncodingType(EncodingType.CL100K_BASE)
+            .build();
+        return splitter.apply(preSplitDocs);
+    }
+
+    /**
+     * 调用多模态LLM解析图片
+     */
+    private String parseImageWithLLM(org.springframework.core.io.Resource resource) {
+        try {
+            MimeType mimeType = guessMimeType(resource.getFilename());
+            Media media = Media.builder().mimeType(mimeType).data(resource).build();
+
+            return minerUChatClient.prompt()
+                .user(u -> u.text("1").media(media))
+                .call()
+                .content();
+        } catch (Exception e) {
+            log.error("图片解析失败: {}", e.getMessage());
+            return "[图片解析失败]";
+        }
+    }
+
+    private boolean isImageFile(String filename) {
+        return filename.endsWith(".png") || filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".gif");
+    }
+
     private MimeType guessMimeType(String filename) {
-        if (filename == null) {
-            return MimeTypeUtils.IMAGE_PNG; // 默认兜底
-        }
+        if (filename == null) return MimeTypeUtils.IMAGE_PNG;
         String lower = filename.toLowerCase();
-        if (lower.endsWith(".pdf")) {
-            return MimeTypeUtils.parseMimeType("application/pdf");
-        } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
-            return MimeTypeUtils.IMAGE_JPEG;
-        } else if (lower.endsWith(".png")) {
-            return MimeTypeUtils.IMAGE_PNG;
-        } else if (lower.endsWith(".gif")) {
-            return MimeTypeUtils.IMAGE_GIF;
-        }
-        // 默认按图片处理
+        if (lower.endsWith(".pdf")) return MimeTypeUtils.parseMimeType("application/pdf");
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return MimeTypeUtils.IMAGE_JPEG;
+        if (lower.endsWith(".png")) return MimeTypeUtils.IMAGE_PNG;
+        if (lower.endsWith(".gif")) return MimeTypeUtils.IMAGE_GIF;
         return MimeTypeUtils.IMAGE_PNG;
     }
 
@@ -324,8 +317,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 iKbDocumentChunkService.deleteKbDocumentChunkByIds(kbDocumentChunks.stream().map(KbDocumentChunk::getId).toArray(String[]::new));
             }
         }
-        int i = kbDocumentMapper.deleteKbDocumentByIds(ids);
-        return i;
+        return kbDocumentMapper.deleteKbDocumentByIds(ids);
     }
 
     /**

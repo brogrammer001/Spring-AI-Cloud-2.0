@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 
 public class SysDeptBo {
 
-    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
+    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
     private String operationType;
 
     @JsonPropertyDescription("父部门名称，为空则为顶级部门")

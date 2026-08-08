@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
 
 public class SysUserBo {
 
-    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
+    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
     private String operationType;
 
     @Xss(message = "用户账号不能包含脚本字符")

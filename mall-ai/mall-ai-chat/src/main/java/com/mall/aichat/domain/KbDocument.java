@@ -45,12 +45,24 @@ public class KbDocument extends BaseEntity
     @Excel(name = "分块大小")
     private Long chunkSize;
 
+    /** 自定义分段符，默认\\n\\n */
+    @Excel(name = "分段符")
+    private String chunkSeparator;
+
     public Long getChunkSize() {
         return chunkSize;
     }
 
     public void setChunkSize(Long chunkSize) {
         this.chunkSize = chunkSize;
+    }
+
+    public String getChunkSeparator() {
+        return chunkSeparator;
+    }
+
+    public void setChunkSeparator(String chunkSeparator) {
+        this.chunkSeparator = chunkSeparator;
     }
 
     public void setId(String id)

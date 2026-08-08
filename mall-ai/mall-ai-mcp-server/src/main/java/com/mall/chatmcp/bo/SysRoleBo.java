@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 
 public class SysRoleBo {
 
-    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
+    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
     private String operationType;
 
     @NotBlank(message = "角色名称不能为空")

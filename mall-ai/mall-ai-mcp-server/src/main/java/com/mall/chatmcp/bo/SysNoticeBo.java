@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 
 public class SysNoticeBo {
 
-    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，query-查询")
+    @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
     private String operationType;
 
     @Xss(message = "公告标题不能包含脚本字符")
