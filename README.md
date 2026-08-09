@@ -72,3 +72,11 @@
 ### 4.5 事务一致性
 *   MySQL 全量表（业务）与 MySQL 窗口表 可能不在同一个事务中。如果全量入库成功但窗口更新失败，用户可能看到历史记录但 AI “失忆”。
 *   **优化**：在 `FullHistoryChatMemory` 中，优先保证窗口写入成功，全量入库失败可记录日志异步重试，不要阻塞主流程。
+
+
+MessageChatMemoryAdvisor
+VectorStoreChatMemoryAdvisor
+ReturnDirectChatMemoryAdvisor
+toolSearchAdvisor
+FullHistoryChatMemoryAdvisor
+SimpleLoggerAdvisor: 4

@@ -43,6 +43,7 @@ spring:
       api-key: ${aliQwen-api}
       chat:
         model: qwen3.7-max-2026-05-17
+        temperature: 0.1
       embedding:
         model: Qwen3-Embedding-8B-Q5_K_M
         base-url: http://127.0.0.1:8889/v1 # 2.0版本需要带上 /v1 后缀
@@ -106,3 +107,10 @@ vectorstore:
 
 chat-memory:
   max-messages: 4
+
+
+ai:
+  tool:
+    cache:
+      threshold: 2000
+      ttl-hours: 1

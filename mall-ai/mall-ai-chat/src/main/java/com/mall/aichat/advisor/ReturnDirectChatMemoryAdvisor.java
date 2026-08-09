@@ -14,7 +14,6 @@ import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
-import org.springframework.ai.chat.metadata.DefaultChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -33,13 +32,10 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
 
     private ISysChatHistoryService sysChatHistoryService;
 
-    private final ChatMemory chatMemory;
-
-    public ReturnDirectChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService, ChatMemory chatMemory) {
+    public ReturnDirectChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService) {
         this.order = order;
         this.stringRedisTemplate = stringRedisTemplate;
         this.sysChatHistoryService = sysChatHistoryService;
-        this.chatMemory = chatMemory;
     }
 
     @Override
@@ -75,11 +71,6 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
         String finishReason = generationMetadata.getFinishReason();
 
         if ("returnDirect".equals(finishReason)) {
-            System.out.println(generationMetadata);
-
-            DefaultChatGenerationMetadata defaultChatGenerationMetadata = (DefaultChatGenerationMetadata) generationMetadata;
-            String toolName = defaultChatGenerationMetadata.get("toolName");
-
             List<Message> assistantMessages = chatClientResponse.chatResponse()
                 .getResults()
                 .stream()
@@ -103,8 +94,8 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
         }
     }
 
-    public static ReturnDirectChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate, ChatMemory chatMemory) {
-        return new ReturnDirectChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate, chatMemory);
+    public static ReturnDirectChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate) {
+        return new ReturnDirectChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate);
     }
 
     public static final class Builder {
@@ -115,11 +106,9 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
 
         private ISysChatHistoryService sysChatHistoryService;
 
-        private final ChatMemory chatMemory;
 
-        private Builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate, ChatMemory chatMemory) {
+        private Builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate) {
             Assert.notNull(sysChatHistoryService, "chatMemory cannot be null");
-            this.chatMemory = chatMemory;
             this.sysChatHistoryService = sysChatHistoryService;
             this.stringRedisTemplate = stringRedisTemplate;
         }
@@ -141,7 +130,7 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
          * @return the advisor
          */
         public ReturnDirectChatMemoryAdvisor build() {
-            return new ReturnDirectChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService, this.chatMemory);
+            return new ReturnDirectChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService);
         }
 
     }

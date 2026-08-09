@@ -37,10 +37,10 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         Pattern.CASE_INSENSITIVE
     );
 
-    @Tool(description = "数据库查询工具。用于统计、列表、报表等数据查询场景。输入自然语言问题，自动生成并执行SQL。优先从知识库获取schemaInfo传入，避免重复查库。[JSON]", returnDirect = true)
+    @Tool(description = "数据库查询工具。输入自然语言生成并执行SQL。查询问题: question(必填,自然语言问题), tableNames（必填,表名列表）, schemaInfo（必填,表结构文本）。注意参数名必须一致。[JSON]", returnDirect = true)
     public AjaxResult nl2SqlQuery(@ToolParam(description = "查询问题，如：查询所有用户信息") String question,
-                                  @ToolParam(description = "表名列表，可选。如：['sys_user']。已传schemaInfo时可留空") String[] tableNames,
-                                  @ToolParam(description = "表结构信息，可选。如：Table: sys_user (user_id bigint, user_name varchar);") String schemaInfo) {
+                                  @ToolParam(description = "表名列表。如：['sys_user']。已传schemaInfo时可留空") String[] tableNames,
+                                  @ToolParam(description = "表结构信息。如：Table: sys_user (user_id bigint, user_name varchar);") String schemaInfo) {
         return executeWithErrorHandling(() -> {
             try {
                 // 2. 优先使用模型传入的Schema（来自知识库），否则动态查询数据库

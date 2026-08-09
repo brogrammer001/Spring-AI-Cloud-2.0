@@ -81,33 +81,6 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
                     // 推送 calling 状态
                     agentEventSinkManager.emitThought(conversationId, toolName);
                 }
-
-                // 检测是否是工具调用请求
-                /*if (output instanceof AssistantMessage am && am.hasToolCalls()) {
-                    String toolName = am.getToolCalls().getFirst().name();
-                    String thinkingText = "正在为您调用工具: [" + toolName + "]，请稍候...\n";
-
-                    // 构造新的 AssistantMessage，保留 toolCalls，修改 text
-                    // 注意：Spring AI 不同版本 Builder 略有差异，请根据你的版本调整
-                    AssistantMessage newMessage = AssistantMessage.builder()
-                        .content(thinkingText)
-                        .toolCalls(am.getToolCalls())
-                        .build();
-
-                    Generation newGen = new Generation(newMessage);
-
-                    ChatResponse newChatResponse = ChatResponse.builder()
-                        .generations(List.of(newGen))
-                        .build();
-
-                    ChatClientResponse newClientResponse = ChatClientResponse.builder()
-                        .chatResponse(newChatResponse)
-                        .context(chatClientResponse.context())
-                        .build();
-
-                    // 返回修改后的响应，替换掉原有的（框架依然能从 toolCalls 执行工具）
-                    return Flux.just(newClientResponse);
-                }*/
                 return Flux.just(chatClientResponse);
             })
             .transform(flux -> new ChatClientMessageAggregator().aggregateChatClientResponse(flux,
