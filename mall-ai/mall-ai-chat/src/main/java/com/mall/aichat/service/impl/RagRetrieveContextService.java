@@ -56,10 +56,11 @@ public class RagRetrieveContextService {
 
         // 向量检索：多取一些用于重排序
         int retrieveTopK = rerankerService.isEnabled() ? 10 : 3;
+        double similarityThreshold = rerankerService.isEnabled() ? 0.5 : 0.7;
         SearchRequest request = SearchRequest.builder()
             .query(question)
             .topK(retrieveTopK)
-            .similarityThreshold(0.5)
+            .similarityThreshold(similarityThreshold)
             .filterExpression(expression)
             .build();
 

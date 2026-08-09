@@ -62,6 +62,40 @@
                 </div>
                 <div
                   :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
+                  <!-- RAG 知识库检索区块（与工具调用区分：使用 emerald 绿色） -->
+                  <div v-if="message.role === 'assistant' && message.ragRetrieve"
+                       class="mb-3">
+                    <div class="flex items-center text-xs font-medium mb-1"
+                         :class="settingsStore.isDark ? 'text-emerald-300' : 'text-emerald-600'">
+                      <i class="fas fa-book-open mr-1.5"></i> 知识库检索
+                    </div>
+                    <div class="flex items-center gap-2 px-2.5 py-2 rounded-md text-xs"
+                         :class="settingsStore.isDark ? 'bg-emerald-900/40 border border-emerald-700/50 text-emerald-200'
+                                                       : 'bg-emerald-50 border border-emerald-100 text-emerald-700'">
+                      <i class="fas fa-book-bookmark flex-shrink-0"></i>
+                      <span class="font-semibold">检索状态</span>
+                      <span v-if="message.ragRetrieve.status === 'running'"
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="settingsStore.isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'">
+                        <i class="fas fa-circle-notch fa-spin"></i> 检索中
+                      </span>
+                      <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'success'"
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="settingsStore.isDark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700'">
+                        <i class="fas fa-check"></i> 已检索到内容
+                      </span>
+                      <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'empty'"
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="settingsStore.isDark ? 'bg-gray-500/20 text-gray-300' : 'bg-gray-200 text-gray-600'">
+                        <i class="fas fa-circle-info"></i> 未检索到内容
+                      </span>
+                      <span v-else
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="settingsStore.isDark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700'">
+                        <i class="fas fa-check"></i> 完成
+                      </span>
+                    </div>
+                  </div>
                   <!-- 工具调用区块（类似 Deepseek 风格：独立卡片、可折叠） -->
                   <div v-if="message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0"
                        class="mb-3 space-y-1.5">
@@ -395,7 +429,7 @@ const switchConversation = async (id) => {
     }
     try {
       if (!draftMessages || draftMessages.length === 0) {
-        messages.value = [{ role: 'assistant', content: '正在加载历史记录...', isLoading: true, visibleChars: 0, isStreaming: false, toolCalls: [] }];
+        messages.value = [{ role: 'assistant', content: '正在加载历史记录...', isLoading: true, visibleChars: 0, isStreaming: false, toolCalls: [], ragRetrieve: null }];
       }
       const response = await getChatMemoryListByConversationId(id);
       if (response.data && Array.isArray(response.data)) {
@@ -406,8 +440,9 @@ const switchConversation = async (id) => {
           let dataTable = null;
           let dataRowCount = null;
           let toolCalls = [];
+          let ragRetrieve = null;
 
-          // 从历史记录还原 toolCalls（优先独立字段，其次 metadata 内，其次从 content 解析）
+          // 从历史记录还原 toolCalls 和 ragRetrieve（优先独立字段，其次 metadata 内）
           if (role === 'assistant') {
             if (Array.isArray(item.toolCalls) && item.toolCalls.length > 0) {
               toolCalls = item.toolCalls.map(tc => ({
@@ -428,6 +463,20 @@ const switchConversation = async (id) => {
                   startTime: tc.startTime || tc.start_time
                 }));
               }
+            }
+            // 还原 RAG 检索状态
+            if (item.ragRetrieve && typeof item.ragRetrieve === 'object') {
+              ragRetrieve = {
+                status: item.ragRetrieve.status || 'done',
+                startTime: item.ragRetrieve.startTime,
+                endTime: item.ragRetrieve.endTime
+              };
+            } else if (item.metadata && typeof item.metadata === 'object' && item.metadata.ragRetrieve) {
+              ragRetrieve = {
+                status: item.metadata.ragRetrieve.status || 'done',
+                startTime: item.metadata.ragRetrieve.startTime,
+                endTime: item.metadata.ragRetrieve.endTime
+              };
             }
           }
 
@@ -467,6 +516,7 @@ const switchConversation = async (id) => {
             dataTable: dataTable,
             dataRowCount: dataRowCount,
             toolCalls: toolCalls,
+            ragRetrieve: ragRetrieve,
             isLoading: false,
             visibleChars: displayContent.length,
             isStreaming: false
@@ -477,13 +527,13 @@ const switchConversation = async (id) => {
         removeDraftFromStorage(id);
       } else {
         if (!draftMessages || draftMessages.length === 0) {
-          messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false, toolCalls: [] }];
+          messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false, toolCalls: [], ragRetrieve: null }];
         }
       }
     } catch (error) {
       console.error('获取历史记录失败:', error);
       if (!draftMessages || draftMessages.length === 0) {
-        messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false, toolCalls: [] }];
+        messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false, toolCalls: [], ragRetrieve: null }];
       }
     }
     scrollToBottom();
@@ -524,7 +574,7 @@ const startNewConversation = () => {
   }
   activeId.value = null;
   userInput.value = '';
-  const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false, toolCalls: [] };
+  const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false, toolCalls: [], ragRetrieve: null };
   messages.value = [initialMsg];
   nextTick(() => {
     if (messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
@@ -618,7 +668,7 @@ const sendMessage = async () => {
 
   const userMessage = { role: 'user', content, isLoading: false, visibleChars: content.length, isStreaming: false };
   messages.value.push(userMessage);
-  const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true, toolCalls: [] };
+  const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true, toolCalls: [], ragRetrieve: null };
   messages.value.push(assistantMessage);
 
   userInput.value = '';
@@ -732,6 +782,49 @@ const sendMessage = async () => {
             break;
           }
 
+          // RAG 知识库检索事件：单独存到 ragRetrieve 对象，不混入消息正文
+          if (jsonData.event === "rag_retrieve") {
+            const phase = (jsonData.content != null ? jsonData.content : jsonData.msg) || '';
+            if (phase === 'start' || phase === 'rag_retrieval') {
+              // 检索开始
+              messages.value[messageIndex].ragRetrieve = {
+                status: 'running',
+                result: 'pending',
+                startTime: Date.now()
+              };
+            } else if (phase === 'success' || phase === 'rag_retrieved') {
+              // 检索成功
+              if (messages.value[messageIndex].ragRetrieve) {
+                messages.value[messageIndex].ragRetrieve.status = 'done';
+                messages.value[messageIndex].ragRetrieve.result = 'success';
+                messages.value[messageIndex].ragRetrieve.endTime = Date.now();
+              } else {
+                messages.value[messageIndex].ragRetrieve = {
+                  status: 'done',
+                  result: 'success',
+                  startTime: Date.now(),
+                  endTime: Date.now()
+                };
+              }
+            } else if (phase === 'empty') {
+              // 检索无结果
+              if (messages.value[messageIndex].ragRetrieve) {
+                messages.value[messageIndex].ragRetrieve.status = 'done';
+                messages.value[messageIndex].ragRetrieve.result = 'empty';
+                messages.value[messageIndex].ragRetrieve.endTime = Date.now();
+              } else {
+                messages.value[messageIndex].ragRetrieve = {
+                  status: 'done',
+                  result: 'empty',
+                  startTime: Date.now(),
+                  endTime: Date.now()
+                };
+              }
+            }
+            scrollToBottom();
+            continue;
+          }
+
           // 工具调用事件：单独存到 toolCalls 数组，不混入消息正文
           if (jsonData.event === "tool_call") {
             const rawText = (jsonData.content != null ? jsonData.content : jsonData.msg) || '';
@@ -773,14 +866,20 @@ const sendMessage = async () => {
             continue;
           }
 
-          // 收到 message 事件（开始输出消息内容）时，把上一轮仍处于"调用中"的工具标记为"完成"
-          if (jsonData.event === "message" && messages.value[messageIndex].toolCalls) {
-            messages.value[messageIndex].toolCalls.forEach(t => {
-              if (t.status === 'running') {
-                t.status = 'done';
-                t.endTime = Date.now();
-              }
-            });
+          // 收到 message 事件（开始输出消息内容）时，把上一轮仍处于"调用中"的工具/RAG 检索标记为"完成"
+          if (jsonData.event === "message") {
+            if (messages.value[messageIndex].toolCalls) {
+              messages.value[messageIndex].toolCalls.forEach(t => {
+                if (t.status === 'running') {
+                  t.status = 'done';
+                  t.endTime = Date.now();
+                }
+              });
+            }
+            if (messages.value[messageIndex].ragRetrieve && messages.value[messageIndex].ragRetrieve.status === 'running') {
+              messages.value[messageIndex].ragRetrieve.status = 'done';
+              messages.value[messageIndex].ragRetrieve.endTime = Date.now();
+            }
           }
 
           // 提取文本：优先 content（新格式），其次 msg（旧格式兼容）
@@ -811,6 +910,10 @@ const sendMessage = async () => {
     // tool_call 状态标记完成
     if (messages.value[messageIndex].toolCalls && messages.value[messageIndex].toolCalls.length > 0) {
       messages.value[messageIndex].toolCalls.forEach(tc => { tc.status = 'done'; });
+    }
+    if (messages.value[messageIndex].ragRetrieve && messages.value[messageIndex].ragRetrieve.status === 'running') {
+      messages.value[messageIndex].ragRetrieve.status = 'done';
+      messages.value[messageIndex].ragRetrieve.endTime = Date.now();
     }
     messages.value[messageIndex].isLoading = false;
     messages.value[messageIndex].isStreaming = false;

@@ -29,6 +29,17 @@ public class AgentEventSinkManager {
         }
     }
 
+    // 推送结构化的思考事件
+    public void ragEmitThought(String conversationId, String toolName) {
+        Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.get(conversationId);
+        if (sink != null) {
+            ServerSentEvent<ChatStreamEvent> sse = ServerSentEvent.<ChatStreamEvent>builder()
+                .data(ChatStreamEvent.ragRetrieve(conversationId, toolName, 0))
+                .build();
+            sink.tryEmitNext(sse);
+        }
+    }
+
     // 结束时清理通道
     public void complete(String conversationId) {
         Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.remove(conversationId);

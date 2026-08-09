@@ -16,6 +16,9 @@ public record ChatStreamEvent(
     public static ChatStreamEvent toolCall(String convId, String content, int idx) {
         return new ChatStreamEvent("tool_call", null, convId, content, idx, null);
     }
+    public static ChatStreamEvent ragRetrieve(String convId, String content, int idx) {
+        return new ChatStreamEvent("rag_retrieve", null, convId, content, idx, null);
+    }
     public static ChatStreamEvent end(String convId, String msgId, Map<String,Object> meta) {
         return new ChatStreamEvent("message_end", msgId, convId, null, null, meta);
     }

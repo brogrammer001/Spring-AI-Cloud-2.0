@@ -151,29 +151,33 @@ public class AiConversationServiceImpl implements IAiConversationService {
         mallRedisTemplate.opsForValue().set(redisKey, String.valueOf(userId), 7, TimeUnit.DAYS);
 
         // 3. 【核心】异步生成标题并更新
-        // 建议使用自定义的线程池执行器，避免耗尽 Tomcat 线程
-        CompletableFuture.runAsync(() -> {
-            try {
-                String aiTitle = titleChatClient.prompt()
-                    .user(u -> u.text(question))
-                    .call()
-                    .content();
+        // 仅当问题长度超过 20 时才生成标题，避免短问题浪费 LLM 资源
+        if (StringUtils.isNotEmpty(question) && question.length() > 20) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // 二次检查：如果会话已有标题则不再生成（避免重复调用）
+                    AiConversation existing = this.selectAiConversationById(entity.getId());
+                    if (existing != null && StringUtils.isNotEmpty(existing.getTitle())) {
+                        return;
+                    }
 
-                if (StringUtils.isNotBlank(aiTitle)) {
-                    // 创建更新对象
-                    AiConversation updateEntity = new AiConversation();
-                    updateEntity.setId(entity.getId());
-                    updateEntity.setConversationId(entity.getConversationId());
-                    updateEntity.setTitle(aiTitle);
-                    // 更新数据库 (假设你有一个 updateById 或类似方法)
-                    // 注意：这里最好只更新 title 字段，而不是整个对象
-                    this.updateAiConversation(updateEntity);
+                    String aiTitle = titleChatClient.prompt()
+                        .user(u -> u.text(question))
+                        .call()
+                        .content();
+
+                    if (StringUtils.isNotBlank(aiTitle)) {
+                        AiConversation updateEntity = new AiConversation();
+                        updateEntity.setId(entity.getId());
+                        updateEntity.setConversationId(entity.getConversationId());
+                        updateEntity.setTitle(aiTitle);
+                        this.updateAiConversation(updateEntity);
+                    }
+                } catch (Exception e) {
+                    log.error("异步生成会话标题失败, conversationId:{}", entity.getConversationId(), e);
                 }
-            } catch (Exception e) {
-                // 记录日志，即使标题生成失败，也不影响主流程，用户至少能看到默认标题
-                log.error("异步生成会话标题失败, conversationId:{}", entity.getConversationId(), e);
-            }
-        }, taskExecutor);
+            }, taskExecutor);
+        }
 
         return entity;
     }

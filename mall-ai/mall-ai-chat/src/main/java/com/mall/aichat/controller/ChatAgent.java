@@ -58,6 +58,9 @@ public class ChatAgent {
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<ChatStreamEvent>> chatStream(@RequestParam String question, @RequestParam(required = false) String conversationId) {
 
+        // ★ 提前获取该会话的旁路 Sink，以便在 RAG 检索时推送状态
+        Sinks.Many<ServerSentEvent<ChatStreamEvent>> thinkingSink = agentEventSinkManager.getOrCreate(conversationId);
+
         // 1. 构建请求
         var promptSpec = qwenChatClient.prompt()
             .user(question)
@@ -67,19 +70,21 @@ public class ChatAgent {
         try (InputStream inputStream = systemSimplifyPromptResource.getInputStream()) {
             String systemSimplifyPrompt = StreamUtils.copyToString(inputStream, Charset.defaultCharset());
             if (vectorStoreEnabled) {
+                // ★ 推送：正在检索知识库
+                agentEventSinkManager.ragEmitThought(conversationId, "start");
                 // 2. RAG 检索
                 String relevantDoc = ragConfig.retrieveContext(question);
                 if (StringUtils.isNotEmpty(relevantDoc)) {
                     systemSimplifyPrompt += "\n参考知识：\n" + relevantDoc;
+                    agentEventSinkManager.ragEmitThought(conversationId, "success");
+                }else {
+                    agentEventSinkManager.ragEmitThought(conversationId, "empty");
                 }
             }
             promptSpec.system(systemSimplifyPrompt);
         } catch (IOException ex) {
             throw new RuntimeException("Failed to read resource", ex);
         }
-
-        // 获取该会话的旁路 Sink
-        Sinks.Many<ServerSentEvent<ChatStreamEvent>> thinkingSink = agentEventSinkManager.getOrCreate(conversationId);
 
         AtomicInteger idx = new AtomicInteger(0);
         String messageId = UUID.randomUUID().toString();
