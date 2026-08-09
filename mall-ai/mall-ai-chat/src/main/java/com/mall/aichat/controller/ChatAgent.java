@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +36,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ChatAgent {
 
     private static final Logger log = LoggerFactory.getLogger(ChatAgent.class);
+
+    @Value("classpath:/prompts/system-prompt-simplify.md")
+    private org.springframework.core.io.Resource systemSimplifyPromptResource;
+
     @Resource(name = "qwenChatClient")
     private ChatClient qwenChatClient;
 
@@ -55,12 +63,19 @@ public class ChatAgent {
             .user(question)
             .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId));
 
-        if (vectorStoreEnabled) {
-            // 2. RAG 检索
-            String relevantDoc = ragConfig.retrieveContext(question);
-            if (StringUtils.isNotEmpty(relevantDoc)) {
-                promptSpec.system("参考知识：\n" + relevantDoc);
+
+        try (InputStream inputStream = systemSimplifyPromptResource.getInputStream()) {
+            String systemSimplifyPrompt = StreamUtils.copyToString(inputStream, Charset.defaultCharset());
+            if (vectorStoreEnabled) {
+                // 2. RAG 检索
+                String relevantDoc = ragConfig.retrieveContext(question);
+                if (StringUtils.isNotEmpty(relevantDoc)) {
+                    systemSimplifyPrompt += "\n参考知识：\n" + relevantDoc;
+                }
             }
+            promptSpec.system(systemSimplifyPrompt);
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to read resource", ex);
         }
 
         // 获取该会话的旁路 Sink

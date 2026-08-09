@@ -19,6 +19,9 @@ spring:
           connections:
             gateway:
               url: http://localhost:9999  # 替换为实际 Gateway 地址
+            mcp-echarts: # 这个 key 会作为工具名前缀
+              url: https://mcp.api-inference.modelscope.net
+              endpoint: /971bba351c8546/mcp
     model:
       chat: openai
       embedding: openai
@@ -97,7 +100,7 @@ reranker:
   top-n: 3
 
 vectorstore:
-  enabled: false #开启全局向量功能
+  enabled: true #开启全局向量功能
   chat-memory-default-topk: 1
   compression-threshold: 4
   weaviate:
@@ -107,10 +110,3 @@ vectorstore:
 
 chat-memory:
   max-messages: 4
-
-
-ai:
-  tool:
-    cache:
-      threshold: 2000
-      ttl-hours: 1

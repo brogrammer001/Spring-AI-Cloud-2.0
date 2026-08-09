@@ -37,7 +37,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         Pattern.CASE_INSENSITIVE
     );
 
-    @Tool(description = "数据库查询工具。输入自然语言生成并执行SQL。查询问题: question(必填,自然语言问题), tableNames（必填,表名列表）, schemaInfo（必填,表结构文本）。注意参数名必须一致。[JSON]", returnDirect = true)
+    @Tool(description = "数据库查询工具。输入自然语言生成并执行SQL。查询问题: question(必填,自然语言问题), tableNames（必填,表名列表）, schemaInfo（必填,表结构文本）。注意参数名必须一致。")
     public AjaxResult nl2SqlQuery(@ToolParam(description = "查询问题，如：查询所有用户信息") String question,
                                   @ToolParam(description = "表名列表。如：['sys_user']。已传schemaInfo时可留空") String[] tableNames,
                                   @ToolParam(description = "表结构信息。如：Table: sys_user (user_id bigint, user_name varchar);") String schemaInfo) {

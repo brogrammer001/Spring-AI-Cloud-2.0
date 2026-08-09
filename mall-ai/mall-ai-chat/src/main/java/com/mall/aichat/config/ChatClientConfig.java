@@ -4,7 +4,6 @@ import com.mall.aichat.advisor.FullHistoryChatMemoryAdvisor;
 import com.mall.aichat.advisor.ReturnDirectChatMemoryAdvisor;
 import com.mall.aichat.advisor.WrappedMcpToolCallbackProvider;
 import com.mall.aichat.service.ISysChatHistoryService;
-import com.mall.aichat.service.impl.ToolDataCacheService;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
@@ -28,7 +27,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.core.io.Resource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.Duration;
@@ -40,9 +38,6 @@ import java.util.List;
  */
 @Configuration
 public class ChatClientConfig {
-
-    @Value("classpath:/prompts/system-prompt-simplify.md")
-    private Resource systemSimplifyPromptResource;
 
     @Value("${vectorstore.chat-memory-default-topk}")
     private int vectorStoreChatMemoryDefaultTopK;
@@ -105,7 +100,6 @@ public class ChatClientConfig {
                                      ISysChatHistoryService sysChatHistoryService,
                                      StringRedisTemplate mallRedisTemplate,
                                      AgentEventSinkManager agentEventSinkManager,
-                                     ToolDataCacheService toolDataCacheService,
                                      @Qualifier("mcpAsyncToolCallbacks") @Autowired(required = false) AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
@@ -134,11 +128,10 @@ public class ChatClientConfig {
         advisors.add(new SimpleLoggerAdvisor(2));
 
         ChatClient.Builder builder = ChatClient.builder(model)
-            .defaultSystem(systemSimplifyPromptResource)
             .defaultAdvisors(advisors);
 
         if (mcpEnabled) {
-            WrappedMcpToolCallbackProvider wrappedMcpToolCallbackProvider = new WrappedMcpToolCallbackProvider(tools, toolDataCacheService);
+            WrappedMcpToolCallbackProvider wrappedMcpToolCallbackProvider = new WrappedMcpToolCallbackProvider(tools);
             builder.defaultTools(wrappedMcpToolCallbackProvider);
         }
         return builder.build();

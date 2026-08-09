@@ -142,7 +142,7 @@
 </template>
 
 <script setup>
-import {computed, getCurrentInstance, nextTick, onMounted, ref, watch} from 'vue';
+import {computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import {ElMessageBox} from 'element-plus';
 import {sendChatMessage} from '@/api/ai/aichat/chat';
 import {
@@ -158,6 +158,7 @@ import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
 import useTagsViewStore from '@/store/modules/tagsView';
 import {md} from '@/utils/markdown';
+import * as echarts from 'echarts';
 import router from '@/router';
 
 const userStore = useUserStore();
@@ -263,6 +264,31 @@ const renderMessage = (message) => {
       return `<div style="overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">${styled}</div>`;
     });
 
+    // 识别 ECharts option 代码块，替换为图表占位容器（流式输出中不渲染图表，等流结束后再渲染避免频繁重建）
+    if (!message.isStreaming) {
+      html = html.replace(/<pre><code(?:\s+class="[^"]*")?>([\s\S]*?)<\/code><\/pre>/g, (m, code) => {
+        // highlight.js 会把 JSON 内容包裹 <span> 做语法高亮，需先去标签再反转义 HTML 实体
+        const text = code
+          .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#039;/g, "'");
+        try {
+          const option = JSON.parse(text);
+          // ECharts option 必备特征字段
+          if (option && typeof option === 'object' &&
+              (option.series || option.xAxis || option.yAxis || option.baseOption)) {
+            // 用 base64 编码 option 存到 data 属性，避免 HTML 转义问题
+            const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(option))));
+            return `<div class="echarts-wrap my-2" data-echarts="${encoded}" style="width:100%;height:320px;"></div>`;
+          }
+        } catch (e) { /* 非 JSON 或非 ECharts，保留原样 */ }
+        return m;
+      });
+    }
+
     // 数据查询结果表格渲染（code=9999）
     if (message.dataTable && Array.isArray(message.dataTable) && message.dataTable.length > 0) {
       const tableHtml = renderDataTable(message.dataTable);
@@ -349,6 +375,8 @@ const scrollToBottom = () => {
 
 const switchConversation = async (id) => {
   if (activeId.value === id) return;
+  // 切换前销毁旧 ECharts 实例，避免 DOM 已替换但实例残留导致内存泄漏
+  destroyAllEchartsInstances();
   activeId.value = id;
   const conv = conversations.value.find(c => c.id === id);
   if (conv) {
@@ -1039,9 +1067,62 @@ const stopResponse = () => {
 onMounted(() => {
   initRecentConversations();
   startNewConversation();
+  window.addEventListener('resize', handleEchartsResize);
 });
 
-watch(messages, scrollToBottom, { deep: true });
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleEchartsResize);
+  destroyAllEchartsInstances();
+});
+
+watch(messages, () => {
+  scrollToBottom();
+  // 消息变化时扫描并初始化 ECharts 占位元素
+  nextTick(() => initEchartsInstances());
+}, { deep: true });
+
+// ECharts 实例缓存：key 为 DOM 元素
+const echartsInstances = new Map();
+
+const initEchartsInstances = () => {
+  if (!chatContainer.value) {
+    console.warn('[ECharts] chatContainer 未挂载，跳过初始化');
+    return;
+  }
+  const els = chatContainer.value.querySelectorAll('.echarts-wrap[data-echarts]:not([data-echarts-init])');
+  if (els.length === 0) {
+    return;
+  }
+  console.log('[ECharts] 发现待初始化图表元素:', els.length);
+  els.forEach(el => {
+    try {
+      const encoded = el.getAttribute('data-echarts');
+      const jsonStr = decodeURIComponent(escape(atob(encoded)));
+      const option = JSON.parse(jsonStr);
+      const instance = echarts.init(el);
+      instance.setOption(option);
+      echartsInstances.set(el, instance);
+      el.setAttribute('data-echarts-init', '1');
+      console.log('[ECharts] 初始化成功', option.title || option.series);
+    } catch (e) {
+      console.error('[ECharts] 初始化失败:', e);
+      el.setAttribute('data-echarts-init', 'error');
+    }
+  });
+};
+
+const handleEchartsResize = () => {
+  echartsInstances.forEach(instance => {
+    try { instance.resize(); } catch (e) {}
+  });
+};
+
+const destroyAllEchartsInstances = () => {
+  echartsInstances.forEach(instance => {
+    try { instance.dispose(); } catch (e) {}
+  });
+  echartsInstances.clear();
+};
 </script>
 
 <style scoped>
