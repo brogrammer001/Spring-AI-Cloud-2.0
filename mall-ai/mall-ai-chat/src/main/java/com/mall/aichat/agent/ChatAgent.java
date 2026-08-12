@@ -1,4 +1,4 @@
-package com.mall.aichat.controller;
+package com.mall.aichat.agent;
 
 import com.mall.aichat.config.AgentEventSinkManager;
 import com.mall.aichat.domain.ChatStreamEvent;
@@ -65,7 +65,6 @@ public class ChatAgent {
         var promptSpec = qwenChatClient.prompt()
             .user(question)
             .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId));
-
 
         try (InputStream inputStream = systemSimplifyPromptResource.getInputStream()) {
             String systemSimplifyPrompt = StreamUtils.copyToString(inputStream, Charset.defaultCharset());

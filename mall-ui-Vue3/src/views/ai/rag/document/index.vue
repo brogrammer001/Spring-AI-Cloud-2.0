@@ -194,6 +194,25 @@
           <el-form-item label="分隔符" prop="chunkSeparator">
             <el-input v-model="form.chunkSeparator" placeholder="请输入分块分隔符（可留空）" clearable />
           </el-form-item>
+          <el-form-item label="标签" prop="tags">
+            <el-select
+              v-model="form.tags"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              :reserve-keyword="false"
+              placeholder="请输入标签（回车添加，可自定义）"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="tag in tagSuggestions"
+                :key="tag"
+                :label="tag"
+                :value="tag"
+              />
+            </el-select>
+          </el-form-item>
         </el-form>
         <template #footer>
           <div class="dialog-footer">
@@ -228,6 +247,11 @@ const isListView = ref(false)
 const isDragover = ref(false)
 const pageTitle = ref("全部文档")
 const fileInput = ref(null)
+
+// 标签建议（可自定义扩展）
+const tagSuggestions = ref([
+  '重要', '常用', '参考', '示例', '教程', '配置', '说明', '指南'
+])
 
 const data = reactive({
   form: {},
@@ -381,6 +405,7 @@ function reset() {
     chunkCount: 10,
     chunkSize: 500,
     chunkSeparator: null,
+    tags: [],
     createTime: null
   }
 }
@@ -423,6 +448,7 @@ function submitForm() {
           chunkCount:  form.value.chunkCount,
           chunkSize:   form.value.chunkSize,
           chunkSeparator:   form.value.chunkSeparator,
+          tags:        Array.isArray(form.value.tags) ? form.value.tags.join(',') : (form.value.tags || ''),
           status:      0
         }
 
@@ -469,6 +495,7 @@ function submitForm() {
       chunkCount:  form.value.chunkCount,
       chunkSize:   form.value.chunkSize,
       chunkSeparator:   form.value.chunkSeparator,
+      tags:        Array.isArray(form.value.tags) ? form.value.tags.join(',') : (form.value.tags || ''),
       status:      form.value.status
     }
 

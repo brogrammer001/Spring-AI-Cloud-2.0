@@ -61,4 +61,19 @@ public interface KbDocumentMapper
     public int deleteKbDocumentByIds(String[] ids);
 
     int deleteKbDocumentByKnowledgeIds(String[] ids);
+
+    /**
+     * 根据标签关键词查询匹配的文档列表（返回tags和knowledgeId，用于向量库双重过滤）
+     * <p>
+     * 用于RAG检索的第一步：先按标签匹配文档，获取精确的tags值和knowledgeId，
+     * 再在向量检索时同时按 tags 和 knowledgeId 过滤，提升检索精度
+     *
+     * @param tags    标签关键词（多个用逗号分隔）
+     * @param kbType  知识库类型
+     * @param status  状态（0-启用）
+     * @return 匹配的文档列表（含 tags 和 knowledgeId 字段）
+     */
+    List<KbDocument> selectDocumentsByTags(@org.apache.ibatis.annotations.Param("tags") String tags,
+                                            @org.apache.ibatis.annotations.Param("kbType") String kbType,
+                                            @org.apache.ibatis.annotations.Param("status") String status);
 }

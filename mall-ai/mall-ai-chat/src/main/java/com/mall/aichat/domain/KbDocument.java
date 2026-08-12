@@ -49,6 +49,18 @@ public class KbDocument extends BaseEntity
     @Excel(name = "分段符")
     private String chunkSeparator;
 
+    /** 标签（多个用逗号分隔，用于向量检索时二次过滤） */
+    @Excel(name = "标签")
+    private String tags;
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
     public Long getChunkSize() {
         return chunkSize;
     }
@@ -145,6 +157,7 @@ public class KbDocument extends BaseEntity
             .append("fileType", getFileType())
             .append("status", getStatus())
             .append("chunkCount", getChunkCount())
+            .append("tags", getTags())
             .append("createTime", getCreateTime())
             .toString();
     }

@@ -61,4 +61,14 @@ public interface IKbDocumentService
     public int deleteKbDocumentById(String id);
 
     int deleteKbDocumentByKnowledgeIds(String[] ids);
+
+    /**
+     * 根据标签关键词查询匹配的文档列表（含 tags 和 knowledgeId，用于向量库双重过滤）
+     *
+     * @param tags   标签关键词（多个用逗号分隔）
+     * @param kbType 知识库类型
+     * @param status 状态
+     * @return 匹配的文档列表
+     */
+    List<KbDocument> selectDocumentsByTags(String tags, String kbType, String status);
 }

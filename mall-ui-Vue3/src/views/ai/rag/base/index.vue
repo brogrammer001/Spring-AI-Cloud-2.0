@@ -60,6 +60,11 @@
     <el-table v-loading="loading" :data="baseList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="知识库名称" align="center" prop="name" />
+      <el-table-column label="知识库类型" align="center" prop="kbType" width="120">
+        <template #default="scope">
+          <dict-tag :options="sys_ai_base_type" :value="scope.row.kbType" />
+        </template>
+      </el-table-column>
       <el-table-column label="知识库描述" align="center" prop="description" />
       <el-table-column label="状态" align="center" prop="status">
         <template #default="scope">
@@ -103,6 +108,18 @@
             </el-form-item>
           </el-col>
           <el-col :span="24">
+            <el-form-item label="知识库类型" prop="kbType">
+              <el-select v-model="form.kbType" placeholder="请选择知识库类型" clearable style="width: 100%">
+                <el-option
+                  v-for="dict in sys_ai_base_type"
+                  :key="dict.value"
+                  :label="dict.label"
+                  :value="dict.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
             <el-form-item label="知识库描述" prop="description">
               <el-input v-model="form.description" type="textarea" placeholder="请输入内容" />
             </el-form-item>
@@ -136,7 +153,7 @@ import { listBase, getBase, delBase, addBase, updateBase } from "@/api/ai/chatra
 const { proxy } = getCurrentInstance()
 const router = useRouter()
 
-const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
+const { sys_normal_disable, sys_ai_base_type } = proxy.useDict("sys_normal_disable", "sys_ai_base_type")
 
 const baseList = ref([])
 const open = ref(false)
@@ -194,6 +211,7 @@ function reset() {
   form.value = {
     id: null,
     name: null,
+    kbType: null,
     description: null,
     status: '0',
     createTime: null,

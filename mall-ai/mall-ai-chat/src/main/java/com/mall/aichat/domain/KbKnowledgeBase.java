@@ -30,6 +30,18 @@ public class KbKnowledgeBase extends BaseEntity
     @Excel(name = "状态：1启用 0禁用")
     private String status;
 
+    /** 知识库类型（如：FAQ、手册、API文档等，用于检索时分类过滤） */
+    @Excel(name = "知识库类型")
+    private String kbType;
+
+    public String getKbType() {
+        return kbType;
+    }
+
+    public void setKbType(String kbType) {
+        this.kbType = kbType;
+    }
+
     public void setId(String id) 
     {
         this.id = id;
@@ -75,6 +87,7 @@ public class KbKnowledgeBase extends BaseEntity
             .append("name", getName())
             .append("description", getDescription())
             .append("status", getStatus())
+            .append("kbType", getKbType())
             .append("createTime", getCreateTime())
             .append("updateTime", getUpdateTime())
             .toString();

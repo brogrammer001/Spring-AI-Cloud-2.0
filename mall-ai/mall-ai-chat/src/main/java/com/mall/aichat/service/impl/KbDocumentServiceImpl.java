@@ -120,13 +120,19 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
             // 内容清洗 (移除冗余标签)
             String cleanedContent = this.cleanContent(rawContent);
 
-            // 构建初始 Document
+            // 构建初始 Document：将 tags 拼入文本内容前面，使向量检索能通过 question 自然匹配标签语义
+            String documentText = cleanedContent;
+            if (StringUtils.isNotEmpty(kbDocument.getTags())) {
+                documentText = "[标签: " + kbDocument.getTags() + "]\n\n" + cleanedContent;
+            }
+
             Document document = Document.builder()
-                .text(cleanedContent)
+                .text(documentText)
                 .metadata(Map.of(
                     "filename", kbDocument.getFileName(),
                     "knowledgeId", kbDocument.getKnowledgeId(),
-                    "source", kbDocument.getFilePath()
+                    "source", kbDocument.getFilePath(),
+                    "tags", kbDocument.getTags() != null ? kbDocument.getTags() : ""
                 ))
                 .build();
 
@@ -158,6 +164,11 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
         }
 
         return i;
+    }
+
+    @Override
+    public List<KbDocument> selectDocumentsByTags(String tags, String kbType, String status) {
+        return kbDocumentMapper.selectDocumentsByTags(tags, kbType, status);
     }
 
     /**

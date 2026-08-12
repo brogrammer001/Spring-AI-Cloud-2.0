@@ -2,7 +2,14 @@ package com.mall.chatmcp.sevice.impl;
 
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
+import com.mall.system.api.RemoteKbRagRetrieveService;
 import com.mall.system.api.RemoteSqlService;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.*;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -13,8 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.Validator;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
@@ -28,38 +33,28 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     private ChatClient sqlChatClient;
 
     @Autowired
+    private RemoteKbRagRetrieveService remoteKbRagRetrieveService;
+
+    @Autowired
     public void setValidator(Validator validator) {
         super.setValidator(validator);
     }
 
-    private static final Pattern SQL_INJECTION_PATTERN = Pattern.compile(
-        "(?i)(union\\s+select.*?from|insert\\s+into|delete\\s+from|update\\s+\\w+\\s+set|drop\\s+table|truncate\\s+table|alter\\s+table|create\\s+table|exec\\s+|execute\\s+|xp_cmdshell|sp_\\w+|--|;\\s*select|\\|\\|\\s*select|\\|\\s*select)",
-        Pattern.CASE_INSENSITIVE
-    );
-
-    @Tool(description = "数据库查询工具。输入自然语言生成并执行SQL。查询问题: question(必填,自然语言问题), tableNames（必填,表名列表）, schemaInfo（必填,表结构文本）。注意参数名必须一致。")
-    public AjaxResult nl2SqlQuery(@ToolParam(description = "查询问题，如：查询所有用户信息") String question,
-                                  @ToolParam(description = "表名列表。如：['sys_user']。已传schemaInfo时可留空") String[] tableNames,
-                                  @ToolParam(description = "表结构信息。如：Table: sys_user (user_id bigint, user_name varchar);") String schemaInfo) {
+    @Tool(description = "数据库查询工具。输入自然语言生成并执行SQL。参数说明：question(必填,自然语言问题)。")
+    public AjaxResult nl2SqlQuery(@ToolParam(description = "查询问题，如：查询所有用户信息") String question) {
         return executeWithErrorHandling(() -> {
             try {
-                // 2. 优先使用模型传入的Schema（来自知识库），否则动态查询数据库
-                String effectiveSchema;
-                if (schemaInfo != null && !schemaInfo.isEmpty()) {
-                    effectiveSchema = schemaInfo;
-                    logger.info("[SQL工具] 使用知识库传入的Schema，长度: {} 字符", schemaInfo.length());
-                } else {
-                    logger.info("[SQL工具] 未传入Schema，从数据库动态查询...");
-                    effectiveSchema = extractSchema(tableNames);
-                    logger.info("[SQL工具] 数据库查询Schema完成，长度: {} 字符", effectiveSchema.length());
+                // Feign调用：从chat服务检索kbType=20表结构专业知识
+                logger.info("[SQL工具] 从知识库检索表结构（Feign调用, kbType=20）...");
+                R<String> ragResult = remoteKbRagRetrieveService.retrieve(question, "20");
+                if (ragResult.getCode() != 200 || ragResult.getData() == null || ragResult.getData().isEmpty()) {
+                    return AjaxResult.error("未在知识库中检索到相关表结构，请在知识库中补充表结构信息");
                 }
+                String effectiveSchema = ragResult.getData();
+                logger.info("[SQL工具] 知识库检索Schema完成，长度: {} 字符", effectiveSchema.length());
 
-                if (effectiveSchema.isEmpty()) {
-                    return AjaxResult.error("无法获取数据库表结构信息，请在知识库中补充表结构或指定tableNames参数");
-                }
-
-                // 3. 生成SQL（支持自我修正，最多重试1次）
-                String generatedSql = "";
+                // 生成SQL（支持自我修正，最多重试1次）
+                String generatedSql;
                 String lastError = "";
                 int maxRetries = 1;
 
@@ -79,10 +74,10 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
                     generatedSql = enforceLimit(generatedSql);
 
                     try {
-                        // 4. 执行SQL
+                        // 执行SQL
                         List<Map<String, Object>> queryResult = executeSql(generatedSql);
 
-                        // 5. 封装结果
+                        // 封装结果
                         Map<String, Object> result = new HashMap<>();
                         result.put("generatedSql", generatedSql);
                         result.put("result", queryResult);
@@ -111,79 +106,71 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     }
 
     /**
-     * 强制添加 LIMIT 保护，防止查询过载
+     * 使用 JSqlParser 安全地强制添加 LIMIT，防止查询过载
+     * 相比字符串匹配，AST 解析能准确识别聚合函数和已有 LIMIT，避免误判
      */
     private String enforceLimit(String sql) {
-        String upperSql = sql.toUpperCase().trim();
-        // 聚合查询通常不需要Limit，或者需要Count全部
-        if (upperSql.matches("SELECT\\s+.*?(COUNT|SUM|AVG|MAX|MIN)\\s*\\(")) {
+        try {
+            Statement statement = CCJSqlParserUtil.parse(sql);
+            if (!(statement instanceof Select select)) {
+                return sql;
+            }
+
+            // 处理普通 SELECT
+            if (select instanceof PlainSelect plainSelect) {
+
+                // 1. 聚合查询（COUNT/SUM/AVG/MAX/MIN）不需要 LIMIT
+                if (hasAggregateFunction(plainSelect)) {
+                    return sql;
+                }
+
+                // 2. 已有 LIMIT 则不重复添加
+                if (plainSelect.getLimit() != null) {
+                    return sql;
+                }
+
+                // 3. 安全添加 LIMIT 100
+                Limit limit = new Limit();
+                limit.setRowCount(new LongValue(100));
+                plainSelect.setLimit(limit);
+                return select.toString();
+            }
+
+            // 处理 UNION 等集合操作
+            if (select instanceof SetOperationList setOp) {
+                if (setOp.getLimit() != null) {
+                    return sql;
+                }
+                Limit limit = new Limit();
+                limit.setRowCount(new LongValue(100));
+                setOp.setLimit(limit);
+                return select.toString();
+            }
+
+            return sql;
+        } catch (JSQLParserException e) {
+            logger.warn("[SQL工具] enforceLimit 解析失败，返回原始SQL: {}", e.getMessage());
             return sql;
         }
-        // 如果已经包含 LIMIT，不再添加
-        if (upperSql.contains("LIMIT")) {
-            return sql;
-        }
-        // 强制追加 LIMIT 100
-        if (sql.endsWith(";")) {
-            return sql.substring(0, sql.length() - 1) + " LIMIT 100;";
-        }
-        return sql + " LIMIT 100";
     }
 
     /**
-     * 优化后的 Schema 提取，格式更紧凑，利于LLM理解
+     * 检查 SELECT 是否包含聚合函数（COUNT/SUM/AVG/MAX/MIN）
      */
-    private String extractSchema(String[] tableNames) {
-        StringBuilder schemaBuilder = new StringBuilder();
-        schemaBuilder.append("### 数据库表结构\n");
-
-        List<String> tables;
-        if (tableNames != null && tableNames.length > 0) {
-            tables = Arrays.asList(tableNames);
-        } else {
-            // 如果未指定表，获取所有表（注意：表多时建议限制或要求用户指定）
-            tables = getAllTableNames();
+    private boolean hasAggregateFunction(PlainSelect plainSelect) {
+        if (plainSelect.getSelectItems() == null) {
+            return false;
         }
-
-        for (String tableName : tables) {
-            schemaBuilder.append("\nTable: ").append(tableName).append(" (");
-            try {
-                List<Map<String, Object>> columns = getTableColumns(tableName);
-                List<String> columnDefs = new ArrayList<>();
-                for (Map<String, Object> column : columns) {
-                    String colName = column.get("COLUMN_NAME").toString();
-                    String dataType = column.get("DATA_TYPE").toString();
-                    String comment = column.getOrDefault("COLUMN_COMMENT", "").toString();
-                    // 格式：字段名 类型 [注释]
-                    String def = colName + " " + dataType;
-                    if (!comment.isEmpty()) {
-                        def += " -- " + comment;
-                    }
-                    columnDefs.add(def);
+        for (SelectItem<?> item : plainSelect.getSelectItems()) {
+            if (item.getExpression() instanceof Function func) {
+                String funcName = func.getName().toUpperCase();
+                if (funcName.equals("COUNT") || funcName.equals("SUM") ||
+                    funcName.equals("AVG") || funcName.equals("MAX") || funcName.equals("MIN")) {
+                    return true;
                 }
-                schemaBuilder.append(String.join(", ", columnDefs));
-                schemaBuilder.append(");");
-            } catch (Exception e) {
-                schemaBuilder.append("Error: ").append(e.getMessage()).append(");");
             }
         }
-        return schemaBuilder.toString();
-    }
-
-    private List<String> getAllTableNames() {
-        R<List<String>> result = remoteSqlService.getAllTableNames();
-        if (result.getCode() == 200 && result.getData() != null) {
-            return result.getData();
-        }
-        return List.of();
-    }
-
-    private List<Map<String, Object>> getTableColumns(String tableName) {
-        R<List<Map<String, Object>>> result = remoteSqlService.getTableColumns(tableName);
-        if (result.getCode() == 200 && result.getData() != null) {
-            return result.getData();
-        }
-        return List.of();
+        return false;
     }
 
     /**
@@ -243,33 +230,31 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
             trimmed = trimmed.substring(0, trimmed.length() - 3);
         }
         return trimmed.trim();
-
-        /*
-         * 如果依赖正则提取（备选方案）：
-         * Matcher matcher = SQL_PATTERN.matcher(content);
-         * if (matcher.find()) {
-         *     // Group 2 是 "SELECT" 关键字, Group 3 是剩余内容
-         *     return "SELECT " + matcher.group(3).trim();
-         * }
-         * return content.trim();
-         */
     }
 
+    /**
+     * 使用 JSqlParser 验证 SQL 安全性
+     * 相比正则黑名单，AST 解析能精确识别语句类型，杜绝绕过风险
+     */
     private boolean validateSql(String sql) {
-        if (sql == null || sql.isEmpty()) {
+        if (sql == null || sql.trim().isEmpty()) {
             return false;
         }
-        // 1. 黑名单检测
-        Matcher injectionMatcher = SQL_INJECTION_PATTERN.matcher(sql);
-        if (injectionMatcher.find()) {
+        try {
+            // JSqlParser 解析 SQL 为 AST
+            // 若包含多条语句（分号拼接）或语法非法，会抛出异常
+            Statement statement = CCJSqlParserUtil.parse(sql);
+
+            // 必须是 SELECT 语句（自动拒绝 INSERT/UPDATE/DELETE/DROP/TRUNCATE/ALTER/CREATE 等）
+            if (!(statement instanceof Select)) {
+                logger.warn("[SQL工具] 非SELECT语句被拒绝: {}", statement.getClass().getSimpleName());
+                return false;
+            }
+            return true;
+        } catch (JSQLParserException e) {
+            logger.warn("[SQL工具] SQL解析失败，可能包含语法错误或注入: {}", e.getMessage());
             return false;
         }
-        // 2. 必须以 SELECT 开头
-        String upperSql = sql.toUpperCase().trim();
-        if (!upperSql.startsWith("SELECT")) {
-            return false;
-        }
-        return true;
     }
 
     private List<Map<String, Object>> executeSql(String sql) {
