@@ -109,7 +109,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         SELECT DISTINCT knowledge_id, tags
         FROM kb_document
         <where>
-            tags IS NOT NULL AND tags != ''
             <if test="tags != null and tags != ''">
                 AND (
                 <trim prefixOverrides="OR">
@@ -124,5 +123,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 WHERE kb_type = #{kbType} AND status = #{status}
             )
         </where>
+    </select>
+
+    <select id="selectDocumentsByKbType" resultMap="KbDocumentResult">
+        SELECT DISTINCT d.id, d.knowledge_id, d.file_name, d.file_path, d.file_type, d.status,
+               d.chunk_count, d.chunk_size, d.chunk_separator, d.tags, d.create_time
+        FROM kb_document d
+        INNER JOIN kb_knowledge_base kb ON d.knowledge_id = kb.id
+        WHERE kb.kb_type = #{kbType} AND kb.status = #{status}
     </select>
 </mapper>

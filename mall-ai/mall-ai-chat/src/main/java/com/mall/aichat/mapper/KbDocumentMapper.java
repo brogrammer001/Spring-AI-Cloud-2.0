@@ -76,4 +76,17 @@ public interface KbDocumentMapper
     List<KbDocument> selectDocumentsByTags(@org.apache.ibatis.annotations.Param("tags") String tags,
                                             @org.apache.ibatis.annotations.Param("kbType") String kbType,
                                             @org.apache.ibatis.annotations.Param("status") String status);
+
+    /**
+     * 根据知识库类型查询文档列表（两表关联查询）
+     * <p>
+     * 联合 kb_document 和 kb_knowledge_base 表，一次查询获取指定 kbType 下所有启用的文档，
+     * 避免先查知识库再查文档的两次查询开销。
+     *
+     * @param kbType 知识库类型
+     * @param status 知识库状态（0-启用）
+     * @return 文档列表
+     */
+    List<KbDocument> selectDocumentsByKbType(@org.apache.ibatis.annotations.Param("kbType") String kbType,
+                                              @org.apache.ibatis.annotations.Param("status") String status);
 }

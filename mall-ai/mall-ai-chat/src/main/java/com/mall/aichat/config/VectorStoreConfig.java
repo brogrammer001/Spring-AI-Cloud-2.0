@@ -61,8 +61,7 @@ public class VectorStoreConfig {
         return WeaviateVectorStore.builder(weaviateClient, embeddingModel)
             .options(weaviateOptions)
             .filterMetadataFields(List.of(
-                WeaviateVectorStore.MetadataField.text("knowledgeId"),
-                WeaviateVectorStore.MetadataField.text("tags")
+                WeaviateVectorStore.MetadataField.text("knowledgeId")
             ))
             .build();
     }
@@ -102,8 +101,7 @@ public class VectorStoreConfig {
             createSchemaIfNotExists(weaviateClient, weaviateKnowledgeObjectClass, List.of(
                 Property.builder().name("metadata").dataType(List.of("text")).build(),
                 Property.builder().name(weaviateOptions.getContentFieldName()).dataType(List.of("text")).build(),
-                Property.builder().name(weaviateOptions.getMetaFieldPrefix() + "knowledgeId").dataType(List.of("text")).build(),
-                Property.builder().name(weaviateOptions.getMetaFieldPrefix() + "tags").dataType(List.of("text")).build()
+                Property.builder().name(weaviateOptions.getMetaFieldPrefix() + "knowledgeId").dataType(List.of("text")).build()
             ));
 
             // 3. 创建工具索引 Schema

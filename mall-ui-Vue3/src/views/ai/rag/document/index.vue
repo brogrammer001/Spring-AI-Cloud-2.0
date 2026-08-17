@@ -97,13 +97,17 @@
               <div class="doc-status">
                 <dict-tag class="status-badge" :class="getStatusClass(doc.status)" :options="sys_normal_disable" :value="doc.status" />
               </div>
+              <div class="doc-user-tags" v-if="parseTags(doc.tags).length">
+                <span v-for="tag in parseTags(doc.tags)" :key="tag" class="doc-tag user-tag" :title="tag">
+                  {{ tag }}
+                </span>
+              </div>
             </div>
             <div class="doc-card-footer">
               <div class="doc-tags">
                 <span class="doc-tag type-tag" :class="'type-' + getIconClass(doc.fileType)" v-if="doc.fileType">
                   {{ doc.fileType.toUpperCase() }}
                 </span>
-<!--                <span class="doc-tag">ID: {{ doc.id }}</span>-->
               </div>
               <div class="doc-actions">
                 <button class="doc-action-btn accent-btn" @click="handleChunks(doc)" v-hasPermi="['chatrag:chunk:list']" title="切片管理">
@@ -274,8 +278,14 @@ const { queryParams, form } = toRefs(data)
 const totalPages = computed(() => Math.ceil(total.value / queryParams.value.pageSize) || 1)
 
 function getIconClass(type) {
-  const typeMap = { 'pdf': 'pdf', 'txt': 'txt', 'md': 'md', 'doc': 'doc', 'docx': 'doc', 'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image' }
+  const typeMap = { 'pdf': 'pdf', 'txt': 'txt', 'md': 'md', 'doc': 'doc', 'xlsx': 'doc', 'docx': 'doc', 'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image' }
   return typeMap[type?.toLowerCase()] || 'other'
+}
+
+function parseTags(tags) {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags.filter(t => t)
+  return String(tags).split(',').map(t => t.trim()).filter(t => t)
 }
 
 function isImageType(type) {

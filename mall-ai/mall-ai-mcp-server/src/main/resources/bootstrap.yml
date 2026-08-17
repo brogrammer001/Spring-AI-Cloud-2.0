@@ -33,7 +33,7 @@ spring:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${aliQwen-api}
       chat:
-        model: qwen3.7-max-2026-05-17
+        model: qwen3.7-max-2026-05-20
     mcp:
       server:
         name: ${spring.application.name}

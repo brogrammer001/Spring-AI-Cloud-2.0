@@ -60,6 +60,7 @@ public interface IKbDocumentService
      */
     public int deleteKbDocumentById(String id);
 
+
     int deleteKbDocumentByKnowledgeIds(String[] ids);
 
     /**
@@ -71,4 +72,15 @@ public interface IKbDocumentService
      * @return 匹配的文档列表
      */
     List<KbDocument> selectDocumentsByTags(String tags, String kbType, String status);
+
+    /**
+     * 根据知识库类型查询文档列表（两表关联查询）
+     * <p>
+     * 联合 kb_document 和 kb_knowledge_base 表一次查询，避免"查知识库+查文档"的两次查询开销
+     *
+     * @param kbType 知识库类型
+     * @param status 知识库状态（0-启用）
+     * @return 文档列表
+     */
+    List<KbDocument> selectDocumentsByKbType(String kbType, String status);
 }

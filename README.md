@@ -294,24 +294,37 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 
 ### 2.6 RAG 检索引擎
 
-#### 2.6.1 两阶段检索流程
+#### 2.6.1 三步检索流程（标签匹配 → 双重过滤向量检索 → Reranker 重排序）
+
+`RagRetrieveContextService.retrieveContext()` 采用 **"反向匹配 + 双重过滤 + 重排序"** 三步检索策略，对标 Dify Knowledge Retrieve API：
 
 ```
 用户问题
   │
-  ├─ 阶段1: 向量检索（粗排）
-  │   ├─ 从 Weaviate 检索 topK=10 条文档
-  │   ├─ 相似度阈值 0.5
-  │   └─ 按 knowledgeId 过滤
+  ├─ 第一步: 标签匹配（找出所有相似的 KbDocument）
+  │   ├─ 1. 反向匹配：查询 kbType 下所有带 tags 的文档
+  │   │     → 检查 question 是否包含某个 tag（字符串包含，准确率100%）
+  │   │     → 命中则提取精确 tags 值 + getKnowledgeId()
+  │   ├─ 2. LIKE模糊匹配：反向匹配未命中时
+  │   │     → 用 question 关键词走 LIKE '%关键词%' 模糊匹配（提升召回率）
+  │   └─ 3. 全量降级：标签匹配均未命中
+  │         → 退化为仅 knowledgeId 过滤的全量检索
   │
-  ├─ 阶段2: Reranker 重排序（精排）
+  ├─ 第二步: 向量检索（tags + knowledgeId 双重过滤）
+  │   ├─ 标签匹配成功：tags IN (...) AND knowledgeId IN (...)
+  │   ├─ 降级场景：仅 knowledgeId IN (...)
+  │   ├─ 启用 Reranker：topK=10, 相似度阈值 0.5（召回更多候选）
+  │   └─ 未启用 Reranker：topK=3, 相似度阈值 0.7
+  │
+  ├─ 第三步: Reranker 重排序（精排）
   │   ├─ 调用 127.0.0.1:8887/v1/rerank
-  │   ├─ 对 10 条文档按相关性重新排序
-  │   ├─ 取 topN=3 条返回
+  │   ├─ 对候选文档按相关性重新排序，统一截取 topN=3 条
   │   └─ 失败时降级为向量检索前 3 条
   │
-  └─ 返回上下文 → 注入到 System Prompt
+  └─ 返回上下文 → 注入到 LLM
 ```
+
+> **说明**：`kbType` 用于区分知识库类型（10-通用知识、20-NL2SQL表结构专业知识等），第一步标签匹配通过 `KbDocumentMapper.selectDocumentsByTags` 查询指定 kbType 下所有带 tags 的文档，从匹配的文档中获取 `getKnowledgeId()` 用于第二步向量检索的过滤条件。
 
 **配置项**：
 ```yaml
@@ -320,6 +333,16 @@ reranker:
   base-url: http://127.0.0.1:8887
   top-n: 3
 ```
+
+**关键实现方法**（`RagRetrieveContextService`）：
+
+| 方法 | 职责 |
+| :--- | :--- |
+| `matchDocumentsByTags()` | 第一步：标签匹配，含三级降级（反向匹配→LIKE模糊匹配→全量检索） |
+| `matchDocsByReverseTag()` | 反向匹配核心：检查 question 是否包含 tag（至少2字符，防单字误匹配） |
+| `vectorSearch()` | 第二步：向量检索，根据是否启用 Reranker 动态调整 topK 与阈值 |
+| `rerankAndTrim()` | 第三步：Reranker 重排序 + 统一截取 TopN=3 |
+| `MatchResult` | 匹配结果封装（tagValues + knowledgeIds），贯穿三步流程 |
 
 #### 2.6.2 知识库文档处理
 
@@ -911,16 +934,49 @@ com.mall.chatmcp
 
 ### 3.5 NL2SQL 工具
 
-**流程**：自然语言 → LLM 生成 SQL → 安全校验 → 远程执行 → 结果摘要
+**完整执行链路**：用户消息 → Feign 检索 kbType=20 知识库 → 标签匹配找出相似 KbDocument → 获取 getKnowledgeId 去向量库查询 → Reranker 重排序 → 返回 Schema → LLM 生成 SQL → 安全校验 → 执行 → 结果摘要
 
-| 步骤 | 说明 |
+```
+用户消息
+  │
+  ├─ 知识库检索（Feign 调用 chat 服务，kbType=20）
+  │   ├─ chat 服务端查询 kbType=20 的知识库
+  │   ├─ 将用户消息与知识库内容的标签（tags）反向匹配，找出所有相似的 KbDocument
+  │   ├─ 从匹配的 KbDocument 获取 getKnowledgeId()
+  │   ├─ 携带 tags + knowledgeId 双重过滤去向量库查询
+  │   └─ Reranker 重排序后返回最相关的表结构Schema
+  │
+  ├─ SQL 生成（sqlChatClient）
+  │   └─ 基于 Schema + 用户问题 + 修正指令 + 约束（禁止使用不存在的表）
+  │
+  ├─ 安全校验
+  │   ├─ 表名白名单校验（防止 LLM 幻觉出不存在的表）
+  │   └─ JSqlParser AST 校验（只允许 SELECT，拒绝注入/多语句）
+  │
+  ├─ LIMIT 保护（自动添加 LIMIT 100，聚合查询除外）
+  │
+  ├─ 自我修正（执行失败携带错误信息重试 1 次）
+  │
+  └─ 远程执行（Feign 调用 mall-system）→ 结果摘要
+```
+
+**关键实现方法**（`Nl2SqlToolServiceImpl`）：
+
+| 方法 | 职责 |
 | :--- | :--- |
-| Schema 获取 | 优先使用知识库传入的 `schemaInfo`，兜底动态查询 `information_schema` |
-| SQL 生成 | 调用 `sqlChatClient`（独立 ChatClient），内置 MySQL 专家系统提示词 |
-| 安全校验 | 黑名单检测（UNION SELECT/INSERT/DROP 等）+ 必须以 SELECT 开头 |
-| LIMIT 保护 | 自动添加 `LIMIT 100`，聚合查询除外 |
-| 自我修正 | 执行失败时携带错误信息重试 1 次 |
-| 远程执行 | 通过 Feign 调用 mall-system 服务的 `SysSqlApi` |
+| `retrieveSchema()` | 步骤1-4：Feign 调用 chat 服务的 RAG 检索接口（kbType=20），获取表结构 Schema |
+| `generateValidateAndExecute()` | 步骤5：生成SQL → JSqlParser安全校验 → 表名白名单校验 → 强制LIMIT → 执行（含自我修正重试） |
+| `extractTableNames()` | 从 Schema 中提取 `CREATE TABLE` 表名，构成白名单 |
+| `findMissingTables()` / `collectTableNames()` | 用 JSqlParser 递归收集 SQL 引用的表名（含 JOIN/子查询/UNION），校验是否在白名单内 |
+| `wrapResult()` | 封装查询结果（generatedSql + result + rowCount + summary） |
+
+**安全校验双层防线**：
+
+| 防线 | 说明 |
+| :--- | :--- |
+| 表名白名单 | 从 Schema 提取合法表名，SQL 引用了白名单外的表名 → 拒绝并触发 LLM 自我修正 |
+| JSqlParser AST | 精确识别语句类型，只允许 SELECT，自动拒绝 INSERT/UPDATE/DELETE/DROP 等 |
+| LIMIT 保护 | 自动添加 `LIMIT 100`（聚合查询除外），防止查询过载 |
 
 ### 3.6 MCP 协议配置
 
@@ -1054,7 +1110,7 @@ spring:
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
-| `RagRetrieveContextService` | 两阶段检索：向量检索 + Reranker | 支持 schemaInfo 传入 |
+| `RagRetrieveContextService` | 三步检索：标签匹配（反向匹配→LIKE模糊匹配→全量降级）→ tags+knowledgeId 双重过滤向量检索 → Reranker 重排序 | 通过 kbType 区分知识库类型（10-通用、20-NL2SQL表结构） |
 | `RerankerService` | 调用外部 Reranker 模型重排序 | 降级机制 |
 | `KbDocumentServiceImpl` | 文档解析+切片+向量化 | md 直读 / 图片走本地 MinerU-OCR / PDF/Word 走远程 MinerU |
 | `MinerUService` | MinerU 远程接口调用 | PDF/Word 解析，vlm 模式，轮询获取结果 |
@@ -1235,7 +1291,7 @@ spring:
 
 ### 7.5 工具调用安全
 
-*   **NL2SQL 安全校验**：黑名单检测 + 必须 SELECT 开头 + 自动 LIMIT 100。
+*   **NL2SQL 安全校验**：JSqlParser AST 校验（只允许 SELECT）+ 表名白名单校验（防止 LLM 幻觉出不存在的表）+ 自动 LIMIT 100。
 *   **按名称查询**：所有工具不接受 ID 直传，防止模型猜测 ID 导致误操作。
 *   **dataId 过期**：工具缓存数据 TTL 1小时，防止 Redis 内存泄漏。
 
