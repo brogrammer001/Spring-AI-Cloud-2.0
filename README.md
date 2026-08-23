@@ -20,8 +20,8 @@
 | 框架 | Spring Boot 4.0.6 + Spring Cloud 2025.1.1 |
 | AI 框架 | Spring AI 2.0.0 + Spring AI Alibaba 2.0.0-M1.1 |
 | AI Alibaba 能力 | DashScope（通义千问接入）+ MCP Gateway（工具聚合网关）+ MCP Registry（服务注册发现） |
-| LLM | 通义千问 qwen3.7-max（OpenAI 兼容协议，经 Spring AI Alibaba DashScope 接入） |
-| Embedding | Qwen3-Embedding-8B（本地部署，端口 8889） |
+| LLM | 通义千问 qwen3.7-flash（OpenAI 兼容协议，经 Spring AI Alibaba DashScope 接入） |
+| Embedding | Qwen3-Embedding-4B（本地部署，端口 8889） |
 | 向量数据库 | Weaviate（端口 18080） |
 | 热缓存 | Redis |
 | 持久化 | MySQL |
@@ -135,7 +135,7 @@ com.mall.aichat
 │   ├── KbKnowledgeBaseController.java  # 知识库管理
 │   └── SysChatHistoryController.java   # 聊天历史
 ├── service/impl/
-│   ├── AiConversationServiceImpl.java # 会话管理（创建+异步标题生成+级联删除）
+│   ├── AiConversationServiceImpl.java  # 会话管理（创建+异步标题生成+级联删除）
 │   ├── RagRetrieveContextService.java  # RAG 检索（向量+重排序）
 │   ├── RerankerService.java            # Reranker 重排序服务
 │   ├── VectorCompressionService.java   # 向量记忆压缩
@@ -222,11 +222,11 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 `AiConversationServiceImpl.createAiConversation()` 流程：
 
 1. 生成 UUID 作为 conversationId，建立 userId 与 conversationId 的关联
-2. 写入 Redis（`chat:conversation:{conversationId}` → userId，TTL 7天）
-3. **异步调用 `titleChatClient`** 生成会话标题：用用户的第一条消息作为 prompt，LLM 返回简短标题
-4. 标题生成失败不影响主流程，会话仍可正常使用
+2. **直接将用户第一条消息 `question` 作为会话标题**写入 `ai_conversation.title`
+3. 写入 Redis（`chat:conversation:{conversationId}` → userId，TTL 7天）
+4. 前端在已有有效标题（非空、非"未命名对话"）时不再覆盖标题，仅对空标题或占位符生成新标题
 
-**关键类**：`AiConversationServiceImpl`、`titleChatClient`（独立 ChatClient Bean）
+**关键类**：`AiConversationServiceImpl`、前端 `index.vue`（标题覆盖保护逻辑）
 
 #### 2.4.2 会话级联删除
 
@@ -280,10 +280,11 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 这是 AI "能想起"的内容，实现了跨会话、长期的语义检索。
 
 *   **应用场景**：用户询问"我最初问了什么"，即使该对话不在当前窗口，AI 也能通过向量检索找到。
-*   **技术栈**：本地 Embedding 模型（Qwen3-Embedding-8B） + Weaviate 向量数据库。
+*   **技术栈**：本地 Embedding 模型（Qwen3-Embedding-4B） + Weaviate 向量数据库。
 *   **检索逻辑**：基于 `VectorStoreChatMemoryAdvisor`，根据当前问题相似度检索历史。
     *   **参数**：`defaultTopK`（配置：`vectorstore.chat-memory-default-topk: 1`）。
 *   **压缩机制**：当未压缩消息数超过 `compression-threshold`（默认 4）时，`VectorCompressionService` 异步调用 LLM 生成摘要，删除旧向量，写入压缩后的摘要向量。
+*   **过滤增强**：压缩时仅保留非 `TOOL` 类型且 `toolCalls` 为空的记录（`!TOOL` + `StringUtils.isEmpty(toolCalls)`），避免工具调用细节污染摘要。
 
 #### 2.5.4 全量聊天记录（业务展示）
 
@@ -294,25 +295,42 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 
 ### 2.6 RAG 检索引擎
 
-#### 2.6.1 三步检索流程（标签匹配 → 双重过滤向量检索 → Reranker 重排序）
+#### 2.6.0 知识库类型区分（专用 / 通用）
 
-`RagRetrieveContextService.retrieveContext()` 采用 **"反向匹配 + 双重过滤 + 重排序"** 三步检索策略，对标 Dify Knowledge Retrieve API：
+知识库通过 `kb_knowledge_base` 表的 `kb_type` 字段区分类型，RAG 检索时**先按 kbType 定位知识库范围，再执行标签匹配与向量检索**：
+
+| kbType | 类型 | 适用场景 | 检索参数 |
+| :--- | :--- | :--- | :--- |
+| `10` | **通用知识库** | ChatAgent 对话默认注入的通用参考知识 | `RagRetrieveContextService.retrieveContext(question)`（默认重载走 10） |
+| `20` | **专用知识库** | NL2SQL 表结构等特定业务域的专用知识 | `Nl2SqlToolServiceImpl` 通过 Feign 调用 chat 服务时显式传 `kbType=20` |
+
+**设计要点**：
+
+- `kb_type` 定义在知识库表（`kb_knowledge_base`），文档（`kb_document`）通过 `knowledge_id` 关联所属知识库；
+- RAG 检索第一步通过 `selectDocumentsByKbType(kbType, status="0")` **两表关联一次查询**，只获取该类型下所有启用知识库的文档，避免"查知识库 + 查文档"两次查询开销；
+- 文档的 `tags` 字段（多个用逗号分隔）用于**先查询 tag 再确定检索范围**，匹配到的 `knowledgeId` 集合作为后续向量检索的必选过滤条件。
+
+#### 2.6.1 三步检索流程（标签匹配 → 单重过滤向量检索 → Reranker 重排序）
+
+`RagRetrieveContextService.retrieveContext()` 采用 **"先查询 tag + 单重过滤 + 重排序"** 三步检索策略，对标 Dify Knowledge Retrieve API：
 
 ```
 用户问题
   │
-  ├─ 第一步: 标签匹配（找出所有相似的 KbDocument）
-  │   ├─ 1. 反向匹配：查询 kbType 下所有带 tags 的文档
-  │   │     → 检查 question 是否包含某个 tag（字符串包含，准确率100%）
+  ├─ 第一步: 先查询 tag 再执行（先按 kbType 定位 → 找出所有相似的 KbDocument）
+  │   ├─ 0. 知识库前置检查：selectDocumentsByKbType(kbType, "0") 两表关联一次查询
+  │   │     → 获取该 kbType 下所有"启用"知识库的文档；无启用知识库则直接跳过检索
+  │   ├─ 1. 反向匹配（matchDocsByReverseTag）：纯内存计算
+  │   │     → 检查 question 是否包含某个 tag（字符串包含，准确率100%，至少2字符）
   │   │     → 命中则提取精确 tags 值 + getKnowledgeId()
-  │   ├─ 2. LIKE模糊匹配：反向匹配未命中时
-  │   │     → 用 question 关键词走 LIKE '%关键词%' 模糊匹配（提升召回率）
+  │   ├─ 2. 模糊匹配（matchDocsByFuzzyMatch）：反向匹配未命中时
+  │   │     → 按中英文逗号/空格拆分 question 为关键词（至少2字符）
+  │   │     → 在内存中检查 tags 是否包含任一关键词（提升召回率，不走 SQL LIKE）
   │   └─ 3. 全量降级：标签匹配均未命中
   │         → 退化为仅 knowledgeId 过滤的全量检索
   │
-  ├─ 第二步: 向量检索（tags + knowledgeId 双重过滤）
-  │   ├─ 标签匹配成功：tags IN (...) AND knowledgeId IN (...)
-  │   ├─ 降级场景：仅 knowledgeId IN (...)
+  ├─ 第二步: 向量检索（仅 knowledgeId 单重过滤）
+  │   ├─ 固定过滤条件：knowledgeId IN (...)
   │   ├─ 启用 Reranker：topK=10, 相似度阈值 0.5（召回更多候选）
   │   └─ 未启用 Reranker：topK=3, 相似度阈值 0.7
   │
@@ -324,7 +342,7 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
   └─ 返回上下文 → 注入到 LLM
 ```
 
-> **说明**：`kbType` 用于区分知识库类型（10-通用知识、20-NL2SQL表结构专业知识等），第一步标签匹配通过 `KbDocumentMapper.selectDocumentsByTags` 查询指定 kbType 下所有带 tags 的文档，从匹配的文档中获取 `getKnowledgeId()` 用于第二步向量检索的过滤条件。
+> **说明**：`kbType` 用于区分知识库类型（10-通用、20-NL2SQL专用表结构等）。第一步通过 `selectDocumentsByKbType(kbType, "0")` **两表关联一次查询**获取该类型下所有启用知识库的文档，然后**先做 tag 匹配（反向匹配 + 模糊匹配）**确定精确的 `getKnowledgeId()` 集合，用于第二步向量检索的 `knowledgeId IN (...)` 单重过滤——标签匹配只用于**定位知识库范围**，不再叠加 tags 过滤，简化执行链并避免误过滤。
 
 **配置项**：
 ```yaml
@@ -338,8 +356,9 @@ reranker:
 
 | 方法 | 职责 |
 | :--- | :--- |
-| `matchDocumentsByTags()` | 第一步：标签匹配，含三级降级（反向匹配→LIKE模糊匹配→全量检索） |
-| `matchDocsByReverseTag()` | 反向匹配核心：检查 question 是否包含 tag（至少2字符，防单字误匹配） |
+| `matchDocumentsByTags()` | 第一步：先查 kbType 下启用文档，再做标签匹配，含四级流程（前置检查→反向匹配→内存模糊匹配→全量降级） |
+| `matchDocsByReverseTag()` | 反向匹配核心：检查 question 是否包含 tag（至少2字符为限，防单字误匹配，纯内存） |
+| `matchDocsByFuzzyMatch()` | 内存模糊匹配：将 question 按中英文逗号/空格拆分为关键词，检查 tags 是否包含任一关键词（替代 SQL LIKE，零SQL开销） |
 | `vectorSearch()` | 第二步：向量检索，根据是否启用 Reranker 动态调整 topK 与阈值 |
 | `rerankAndTrim()` | 第三步：Reranker 重排序 + 统一截取 TopN=3 |
 | `MatchResult` | 匹配结果封装（tagValues + knowledgeIds），贯穿三步流程 |
@@ -516,7 +535,7 @@ spring:
       client:
         tool-search-advisor:
           enabled: true                    # 启用工具搜索
-          tool-index-type: lucene          # 索引类型：lucene（本地）或 vector（向量库）
+          tool-index-type: vector          # 索引类型：lucene（本地）或 vector（向量库）
           max-results: 3                   # 每次搜索最多返回 3 个工具
 ```
 
@@ -943,11 +962,18 @@ com.mall.chatmcp
   │   ├─ chat 服务端查询 kbType=20 的知识库
   │   ├─ 将用户消息与知识库内容的标签（tags）反向匹配，找出所有相似的 KbDocument
   │   ├─ 从匹配的 KbDocument 获取 getKnowledgeId()
-  │   ├─ 携带 tags + knowledgeId 双重过滤去向量库查询
+  │   ├─ 携带 knowledgeId 单重过滤去向量库查询
   │   └─ Reranker 重排序后返回最相关的表结构Schema
   │
   ├─ SQL 生成（sqlChatClient）
-  │   └─ 基于 Schema + 用户问题 + 修正指令 + 约束（禁止使用不存在的表）
+  │   └─ 基于 Schema + 用户问题 + 示例 + 约束规则
+  │       ├─ 强制工具调用：nl2SqlQuery 声明为"任何需要数据/统计/列表的问题必须优先调用"
+  │       ├─ 系统表查询示例：sys_user / sys_dept / sys_post / sys_role 直接给出可用的 SQL 模板
+  │       ├─ LIKE 模糊约束：文本字段必须用 LIKE '%关键词%'，禁止 = 精确匹配
+  │       ├─ 用户查询须同时匹配 user_name（账号）+ nick_name（昵称）
+  │       ├─ 岗位查询须同时匹配 post_name + post_code
+  │       ├─ 角色查询须同时匹配 role_name + role_key
+  │       └─ 简称也要用 LIKE 匹配完整名称（如 '研发' → 匹配 '研发部门'）
   │
   ├─ 安全校验
   │   ├─ 表名白名单校验（防止 LLM 幻觉出不存在的表）
@@ -957,7 +983,10 @@ com.mall.chatmcp
   │
   ├─ 自我修正（执行失败携带错误信息重试 1 次）
   │
-  └─ 远程执行（Feign 调用 mall-system）→ 结果摘要
+  └─ 远程执行（Feign 调用 mall-system，SqlQueryRequest DTO 封装）
+      ├─ 修复：Feign StringHttpMessageConverter 默认 ISO-8859-1 编码
+      │        导致 SQL 中的中文被转义为 '?' 的问题
+      └─ 结果摘要
 ```
 
 **关键实现方法**（`Nl2SqlToolServiceImpl`）：
@@ -1046,9 +1075,9 @@ spring:
           connections:
             gateway:                   # 内部 MCP 网关（聚合 mall-ai-mcp-server）
               url: http://localhost:9999
-            mcp-echarts:               # 外部 ECharts MCP（ModelScope）
-              url: https://mcp.api-inference.modelscope.net
-              endpoint: /971bba351c8546/mcp
+            mcp-echarts:               # 外部 ECharts MCP（自部署服务）
+              url: http://114.132.102.8:2001
+              endpoint: /mcp
 ```
 
 **关键类**：`MallAiMcpGatewayApplication`、`GatewayController`、`WebClientConfig`
@@ -1078,7 +1107,7 @@ spring:
 
 | 配置 | 值 | 说明 |
 | :--- | :--- | :--- |
-| `tool-index-type` | lucene | 本地 Lucene 索引（也支持 vector） |
+| `tool-index-type` | vector | 向量库语义检索（Weaviate toolVectorStore） |
 | `max-results` | 3 | 每次搜索最多返回 3 个工具 |
 
 **效果**：模型不一次性看到几十个工具定义，而是按需检索相关工具，减少 Token 消耗。
@@ -1110,7 +1139,7 @@ spring:
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
-| `RagRetrieveContextService` | 三步检索：标签匹配（反向匹配→LIKE模糊匹配→全量降级）→ tags+knowledgeId 双重过滤向量检索 → Reranker 重排序 | 通过 kbType 区分知识库类型（10-通用、20-NL2SQL表结构） |
+| `RagRetrieveContextService` | 三步检索：先查 tag 再执行（前置检查→反向匹配→内存模糊匹配→全量降级）→ knowledgeId 单重过滤向量检索 → Reranker 重排序 | 通过 kbType 区分知识库类型（10-通用、20-NL2SQL专用表结构） |
 | `RerankerService` | 调用外部 Reranker 模型重排序 | 降级机制 |
 | `KbDocumentServiceImpl` | 文档解析+切片+向量化 | md 直读 / 图片走本地 MinerU-OCR / PDF/Word 走远程 MinerU |
 | `MinerUService` | MinerU 远程接口调用 | PDF/Word 解析，vlm 模式，轮询获取结果 |
@@ -1157,10 +1186,9 @@ spring:
     openai:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       chat:
-        model: qwen3.7-max-2026-05-17
-        temperature: 0.1
+        model: qwen3.7-flash-2026-07-15
       embedding:
-        model: Qwen3-Embedding-8B-Q5_K_M
+        model: Qwen3-Embedding-4B-Q8_0
         base-url: http://127.0.0.1:8889/v1
     mcp:
       client:
@@ -1170,10 +1198,14 @@ spring:
           connections:
             gateway:
               url: http://localhost:9999      # 通过网关访问 MCP Server
+            mcp-echarts:
+              url: http://114.132.102.8:2001  # 自部署 ECharts MCP
+              endpoint: /mcp
     vectorstore:
       weaviate:
-        host: 127.0.0.1:18080
+        host: 114.132.102.8:18080
         scheme: http
+        api-key: b251055070805a857b31dd014d40b727dd6a23714ea1bf66
 
 chat-memory:
   max-messages: 4                            # 窗口记忆条数
@@ -1219,13 +1251,20 @@ spring:
     openai:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       chat:
-        model: qwen3.7-max-2026-05-17
+        model: qwen3.7-flash
     mcp:
       server:
         name: mall-ai-mcp-server
         protocol: STREAMABLE
         streamable-http:
           mcp-endpoint: /mcp
+    alibaba:
+      mcp:
+        nacos:
+          server-addr: 114.132.102.8:8848
+          namespace: public
+          username: nacos
+          password: nacos
 ```
 
 ### 6.3 mall-ai-mcp-gateway (bootstrap.yml)
@@ -1240,9 +1279,9 @@ spring:
   cloud:
     nacos:
       discovery:
-        server-addr: 127.0.0.1:8848      # 注册到 Nacos
+        server-addr: 114.132.102.8:8848  # 注册到 Nacos
       config:
-        server-addr: 127.0.0.1:8848
+        server-addr: 114.132.102.8:8848
   ai:
     mcp:
       server:

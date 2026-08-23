@@ -279,20 +279,8 @@ public class RagRetrieveContextService {
     private List<Document> vectorSearch(String question, MatchResult matchResult) {
         FilterExpressionBuilder b = new FilterExpressionBuilder();
 
-        Filter.Expression expression;
-        if (matchResult.hasTagValues()) {
-            // 双重过滤：tags IN (...) AND knowledgeId IN (...)
-            expression = b.and(
-                b.in("tags", matchResult.getTagValues()),
-                b.in("knowledgeId", matchResult.getKnowledgeIds())
-            ).build();
-            log.info("[RAG检索] 启用双重过滤：tags IN {} AND knowledgeId IN {}",
-                matchResult.getTagValues().length, matchResult.getKnowledgeIds().length);
-        } else {
-            // 仅 knowledgeId 过滤（降级场景）
-            expression = b.in("knowledgeId", matchResult.getKnowledgeIds()).build();
-            log.info("[RAG检索] 启用单重过滤：knowledgeId IN {}", matchResult.getKnowledgeIds().length);
-        }
+        Filter.Expression expression = b.in("knowledgeId", matchResult.getKnowledgeIds()).build();
+        log.info("[RAG检索] 启用单重过滤：knowledgeId IN {}", matchResult.getKnowledgeIds().length);
 
         boolean rerankEnabled = rerankerService.isEnabled();
         int retrieveTopK = rerankEnabled ? 10 : TOP_N;
@@ -366,7 +354,7 @@ public class RagRetrieveContextService {
         }
 
         boolean hasKnowledgeIds() {
-            return knowledgeIds != null && knowledgeIds.length > 0;
+            return knowledgeIds.length > 0;
         }
 
         String[] getTagValues() {

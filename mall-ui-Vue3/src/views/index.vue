@@ -662,7 +662,11 @@ const sendMessage = async () => {
   } else {
     const conv = conversations.value.find(c => c.id === currentConversationId);
     if (conv) {
-      conv.title = content.substring(0, 15) + (content.length > 15 ? '...' : '');
+      // 优化：已有有效标题时不再覆盖，仅对空标题或占位符“未命名对话”生成新标题
+      const hasValidTitle = conv.title && conv.title.trim() && conv.title !== '未命名对话';
+      if (!hasValidTitle) {
+        conv.title = content.substring(0, 15) + (content.length > 15 ? '...' : '');
+      }
     }
   }
 

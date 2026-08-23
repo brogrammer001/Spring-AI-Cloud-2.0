@@ -144,6 +144,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
         AiConversation entity = new AiConversation();
         entity.setId(IdUtils.fastUUID());
         entity.setUserId(userId);
+        entity.setTitle(question);
         entity.setConversationId(IdUtils.fastUUID());
         this.insertAiConversation(entity);
 

@@ -4,6 +4,7 @@ import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
 import com.mall.system.api.RemoteKbRagRetrieveService;
 import com.mall.system.api.RemoteSqlService;
+import com.mall.system.api.domain.SqlQueryRequest;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Function;
 import net.sf.jsqlparser.expression.LongValue;
@@ -61,7 +62,12 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "数据库查询工具。输入自然语言生成并执行SQL。参数说明：question(必填,自然语言问题)。")
+    @Tool(description = """
+        【必须使用的查询工具】任何需要获取数据、统计数量、查询列表的问题，
+        无论检索结果如何，都必须优先调用本工具。
+        输入自然语言问题，工具会自动生成并执行 SQL。
+        参数：question(必填, 自然语言问题, 例如: 统计每个部门的人数)
+    """)
     public AjaxResult nl2SqlQuery(@ToolParam(description = "查询问题，如：查询所有用户信息") String question) {
         return executeWithErrorHandling(() -> {
             // ========== 步骤1&2&3&4：检索知识库（Feign调用 kbType=20） ==========
@@ -336,9 +342,15 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         // 3. 示例
         promptBuilder.append("### 示例\n");
         promptBuilder.append("Q: 查询所有用户\n");
-        promptBuilder.append("A: SELECT * FROM users LIMIT 100;\n");
-        promptBuilder.append("Q: 查询下单金额大于500的用户姓名和订单号\n");
-        promptBuilder.append("A: SELECT u.name, o.order_id FROM orders o JOIN users u ON o.user_id = u.id WHERE o.amount > 500 LIMIT 100;\n\n");
+        promptBuilder.append("A: SELECT * FROM sys_user LIMIT 100;\n");
+        promptBuilder.append("Q: 查询姓名为'张'的用户\n");
+        promptBuilder.append("A: SELECT * FROM sys_user WHERE user_name LIKE '%张%' OR nick_name LIKE '%张%' LIMIT 100;\n");
+        promptBuilder.append("Q: 查询部门名称为'研发'的部门\n");
+        promptBuilder.append("A: SELECT * FROM sys_dept WHERE dept_name LIKE '%研发%' LIMIT 100;\n");
+        promptBuilder.append("Q: 查询岗位名称为'经理'的岗位\n");
+        promptBuilder.append("A: SELECT * FROM sys_post WHERE post_name LIKE '%经理%' OR post_code LIKE '%经理%' LIMIT 100;\n");
+        promptBuilder.append("Q: 查询角色名称为'管理员'的角色\n");
+        promptBuilder.append("A: SELECT * FROM sys_role WHERE role_name LIKE '%管理员%' OR role_key LIKE '%管理员%' LIMIT 100;\n\n");
 
         // 4. 用户问题
         promptBuilder.append("### 用户问题\n");
@@ -346,6 +358,12 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         promptBuilder.append("\n\n### 约束\n");
         promptBuilder.append("1.只能使用上面给定的表结构，禁止使用不存在的表。\n");
         promptBuilder.append("2.只输出SQL语句，不要输出任何解释文字。\n");
+        promptBuilder.append("3.当查询条件涉及用户名、部门名称、岗位名称、角色名称等文本字段时，必须使用 LIKE 模糊查询（如：LIKE '%关键词%'），禁止使用 = 精确匹配。\n");
+        promptBuilder.append("4.当查询用户名时，必须同时匹配 user_name（用户账号）和 nick_name（用户昵称），使用 OR 连接：user_name LIKE '%关键词%' OR nick_name LIKE '%关键词%'。\n");
+        promptBuilder.append("5.当查询部门名称时，使用 dept_name LIKE '%关键词%'。\n");
+        promptBuilder.append("6.当查询岗位名称时，必须同时匹配 post_name（岗位名称）和 post_code（岗位编码），使用 OR 连接：post_name LIKE '%关键词%' OR post_code LIKE '%关键词%'。\n");
+        promptBuilder.append("7.当查询角色名称时，必须同时匹配 role_name（角色名称）和 role_key（角色权限字符串），使用 OR 连接：role_name LIKE '%关键词%' OR role_key LIKE '%关键词%'。\n");
+        promptBuilder.append("8.如果用户输入的是简称（如'研发'），也要用 LIKE 模糊匹配完整名称（如'研发部门'）。\n");
 
         // 5. 调用 ChatClient 生成SQL
         String content = sqlChatClient.prompt()
@@ -403,7 +421,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     }
 
     private List<Map<String, Object>> executeSql(String sql) {
-        R<List<Map<String, Object>>> result = remoteSqlService.executeSelect(sql);
+        R<List<Map<String, Object>>> result = remoteSqlService.executeSelect(new SqlQueryRequest(sql));
         if (result.getCode() == 200 && result.getData() != null) {
             return result.getData();
         }
