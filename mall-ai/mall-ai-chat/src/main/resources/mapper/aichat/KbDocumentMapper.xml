@@ -14,12 +14,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="chunkCount"    column="chunk_count"    />
         <result property="chunkSize"    column="chunk_size"    />
         <result property="chunkSeparator"    column="chunk_separator"    />
+        <result property="semanticChunking"    column="semantic_chunking"    />
         <result property="tags"    column="tags"    />
         <result property="createTime"    column="create_time"    />
     </resultMap>
 
     <sql id="selectKbDocumentVo">
-        select id, knowledge_id, file_name, file_path, file_type, status, chunk_count, chunk_size, chunk_separator, tags, create_time from kb_document
+        select id, knowledge_id, file_name, file_path, file_type, status, chunk_count, chunk_size, chunk_separator, semantic_chunking, tags, create_time from kb_document
     </sql>
 
     <select id="selectKbDocumentList" parameterType="KbDocument" resultMap="KbDocumentResult">
@@ -32,6 +33,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="status != null "> and status = #{status}</if>
             <if test="chunkCount != null "> and chunk_count = #{chunkCount}</if>
             <if test="chunkSize != null "> and chunk_size = #{chunkSize}</if>
+            <if test="semanticChunking != null "> and semantic_chunking = #{semanticChunking}</if>
             <if test="tags != null  and tags != ''"> and tags = #{tags}</if>
         </where>
     </select>
@@ -53,6 +55,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="chunkCount != null">chunk_count,</if>
             <if test="chunkSize != null">chunk_size,</if>
             <if test="chunkSeparator != null">chunk_separator,</if>
+            <if test="semanticChunking != null">semantic_chunking,</if>
             <if test="tags != null and tags != ''">tags,</if>
             <if test="createTime != null">create_time,</if>
          </trim>
@@ -66,6 +69,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="chunkCount != null">#{chunkCount},</if>
             <if test="chunkSize != null">#{chunkSize},</if>
             <if test="chunkSeparator != null">#{chunkSeparator},</if>
+            <if test="semanticChunking != null">#{semanticChunking},</if>
             <if test="tags != null and tags != ''">#{tags},</if>
             <if test="createTime != null">#{createTime},</if>
          </trim>
@@ -82,6 +86,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="chunkCount != null">chunk_count = #{chunkCount},</if>
             <if test="chunkSize != null">chunk_size = #{chunkSize},</if>
             <if test="chunkSeparator != null">chunk_separator = #{chunkSeparator},</if>
+            <if test="semanticChunking != null">semantic_chunking = #{semanticChunking},</if>
             <if test="tags != null and tags != ''">tags = #{tags},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
         </trim>
@@ -127,7 +132,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectDocumentsByKbType" resultMap="KbDocumentResult">
         SELECT DISTINCT d.id, d.knowledge_id, d.file_name, d.file_path, d.file_type, d.status,
-               d.chunk_count, d.chunk_size, d.chunk_separator, d.tags, d.create_time
+               d.chunk_count, d.chunk_size, d.chunk_separator, d.semantic_chunking, d.tags, d.create_time
         FROM kb_document d
         INNER JOIN kb_knowledge_base kb ON d.knowledge_id = kb.id
         WHERE kb.kb_type = #{kbType} AND kb.status = #{status}

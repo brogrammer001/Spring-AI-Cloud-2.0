@@ -49,6 +49,10 @@ public class KbDocument extends BaseEntity
     @Excel(name = "分段符")
     private String chunkSeparator;
 
+    /** 是否启用语义分块（true-语义分块，false-固定token/段落分块） */
+    @Excel(name = "是否启用语义分块")
+    private Boolean semanticChunking;
+
     /** 标签（多个用逗号分隔，用于向量检索时二次过滤） */
     @Excel(name = "标签")
     private String tags;
@@ -75,6 +79,14 @@ public class KbDocument extends BaseEntity
 
     public void setChunkSeparator(String chunkSeparator) {
         this.chunkSeparator = chunkSeparator;
+    }
+
+    public Boolean getSemanticChunking() {
+        return semanticChunking;
+    }
+
+    public void setSemanticChunking(Boolean semanticChunking) {
+        this.semanticChunking = semanticChunking;
     }
 
     public void setId(String id)
@@ -157,6 +169,9 @@ public class KbDocument extends BaseEntity
             .append("fileType", getFileType())
             .append("status", getStatus())
             .append("chunkCount", getChunkCount())
+            .append("chunkSize", getChunkSize())
+            .append("chunkSeparator", getChunkSeparator())
+            .append("semanticChunking", getSemanticChunking())
             .append("tags", getTags())
             .append("createTime", getCreateTime())
             .toString();

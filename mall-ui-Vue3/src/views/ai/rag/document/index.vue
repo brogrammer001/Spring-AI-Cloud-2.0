@@ -198,6 +198,17 @@
           <el-form-item label="分隔符" prop="chunkSeparator">
             <el-input v-model="form.chunkSeparator" placeholder="请输入分块分隔符（可留空）" clearable />
           </el-form-item>
+          <el-form-item label="语义分块" prop="semanticChunking">
+            <el-switch
+              v-model="form.semanticChunking"
+              active-text="开启"
+              inactive-text="关闭"
+              inline-prompt
+            />
+            <div class="el-form-item__tip" style="font-size: 12px; color: #909399; line-height: 1.5; margin-top: 4px;">
+              开启后使用 Embedding 模型按语义相似度分块，更精准但耗时更长
+            </div>
+          </el-form-item>
           <el-form-item label="标签" prop="tags">
             <el-select
               v-model="form.tags"
@@ -415,6 +426,7 @@ function reset() {
     chunkCount: 10,
     chunkSize: 500,
     chunkSeparator: null,
+    semanticChunking: false,
     tags: [],
     createTime: null
   }
@@ -458,6 +470,7 @@ function submitForm() {
           chunkCount:  form.value.chunkCount,
           chunkSize:   form.value.chunkSize,
           chunkSeparator:   form.value.chunkSeparator,
+          semanticChunking: form.value.semanticChunking,
           tags:        Array.isArray(form.value.tags) ? form.value.tags.join(',') : (form.value.tags || ''),
           status:      0
         }
@@ -505,6 +518,7 @@ function submitForm() {
       chunkCount:  form.value.chunkCount,
       chunkSize:   form.value.chunkSize,
       chunkSeparator:   form.value.chunkSeparator,
+      semanticChunking: form.value.semanticChunking,
       tags:        Array.isArray(form.value.tags) ? form.value.tags.join(',') : (form.value.tags || ''),
       status:      form.value.status
     }
