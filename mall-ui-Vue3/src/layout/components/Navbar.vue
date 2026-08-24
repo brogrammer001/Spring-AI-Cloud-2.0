@@ -175,11 +175,13 @@ async function toggleTheme(event) {
   overflow: hidden;
   position: relative;
   background: var(--navbar-bg);
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
   display: flex;
   align-items: center;
-  // padding: 0 8px;
   box-sizing: border-box;
+  padding: 0 12px;
 
   .hamburger-container {
     line-height: 46px;
@@ -191,9 +193,11 @@ async function toggleTheme(event) {
     align-items: center;
     flex-shrink: 0;
     margin-right: 8px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
 
     &:hover {
-      background: rgba(0, 0, 0, 0.025);
+      background: rgba(99, 102, 241, 0.08);
     }
   }
 
@@ -228,18 +232,20 @@ async function toggleTheme(event) {
 
     .right-menu-item {
       display: inline-block;
-      padding: 0 8px;
+      padding: 0 10px;
       height: 100%;
       font-size: 18px;
-      color: #5a5e66;
+      color: var(--text-regular, #475569);
       vertical-align: text-bottom;
 
       &.hover-effect {
         cursor: pointer;
-        transition: background 0.3s;
+        transition: background 0.25s ease, color 0.25s ease;
+        border-radius: var(--radius-sm);
 
         &:hover {
-          background: rgba(0, 0, 0, 0.025);
+          background: rgba(99, 102, 241, 0.10);
+          color: var(--el-color-primary, #409eff);
         }
       }
 
@@ -249,7 +255,7 @@ async function toggleTheme(event) {
 
         svg {
           transition: transform 0.3s;
-          
+
           &:hover {
             transform: scale(1.15);
           }
@@ -258,36 +264,35 @@ async function toggleTheme(event) {
     }
 
     .avatar-container {
-      margin-right: 0px;
-      padding-right: 0px;
+      margin-right: 0;
+      padding-right: 0;
 
       .avatar-wrapper {
-        margin-top: 10px;
-        right: 8px;
-        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+        height: 100%;
+        cursor: pointer;
 
         .user-avatar {
-          cursor: pointer;
           width: 30px;
           height: 30px;
-          margin-right: 8px;
           border-radius: 50%;
+          object-fit: cover;
+          box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
         }
 
-        .user-nickname{
-          position: relative;
-          left: 0px;
-          bottom: 10px;
+        .user-nickname {
           font-size: 14px;
-          font-weight: bold;
+          font-weight: 600;
+          color: var(--text-regular, #475569);
         }
 
         i {
           cursor: pointer;
-          position: absolute;
-          right: -20px;
-          top: 25px;
           font-size: 12px;
+          color: var(--text-secondary, #94a3b8);
         }
       }
     }

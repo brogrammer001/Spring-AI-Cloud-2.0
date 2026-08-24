@@ -34,6 +34,7 @@
 
     .scrollbar-wrapper {
       overflow-x: hidden !important;
+      padding: 8px 0;
     }
 
     .el-scrollbar__bar.is-vertical {
@@ -76,6 +77,9 @@
       white-space: nowrap !important;
       height: 44px !important;
       line-height: 44px !important;
+      border-radius: var(--radius-sm) !important;
+      margin-bottom: 2px;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
 
     .el-menu-item .el-menu-tooltip__trigger {
@@ -123,9 +127,9 @@
         &::before {
           content: '';
           position: absolute;
-          inset: 0;
+          inset: 4px 0;
+          border-radius: var(--radius-sm);
           background-color: var(--current-color-dark-bg, rgba(64, 158, 255, 0.2));
-          border-right: 3px solid var(--current-color, #409eff);
           pointer-events: none;
           z-index: 1;
         }
@@ -143,7 +147,8 @@
         &::before {
           content: '';
           position: absolute;
-          inset: 0;
+          inset: 4px 0;
+          border-radius: var(--radius-sm);
           background-color: transparent;
           pointer-events: none;
           z-index: 1;
@@ -155,7 +160,7 @@
         }
       }
     }
-    
+
     // theme-light 浅色主题
     &.theme-light {
       border-right: 1px solid #e8eaf0;
@@ -173,9 +178,9 @@
         &::before {
           content: '';
           position: absolute;
-          inset: 0;
+          inset: 4px 0;
+          border-radius: var(--radius-sm);
           background-color: var(--current-color-light, #ecf5ff);
-          border-right: 3px solid var(--current-color, #409eff);
           pointer-events: none;
           z-index: 1;
         }

@@ -94,3 +94,152 @@
 .el-dropdown .el-dropdown-link{
   color: var(--el-color-primary) !important;
 }
+
+/* ===================================================================
+   现代审美组件现代化（毛玻璃渐变风）
+   不破坏 Element Plus 结构，仅覆写圆角 / 阴影 / 间距 / 过渡
+   =================================================================== */
+
+/* ---------- 卡片 ---------- */
+.el-card {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--card-border) !important;
+  background: var(--card-bg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: box-shadow 0.3s ease, transform 0.3s ease !important;
+  overflow: hidden;
+
+  &:hover {
+    box-shadow: var(--shadow-md) !important;
+  }
+
+  .el-card__header {
+    border-bottom: 1px solid var(--border-color-soft) !important;
+    padding: 16px 20px !important;
+    font-weight: 600;
+  }
+
+  .el-card__body {
+    padding: 20px !important;
+  }
+}
+
+/* ---------- 按钮 ---------- */
+.el-button {
+  border-radius: var(--radius-sm) !important;
+  font-weight: 500;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+  &.el-button--small {
+    border-radius: var(--radius-xs) !important;
+  }
+
+  &.el-button--primary:not(.is-disabled) {
+    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+
+    &:hover {
+      box-shadow: var(--shadow-primary);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ---------- 输入框 / 文本域 / 选择器 ---------- */
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: var(--radius-sm) !important;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12) !important;
+}
+
+/* ---------- 表格 ---------- */
+.el-table {
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+
+  th.el-table__cell {
+    background-color: var(--el-fill-color-light, #f8fafc) !important;
+    font-weight: 600 !important;
+    color: var(--text-regular) !important;
+    border-bottom: 1px solid var(--border-color-soft) !important;
+  }
+
+  td.el-table__cell {
+    border-bottom: 1px solid var(--border-color-soft) !important;
+  }
+
+  --el-table-row-hover-bg-color: rgba(99, 102, 241, 0.04);
+}
+
+/* ---------- 对话框 ---------- */
+.el-dialog {
+  border-radius: var(--radius-xl) !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl) !important;
+
+  .el-dialog__header {
+    padding: 20px 24px 16px !important;
+    border-bottom: 1px solid var(--border-color-soft);
+    margin-right: 0 !important;
+  }
+
+  .el-dialog__body {
+    padding: 24px !important;
+  }
+
+  .el-dialog__footer {
+    padding: 12px 24px 20px !important;
+  }
+}
+
+/* ---------- 标签 ---------- */
+.el-tag {
+  border-radius: var(--radius-full) !important;
+  padding: 0 12px !important;
+  font-weight: 500;
+  border: none !important;
+}
+
+/* ---------- 分页 ---------- */
+.el-pagination {
+  .btn-prev, .btn-next, .el-pager li {
+    border-radius: var(--radius-sm) !important;
+    margin: 0 3px !important;
+    font-weight: 500;
+
+    &.is-active {
+      background: var(--el-color-primary) !important;
+      color: #fff !important;
+    }
+  }
+}
+
+/* ---------- 抽屉 ---------- */
+.el-drawer {
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+/* ---------- 表单项标签 ---------- */
+.el-form-item__label {
+  font-weight: 500 !important;
+  color: var(--text-regular) !important;
+}
+
+/* ---------- 面包屑更轻盈 ---------- */
+.el-breadcrumb__inner {
+  font-weight: 400 !important;
+  color: var(--text-secondary) !important;
+
+  &.is-link:hover {
+    color: var(--el-color-primary) !important;
+  }
+}

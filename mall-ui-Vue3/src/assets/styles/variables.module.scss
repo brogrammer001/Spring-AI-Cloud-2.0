@@ -71,13 +71,56 @@ $--color-info: #909399;
   --sidebar-bg: #{$menuBg};
   --sidebar-text: #{$menuText};
   --menu-hover: #{$menuHover};
-  
-  --navbar-bg: #ffffff;
+
+  --navbar-bg: rgba(255, 255, 255, 0.72);
   --navbar-text: #303133;
-  
+
   /* splitpanes default-theme 变量 */
   --splitpanes-default-bg: #ffffff;
 
+  /* ===== 现代设计 token：毛玻璃渐变风 ===== */
+  /* 圆角 */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* 多层柔和阴影 */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-primary: 0 8px 24px rgba(64, 158, 255, 0.25);
+
+  /* 毛玻璃 */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-border-soft: rgba(255, 255, 255, 0.4);
+  --glass-blur: 20px;
+
+  /* 应用整体柔和网格渐变背景 */
+  --app-bg: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.10) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.10) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.06) 0px, transparent 50%),
+            #f5f7fb;
+
+  /* 内容区背景 */
+  --content-bg: transparent;
+  --card-bg: #ffffff;
+  --card-border: rgba(226, 232, 240, 0.9);
+
+  /* 文本层级 */
+  --text-primary: #1e293b;
+  --text-regular: #475569;
+  --text-secondary: #64748b;
+  --text-placeholder: #94a3b8;
+
+  /* 边框 */
+  --border-color-soft: rgba(226, 232, 240, 0.8);
 }
 
 // 暗黑模式变量
@@ -100,9 +143,46 @@ html.dark {
   --menu-active-text: #{$menuActiveText};
 
   /* 顶部导航栏 */
-  --navbar-bg: #141414;
+  --navbar-bg: rgba(20, 20, 20, 0.72);
   --navbar-text: #ffffff;
   --navbar-hover: #141414;
+
+  /* ===== 现代设计 token：暗黑模式覆盖 ===== */
+  /* 圆角沿用亮色定义 */
+  /* 阴影：暗色下用更深更柔的黑 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.65), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-primary: 0 8px 24px rgba(64, 158, 255, 0.35);
+
+  /* 毛玻璃（暗色） */
+  --glass-bg: rgba(30, 30, 32, 0.65);
+  --glass-bg-strong: rgba(38, 38, 42, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-soft: rgba(255, 255, 255, 0.05);
+  --glass-blur: 20px;
+
+  /* 应用整体柔和网格渐变背景（暗色） */
+  --app-bg: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.16) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.12) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.10) 0px, transparent 50%),
+            #0f0f10;
+
+  /* 内容区背景 */
+  --content-bg: transparent;
+  --card-bg: #1d1e1f;
+  --card-border: rgba(64, 64, 68, 0.6);
+
+  /* 文本层级 */
+  --text-primary: #f1f5f9;
+  --text-regular: #cbd5e1;
+  --text-secondary: #94a3b8;
+  --text-placeholder: #64748b;
+
+  /* 边框 */
+  --border-color-soft: rgba(64, 64, 68, 0.6);
 
   /* 标签栏 */
   --tags-bg: #141414;
