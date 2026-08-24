@@ -2,7 +2,7 @@
 
 /* 1. 默认亮色模式 */
 :root {
-    --bg: #f5f7fa; /* 若依默认亮色背景 */
+    --bg: #f5f7fa; /* 默认亮色背景 */
     --bg-elevated: #ffffff;
     --card: #ffffff;
     --card-hover: #f0f2f5;
@@ -11,7 +11,7 @@
     --fg: #303133; /* 主要文字 */
     --fg-muted: #909399; /* 次要文字 */
     --fg-dim: #c0c4cc;
-    --accent: var(--el-color-primary); /* 跟随若依主题色 */
+    --accent: var(--el-color-primary); /* 跟随主题色 */
     --accent-glow: rgba(64, 158, 255, 0.1);
     --accent-secondary: #f59e0b;
     --danger: #f56c6c;
@@ -26,7 +26,7 @@
 
 /* 2. 暗色模式 - 当 html 标签有 dark 类时生效 */
 html.dark {
-    --bg: #141414; /* 若依默认暗色背景 */
+    --bg: #141414; /* 默认暗色背景 */
     --bg-elevated: #0e0e14;
     --card: rgba(18, 18, 26, 0.7);
     --card-hover: rgba(26, 26, 38, 0.85);

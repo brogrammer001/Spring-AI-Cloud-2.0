@@ -1,12 +1,5 @@
 <template>
   <div class="login">
-    <!-- 背景装饰光斑 -->
-    <div class="bg-blobs">
-      <span class="blob blob-1"></span>
-      <span class="blob blob-2"></span>
-      <span class="blob blob-3"></span>
-    </div>
-
     <el-form ref="loginRef" :model="loginForm" :rules="loginRules" class="login-form">
       <div class="login-brand">
         <div class="brand-logo"><i class="fas fa-bolt"></i></div>
@@ -179,141 +172,111 @@ getCookie()
 </script>
 
 <style lang='scss' scoped>
+/* ===== 现代极简风（Linear / Vercel 设计语言，浅色） ===== */
+$primary: #5b6ad8;          /* 低饱和靛蓝主色 */
+$primary-hover: #4a59c4;
+$text-strong: #111827;
+$text-regular: #374151;
+$text-muted: #6b7280;
+$text-faint: #9ca3af;
+$border: #e5e7eb;
+$border-hover: #d1d5db;
+
 .login {
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
+  min-height: 100vh;
+  padding: 24px;
   overflow: hidden;
   background:
-    radial-gradient(at 20% 20%, rgba(99, 102, 241, 0.55) 0px, transparent 50%),
-    radial-gradient(at 80% 10%, rgba(56, 189, 248, 0.50) 0px, transparent 50%),
-    radial-gradient(at 70% 80%, rgba(168, 85, 247, 0.45) 0px, transparent 50%),
-    radial-gradient(at 10% 90%, rgba(59, 130, 246, 0.45) 0px, transparent 50%),
-    linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
-}
+    radial-gradient(at 12% 12%, rgba(224, 231, 255, 0.55) 0px, transparent 42%),
+    radial-gradient(at 88% 18%, rgba(219, 234, 254, 0.50) 0px, transparent 42%),
+    radial-gradient(at 80% 92%, rgba(232, 232, 240, 0.60) 0px, transparent 42%),
+    #f9fafb;
 
-/* 背景浮动光斑 */
-.bg-blobs {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-
-  .blob {
+  /* 柔和光斑：让毛玻璃卡片有内容可透（Linear 风格） */
+  &::before,
+  &::after {
+    content: '';
     position: absolute;
     border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.6;
-    animation: float 18s ease-in-out infinite;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
   }
 
-  .blob-1 {
-    width: 420px;
-    height: 420px;
-    background: radial-gradient(circle, #6366f1, transparent 70%);
-    top: -120px;
-    left: -80px;
-    animation-delay: 0s;
-  }
-
-  .blob-2 {
+  &::before {
     width: 480px;
     height: 480px;
-    background: radial-gradient(circle, #06b6d4, transparent 70%);
-    bottom: -160px;
+    top: -140px;
+    left: -100px;
+    background: radial-gradient(circle, rgba(91, 106, 216, 0.20) 0%, transparent 70%);
+  }
+
+  &::after {
+    width: 520px;
+    height: 520px;
+    bottom: -180px;
     right: -120px;
-    animation-delay: -6s;
-  }
-
-  .blob-3 {
-    width: 360px;
-    height: 360px;
-    background: radial-gradient(circle, #a855f7, transparent 70%);
-    top: 40%;
-    left: 55%;
-    animation-delay: -12s;
+    background: radial-gradient(circle, rgba(124, 138, 224, 0.18) 0%, transparent 70%);
   }
 }
 
-@keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(40px, -30px) scale(1.08); }
-  66% { transform: translate(-30px, 40px) scale(0.95); }
-}
-
-/* 品牌区 */
-.login-brand {
-  text-align: center;
-  margin-bottom: 28px;
-
-  .brand-logo {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 16px;
-    border-radius: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    color: #fff;
-    background: linear-gradient(135deg, #6366f1 0%, #3b82f6 50%, #06b6d4 100%);
-    box-shadow: 0 12px 32px rgba(99, 102, 241, 0.45);
-  }
-}
-
-.title {
-  margin: 0 0 8px;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.subtitle {
-  margin: 0;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
-  letter-spacing: 0.3px;
-}
-
-/* 毛玻璃登录卡 */
+/* 登录卡：半透明白 + 毛玻璃（Linear / Vercel 质感） */
 .login-form {
   position: relative;
   z-index: 1;
-  width: 400px;
-  max-width: calc(100vw - 32px);
-  padding: 40px 36px 28px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  animation: cardIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(17, 24, 39, 0.04),
+    0 12px 32px rgba(17, 24, 39, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: all 0.3s ease;
+  animation: cardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px rgba(17, 24, 39, 0.04),
+      0 20px 44px rgba(17, 24, 39, 0.10),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
 
   :deep(.el-input) {
     height: 44px;
 
     .el-input__wrapper {
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
-      transition: all 0.25s ease;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(229, 231, 235, 0.9);
+      border-radius: 8px;
+      box-shadow: none;
+      transition: all 0.3s ease;
+    }
+
+    .el-input__wrapper:hover {
+      border-color: $border-hover;
+      background: rgba(255, 255, 255, 0.85);
     }
 
     .el-input__wrapper.is-focus {
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35), 0 2px 8px rgba(15, 23, 42, 0.1);
+      border-color: $primary !important;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 0 0 3px rgba(91, 106, 216, 0.12) !important;
     }
 
     input {
       height: 44px;
-      color: #1e293b;
+      color: $text-strong;
     }
   }
 
@@ -321,13 +284,47 @@ getCookie()
     height: 39px;
     width: 14px;
     margin-left: 2px;
-    color: #64748b;
+    color: $text-faint;
   }
 }
 
 @keyframes cardIn {
-  from { opacity: 0; transform: translateY(24px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 品牌区 */
+.login-brand {
+  text-align: center;
+  margin-bottom: 32px;
+
+  .brand-logo {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #ffffff;
+    background: linear-gradient(135deg, $primary 0%, #7c8ae0 100%);
+    box-shadow: 0 4px 12px rgba(91, 106, 216, 0.28);
+  }
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: $text-strong;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: $text-muted;
 }
 
 .login-options {
@@ -337,16 +334,17 @@ getCookie()
   margin: 0 0 24px;
 
   :deep(.el-checkbox__label) {
-    color: rgba(255, 255, 255, 0.75);
+    color: $text-regular;
     font-size: 13px;
   }
 
   .link-type {
-    color: #c7d2fe;
+    color: $primary;
     font-size: 13px;
+    transition: color 0.3s ease;
 
     &:hover {
-      color: #fff;
+      color: $primary-hover;
     }
   }
 }
@@ -354,30 +352,26 @@ getCookie()
 /* 登录按钮 */
 .login-btn {
   width: 100%;
-  height: 46px !important;
-  border-radius: 12px !important;
-  font-size: 16px;
+  height: 44px !important;
+  border-radius: 8px !important;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   border: none !important;
-  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 50%, #06b6d4 100%) !important;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  background: $primary !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(91, 106, 216, 0.22) !important;
+  transition: all 0.3s ease !important;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(99, 102, 241, 0.55);
+    background: $primary-hover !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 20px rgba(91, 106, 216, 0.30) !important;
   }
 
   &:active {
-    transform: translateY(0);
+    transform: translateY(0) !important;
   }
-}
-
-.login-tip {
-  font-size: 13px;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.6);
 }
 
 .login-code {
@@ -388,8 +382,15 @@ getCookie()
   img {
     cursor: pointer;
     vertical-align: middle;
-    border-radius: 10px;
+    border-radius: 8px;
+    border: 1px solid $border;
   }
+}
+
+.login-code-img {
+  height: 44px;
+  padding-left: 12px;
+  border-radius: 8px;
 }
 
 .el-login-footer {
@@ -399,16 +400,10 @@ getCookie()
   height: 40px;
   line-height: 40px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.55);
+  color: $text-faint;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   z-index: 1;
-}
-
-.login-code-img {
-  height: 44px;
-  padding-left: 12px;
-  border-radius: 10px;
 }
 </style>

@@ -24,7 +24,7 @@ import elementIcons from '@/components/SvgIcon/svgicon'
 import './permission' // permission control
 import {useDict} from '@/utils/dict'
 import {getConfigKey} from "@/api/system/config"
-import {addDateRange, handleTree, parseTime, resetForm, selectDictLabel, selectDictLabels} from '@/utils/ruoyi'
+import {addDateRange, handleTree, parseTime, resetForm, selectDictLabel, selectDictLabels} from '@/utils/common'
 
 // 分页组件
 import Pagination from '@/components/Pagination'
