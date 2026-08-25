@@ -43,12 +43,12 @@ const sideTheme = computed(() => settingsStore.sideTheme)
 const theme = computed(() => settingsStore.theme)
 const isCollapse = computed(() => !appStore.sidebar.opened)
 
-// 获取菜单背景色
+// 获取菜单背景色（浅色主题与导航栏同色，保证零色差）
 const getMenuBackground = computed(() => {
   if (settingsStore.isDark) {
     return 'var(--sidebar-bg)'
   }
-  return sideTheme.value === 'theme-dark' ? variables.menuBg : variables.menuLightBg
+  return sideTheme.value === 'theme-dark' ? variables.menuBg : 'var(--navbar-bg)'
 })
 
 // 获取菜单文字颜色
@@ -71,7 +71,7 @@ const activeMenu = computed(() => {
 <style lang="scss" scoped>
 .sidebar-container {
   background-color: v-bind(getMenuBackground);
-  
+
   .scrollbar-wrapper {
     background-color: v-bind(getMenuBackground);
   }
@@ -80,19 +80,21 @@ const activeMenu = computed(() => {
     border: none;
     height: 100%;
     width: 100% !important;
-    
+
     .el-menu-item, .el-sub-menu__title {
       &:hover {
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        /* 玫红浅染（design.md 4.5 菜单 hover） */
+        background-color: var(--menu-hover, rgba(240, 67, 110, 0.05)) !important;
       }
     }
 
     .el-menu-item {
       color: v-bind(getMenuTextColor);
-      
+
       &.is-active {
-        color: var(--menu-active-text, #409eff);
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        /* 激活态玫红（design.md 主色 #f0436e） */
+        color: var(--menu-active-text, #f0436e);
+        background-color: var(--menu-hover, rgba(240, 67, 110, 0.05)) !important;
       }
     }
 

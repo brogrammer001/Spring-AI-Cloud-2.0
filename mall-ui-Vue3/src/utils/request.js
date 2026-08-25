@@ -3,6 +3,7 @@ import { ElNotification , ElMessageBox, ElMessage, ElLoading } from 'element-plu
 import { getToken } from '@/utils/auth'
 import errorCode from '@/utils/errorCode'
 import { tansParams, blobValidate } from '@/utils/common'
+import { isMockEnabled, mockRequest } from '@/utils/mock'
 import cache from '@/plugins/cache'
 import { saveAs } from 'file-saver'
 import useUserStore from '@/store/modules/user'
@@ -22,6 +23,10 @@ const service = axios.create({
 
 // request拦截器
 service.interceptors.request.use(config => {
+  // 离线演示模式：不发起真实请求，直接返回 mock 数据
+  if (isMockEnabled()) {
+    return Promise.reject({ __mock: true, data: mockRequest(config) })
+  }
   // 是否需要设置 token
   const isToken = (config.headers || {}).isToken === false
   // 是否需要防止数据重复提交
@@ -109,6 +114,10 @@ service.interceptors.response.use(res => {
     }
   },
   error => {
+    // 离线演示模式：把 mock 数据按成功响应返回
+    if (error && error.__mock) {
+      return Promise.resolve(error.data)
+    }
     console.log('err' + error)
     let { message } = error
     if (message == "Network Error") {

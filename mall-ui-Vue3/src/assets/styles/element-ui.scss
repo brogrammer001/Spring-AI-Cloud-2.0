@@ -135,7 +135,7 @@
   }
 
   &.el-button--primary:not(.is-disabled) {
-    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
 
     &:hover {
       box-shadow: var(--shadow-primary);
@@ -157,7 +157,7 @@
 
 .el-input__wrapper.is-focus,
 .el-textarea__inner:focus {
-  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12) !important;
+  box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.12) !important;
 }
 
 /* ---------- 表格 ---------- */
@@ -165,8 +165,19 @@
   border-radius: var(--radius-md) !important;
   overflow: hidden;
 
-  th.el-table__cell {
-    background-color: var(--el-fill-color-light, #f8fafc) !important;
+  /* 覆盖 Element Plus 内部 CSS 变量，让表头底色由设计 token 统一驱动 */
+  --el-table-header-bg-color: var(--table-header-bg, #f4f3f8);
+  --el-table-bg-color: var(--card-bg, #ffffff);
+  --el-table-tr-bg-color: var(--card-bg, #ffffff);
+  --el-table-border-color: var(--border-color-soft, #eceaf4);
+  --el-table-row-hover-bg-color: rgba(240, 67, 110, 0.04);
+  --el-fill-color-light: var(--table-header-bg, #f4f3f8);
+
+  /* 高特异性选择器，覆盖 Element Plus 内置表头背景 */
+  .el-table__header-wrapper th.el-table__cell,
+  th.el-table__cell.el-table__cell,
+  & th.el-table__cell {
+    background-color: var(--table-header-bg, #f4f3f8) !important;
     font-weight: 600 !important;
     color: var(--text-regular) !important;
     border-bottom: 1px solid var(--border-color-soft) !important;
@@ -175,8 +186,13 @@
   td.el-table__cell {
     border-bottom: 1px solid var(--border-color-soft) !important;
   }
+}
 
-  --el-table-row-hover-bg-color: rgba(99, 102, 241, 0.04);
+/* 暗色模式下表头底色强制覆盖（Element Plus dark 用更高优先级选择器，需对应提升） */
+html.dark .el-table .el-table__header-wrapper th.el-table__cell,
+html.dark .el-table .el-table__fixed-header-wrapper th.el-table__cell,
+html.dark .el-table th.el-table__cell {
+  background-color: var(--table-header-bg, #252627) !important;
 }
 
 /* ---------- 对话框 ---------- */
@@ -232,6 +248,46 @@
 .el-form-item__label {
   font-weight: 500 !important;
   color: var(--text-regular) !important;
+}
+
+/* ===================================================================
+   管理页面 .app-container 卡片化（淡紫马卡龙风）
+   - 让所有 RuoYi 默认页面（user/dept/role/menu/dict/config/notice/post 等）
+     的根容器统一为「白底 + 圆角 + 阴影 + 边框」悬浮卡片
+   - 首页聊天界面 index.vue 通过 .no-card 排除
+   =================================================================== */
+.app-container {
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+
+  /* 内部搜索表单区与按钮组之间留白 */
+  > .el-form,
+  > .el-row > .el-col > .el-form {
+    margin-bottom: 16px;
+  }
+
+  /* 按钮工具栏 mb8 间距统一 */
+  .mb8 {
+    margin-bottom: 16px;
+  }
+
+  /* 表格下方分页留白 */
+  .pagination-container {
+    margin-top: 16px;
+  }
+}
+
+/* 首页聊天 / 特殊页面通过 .no-card 重置回透明无框 */
+.app-container.no-card {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* ---------- 面包屑更轻盈 ---------- */

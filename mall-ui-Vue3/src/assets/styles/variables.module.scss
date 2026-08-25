@@ -15,10 +15,10 @@ $menuBg: #1a1f2e;
 $menuHover: #263445;
 
 // 浅色主题theme-light
-$menuLightBg: #ffffff;
-$menuLightHover: #f0f1f5;
+$menuLightBg: #f7f6fb;
+$menuLightHover: #efeef7;
 $menuLightText: #303133;
-$menuLightActiveText: #409EFF;
+$menuLightActiveText: #f0436e;
 
 // 基础变量
 $base-sidebar-width: 200px;
@@ -32,7 +32,7 @@ $base-sub-menu-background: #141824;
 $base-sub-menu-hover: rgba(255,255,255,.06);
 
 // 组件变量
-$--color-primary: #409EFF;
+$--color-primary: #f0436e;
 $--color-success: #67C23A;
 $--color-warning: #E6A23C;
 $--color-danger: #F56C6C;
@@ -72,13 +72,14 @@ $--color-info: #909399;
   --sidebar-text: #{$menuText};
   --menu-hover: #{$menuHover};
 
-  --navbar-bg: rgba(255, 255, 255, 0.72);
+  /* 顶部白色横带/侧边栏统一纯白（参考图），保证零色差 */
+  --navbar-bg: #ffffff;
   --navbar-text: #303133;
 
   /* splitpanes default-theme 变量 */
   --splitpanes-default-bg: #ffffff;
 
-  /* ===== 现代设计 token：毛玻璃渐变风 ===== */
+  /* ===== 现代设计 token：淡紫马卡龙风 ===== */
   /* 圆角 */
   --radius-xs: 6px;
   --radius-sm: 8px;
@@ -87,40 +88,42 @@ $--color-info: #909399;
   --radius-xl: 20px;
   --radius-full: 999px;
 
-  /* 多层柔和阴影 */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
-  --shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.08);
-  --shadow-primary: 0 8px 24px rgba(64, 158, 255, 0.25);
+  /* 柔和紫调多层阴影 */
+  --shadow-sm: 0 1px 2px rgba(124, 116, 160, 0.06), 0 2px 8px rgba(124, 116, 160, 0.06);
+  --shadow-md: 0 4px 16px rgba(124, 116, 160, 0.10), 0 2px 6px rgba(124, 116, 160, 0.05);
+  --shadow-lg: 0 12px 32px rgba(124, 116, 160, 0.14), 0 4px 12px rgba(124, 116, 160, 0.07);
+  --shadow-xl: 0 24px 56px rgba(124, 116, 160, 0.18), 0 8px 24px rgba(124, 116, 160, 0.10);
+  --shadow-primary: 0 8px 24px rgba(240, 67, 110, 0.28);
 
   /* 毛玻璃 */
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-bg-strong: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --glass-border-soft: rgba(255, 255, 255, 0.4);
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-bg-strong: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-border-soft: rgba(255, 255, 255, 0.45);
   --glass-blur: 20px;
 
-  /* 应用整体柔和网格渐变背景 */
-  --app-bg: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.10) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.10) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
-            radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.06) 0px, transparent 50%),
-            #f5f7fb;
+  /* 页面基底：淡紫薰衣草 */
+  --app-bg: radial-gradient(at 0% 0%, rgba(167, 139, 250, 0.10) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(240, 67, 110, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(96, 165, 250, 0.08) 0px, transparent 50%),
+            #f4f2f9;
 
   /* 内容区背景 */
   --content-bg: transparent;
   --card-bg: #ffffff;
-  --card-border: rgba(226, 232, 240, 0.9);
+  --card-border: #eceaf4;
 
   /* 文本层级 */
-  --text-primary: #1e293b;
-  --text-regular: #475569;
-  --text-secondary: #64748b;
-  --text-placeholder: #94a3b8;
+  --text-primary: #262336;
+  --text-regular: #4b4861;
+  --text-secondary: #8b8899;
+  --text-placeholder: #b6b3c2;
 
   /* 边框 */
-  --border-color-soft: rgba(226, 232, 240, 0.8);
+  --border-color-soft: #eceaf4;
+
+  /* 表格头底色（浅灰紫，呼应次级数据卡 #f4f3f8） */
+  --table-header-bg: #f4f3f8;
 }
 
 // 暗黑模式变量
@@ -183,6 +186,15 @@ html.dark {
 
   /* 边框 */
   --border-color-soft: rgba(64, 64, 68, 0.6);
+
+  /* 表格头底色（暗色：略浅于卡片底） */
+  --table-header-bg: #252627;
+
+  /* Element Plus 表格内置变量（暗色下需用 html.dark 优先级覆盖） */
+  --el-table-header-bg-color: #252627;
+  --el-table-bg-color: #1d1e1f;
+  --el-table-tr-bg-color: #1d1e1f;
+  --el-fill-color-light: #252627;
 
   /* 标签栏 */
   --tags-bg: #141414;

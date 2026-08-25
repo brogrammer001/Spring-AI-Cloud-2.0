@@ -39,7 +39,7 @@ function smoothScrollTo(target) {
   const duration = 300
   let startTime = null
 
-  // easeInOutQuad ��������
+  // easeInOutQuad ��������
   function ease(t, b, c, d) {
     t /= d / 2
     if (t < 1) return c / 2 * t * t + b
@@ -149,12 +149,16 @@ defineExpose({
   :deep(.el-scrollbar__bar) {
     display: none;
   }
+  /* 用 block + line-height 实现 inline-block 子项垂直居中，
+   * 配合 white-space: nowrap 让子项天然产生溢出，scrollLeft 可正常工作。
+   * 之前用 display: flex + align-items: center，flex item 默认 flex-shrink: 1，
+   * 子项收缩到容器宽度内，导致 scrollLeft 始终为 0，左右箭头按钮失效。 */
   :deep(.el-scrollbar__wrap) {
-    height: 34px;
-    display: flex;
-    align-items: center;
+    height: 40px;
+    line-height: 40px;
     overflow-x: auto;
     overflow-y: hidden;
+    white-space: nowrap;
   }
 }
 </style>

@@ -87,11 +87,35 @@ getBreadcrumb()
 .app-breadcrumb.el-breadcrumb {
   display: inline-block;
   font-size: 14px;
-  line-height: 50px;
+  line-height: 64px;
+  color: var(--text-regular, #4b4861);
+
+  :deep(.el-breadcrumb__item) {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* 分隔符淡化 */
+  :deep(.el-breadcrumb__separator) {
+    color: var(--text-placeholder, #b6b3c2);
+    margin: 0 8px;
+  }
 
   .no-redirect {
-    color: #97a8be;
+    color: var(--text-primary, #262336);
+    font-weight: 600;
     cursor: text;
+  }
+
+  a {
+    color: var(--text-regular, #4b4861);
+    transition: color 0.2s ease;
+    border-radius: var(--radius-xs, 6px);
+    padding: 2px 4px;
+
+    &:hover {
+      color: var(--el-color-primary, #f0436e);
+    }
   }
 }
 </style>

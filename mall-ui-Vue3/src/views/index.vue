@@ -1,112 +1,113 @@
 <template>
-  <div class="app-container">
+  <div class="app-container no-card" :style="{ height: `calc(100vh - ${64 + (settingsStore.tagsView ? 40 : 0)}px)` }">
     <div class="flex h-full overflow-hidden" style="position: relative;">
       <aside
-        :class="['flex flex-col border-r transition-colors duration-300 w-64 m-0 py-2 px-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
+        class="chat-aside flex flex-col transition-colors duration-300 w-64 m-0 py-2 px-0"
+        :class="{ 'is-dark': settingsStore.isDark }">
         <div class="px-4 pb-2 flex-shrink-0">
           <button @click="startNewConversation"
-            :class="['w-full flex items-center justify-center px-4 py-2.5 rounded-lg font-medium transition-colors duration-200', settingsStore.isDark ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white']">
+            class="chat-btn chat-btn-primary w-full h-12 flex items-center justify-center px-4 rounded-lg font-medium text-sm">
             <i class="fas fa-plus mr-2"></i>
             <span>新对话</span>
           </button>
         </div>
         <div class="flex-1 overflow-y-auto px-2 custom-scrollbar">
           <div class="text-xs font-semibold px-3 mb-2"
-            :class="settingsStore.isDark ? 'text-gray-500' : 'text-gray-400'">
+            :class="settingsStore.isDark ? 'text-[#8b8899]' : 'text-[#8b8899]'">
             最近对话
           </div>
           <div v-if="conversations.length === 0" class="text-center py-4 text-sm"
-            :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
+            :class="settingsStore.isDark ? 'text-[#6b6880]' : 'text-[#b6b3c2]'">
             暂无对话记录
           </div>
           <div v-for="(conv, index) in conversations" :key="conv.id" @click="switchConversation(conv.id)" :class="[
             'group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1 transition-colors duration-150',
-            conv.id === activeId ? (settingsStore.isDark ? 'bg-gray-700 text-white' : 'bg-blue-100 text-blue-700') : (settingsStore.isDark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-200')
+            conv.id === activeId ? (settingsStore.isDark ? 'bg-[rgba(240,67,110,0.15)] text-[#f0436e]' : 'bg-[rgba(240,67,110,0.10)] text-[#f0436e]') : (settingsStore.isDark ? 'text-[#b6b3c2] hover:bg-[rgba(240,67,110,0.05)]' : 'text-[#4b4861] hover:bg-[rgba(240,67,110,0.05)]')
           ]">
             <i class="fas fa-message mr-3 text-sm opacity-60"></i>
             <div class="flex-1 truncate text-sm font-medium">
               {{ conv.title }}
             </div>
             <button @click.stop="deleteConversation(conv.id)"
-              :class="['opacity-0 group-hover:opacity-100 p-1 rounded transition-all', settingsStore.isDark ? 'text-gray-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500']">
+              :class="['opacity-0 group-hover:opacity-100 p-1 rounded transition-all', settingsStore.isDark ? 'text-[#8b8899] hover:text-[#f0436e]' : 'text-[#b6b3c2] hover:text-[#f0436e]']">
               <i class="fas fa-trash-alt text-xs"></i>
             </button>
           </div>
         </div>
-        <div class="p-4 border-t flex-shrink-0" :class="settingsStore.isDark ? 'border-gray-700' : 'border-gray-200'">
-          <div class="text-xs text-center" :class="settingsStore.isDark ? 'text-gray-600' : 'text-gray-400'">
+        <div class="chat-aside-footer p-4 flex-shrink-0" :class="{ 'is-dark': settingsStore.isDark }">
+          <div class="chat-aside-footer-text text-xs text-center">
             假维斯智能终端 v1.0
           </div>
         </div>
       </aside>
       <div class="flex-1 flex flex-col h-full overflow-hidden">
         <header
-          :class="['shadow-sm py-3 px-4 flex items-center justify-between flex-shrink-0 z-10', settingsStore.isDark ? 'bg-gray-800' : 'bg-white']">
+          :class="['py-3 px-4 flex items-center justify-between flex-shrink-0 z-10 backdrop-blur-md', settingsStore.isDark ? 'bg-[rgba(26,26,46,0.7)] border-b border-[#3a3850]' : 'bg-[rgba(251,251,253,0.85)] border-b border-[rgba(38,35,54,0.05)]']">
           <div class="flex items-center">
-            <div :class="['text-lg font-bold truncate', settingsStore.isDark ? 'text-blue-400' : 'text-blue-600']">
+            <div :class="['text-lg font-bold truncate', settingsStore.isDark ? 'text-[#f0436e]' : 'text-[#262336]']">
               {{ currentConversationTitle }}
             </div>
           </div>
         </header>
         <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6"
-          :class="{ 'bg-white': !settingsStore.isDark, 'bg-gray-800': settingsStore.isDark }" @click="handleRouteClick">
+          :class="{ 'bg-[#f4f2f9]': !settingsStore.isDark, 'bg-[rgba(20,18,30,0.6)]': settingsStore.isDark }" @click="handleRouteClick">
           <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
             <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
               <div
                 :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
                 <img v-if="message.role === 'user'" :src="userStore.avatar && userStore.avatar.trim() ? userStore.avatar : defAva"
-                  class="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
+                  class="w-8 h-8 rounded-full flex-shrink-0 object-cover ring-2 ring-white" />
                 <div v-else
-                  :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-indigo-700 text-indigo-100' : 'bg-blue-100 text-blue-600']">
+                  :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-[rgba(240,67,110,0.20)] text-[#f0436e]' : 'bg-[rgba(240,67,110,0.15)] text-[#f0436e]']">
                   <i class="fas fa-robot"></i>
                 </div>
                 <div
-                  :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-blue-500 text-white' : settingsStore.isDark ? 'bg-gray-700 text-gray-100 border border-gray-600' : 'bg-white shadow border border-gray-200 text-gray-800']">
-                  <!-- RAG 知识库检索区块（与工具调用区分：使用 emerald 绿色） -->
+                  :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-[#f0436e] text-white shadow-[0_2px_8px_rgba(240,67,110,0.22)]' : settingsStore.isDark ? 'bg-[rgba(40,38,54,0.85)] text-gray-100 border border-[#3a3850] backdrop-blur-md shadow-md' : 'bg-[rgba(255,255,255,0.85)] border border-[#eceaf4] text-[#4b4861] backdrop-blur-md shadow-md']">
+                  <!-- RAG 知识库检索区块（马卡龙绿：#22c55e / 浅底 #e5f6ec） -->
                   <div v-if="message.role === 'assistant' && message.ragRetrieve"
                        class="mb-3">
                     <div class="flex items-center text-xs font-medium mb-1"
-                         :class="settingsStore.isDark ? 'text-emerald-300' : 'text-emerald-600'">
+                         :class="settingsStore.isDark ? 'text-[#4ade80]' : 'text-[#22c55e]'">
                       <i class="fas fa-book-open mr-1.5"></i> 知识库检索
                     </div>
                     <div class="flex items-center gap-2 px-2.5 py-2 rounded-md text-xs"
-                         :class="settingsStore.isDark ? 'bg-emerald-900/40 border border-emerald-700/50 text-emerald-200'
-                                                       : 'bg-emerald-50 border border-emerald-100 text-emerald-700'">
+                         :class="settingsStore.isDark ? 'bg-[rgba(34,197,94,0.10)] border border-[rgba(34,197,94,0.30)] text-[#4ade80]'
+                                                       : 'bg-[#e5f6ec] border border-[rgba(34,197,94,0.30)] text-[#22c55e]'">
                       <i class="fas fa-book-bookmark flex-shrink-0"></i>
                       <span class="font-semibold">检索状态</span>
                       <span v-if="message.ragRetrieve.status === 'running'"
                             class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'">
+                            :class="settingsStore.isDark ? 'bg-[rgba(245,158,11,0.20)] text-[#fbbf24]' : 'bg-[#fdf0e3] text-[#f59e0b]'">
                         <i class="fas fa-circle-notch fa-spin"></i> 检索中
                       </span>
                       <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'success'"
                             class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700'">
+                            :class="settingsStore.isDark ? 'bg-[rgba(34,197,94,0.20)] text-[#4ade80]' : 'bg-[#e5f6ec] text-[#22c55e]'">
                         <i class="fas fa-check"></i> 已检索到内容
                       </span>
                       <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'empty'"
                             class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-gray-500/20 text-gray-300' : 'bg-gray-200 text-gray-600'">
+                            :class="settingsStore.isDark ? 'bg-[rgba(139,136,153,0.20)] text-[#b6b3c2]' : 'bg-[#f4f3f8] text-[#8b8899]'">
                         <i class="fas fa-circle-info"></i> 未检索到内容
                       </span>
                       <span v-else
                             class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700'">
+                            :class="settingsStore.isDark ? 'bg-[rgba(34,197,94,0.20)] text-[#4ade80]' : 'bg-[#e5f6ec] text-[#22c55e]'">
                         <i class="fas fa-check"></i> 完成
                       </span>
                     </div>
                   </div>
-                  <!-- 工具调用区块（类似 Deepseek 风格：独立卡片、可折叠） -->
+                  <!-- 工具调用区块（马卡龙紫：#8b5cf6 / 浅底 #efeafc） -->
                   <div v-if="message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0"
                        class="mb-3 space-y-1.5">
                     <div class="flex items-center text-xs font-medium mb-1"
-                         :class="settingsStore.isDark ? 'text-indigo-300' : 'text-indigo-600'">
+                         :class="settingsStore.isDark ? 'text-[#a78bfa]' : 'text-[#8b5cf6]'">
                       <i class="fas fa-wand-magic-sparkles mr-1.5"></i> 已调用工具
                     </div>
                     <div v-for="(tc, tcIdx) in message.toolCalls" :key="tcIdx"
                          :class="['flex items-start gap-2.5 px-2.5 py-2 rounded-md text-xs',
-                                  settingsStore.isDark ? 'bg-indigo-900/40 border border-indigo-700/50 text-indigo-200'
-                                                        : 'bg-indigo-50 border border-indigo-100 text-indigo-700']">
+                                  settingsStore.isDark ? 'bg-[rgba(139,92,246,0.10)] border border-[rgba(139,92,246,0.30)] text-[#a78bfa]'
+                                                        : 'bg-[#efeafc] border border-[rgba(139,92,246,0.30)] text-[#8b5cf6]']">
                       <span class="flex-shrink-0 mt-0.5">
                         <!-- 工具图标 -->
                         <i class="fas"
@@ -120,17 +121,17 @@
                           <span class="font-semibold font-mono">{{ tc.toolName }}</span>
                           <span v-if="tc.status === 'running'"
                                 :class="['inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]',
-                                         settingsStore.isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700']">
+                                         settingsStore.isDark ? 'bg-[rgba(245,158,11,0.20)] text-[#fbbf24]' : 'bg-[#fdf0e3] text-[#f59e0b]']">
                             <i class="fas fa-circle-notch fa-spin"></i> 调用中
                           </span>
                           <span v-else-if="tc.status === 'done'"
                                 :class="['inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]',
-                                         settingsStore.isDark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700']">
+                                         settingsStore.isDark ? 'bg-[rgba(34,197,94,0.20)] text-[#4ade80]' : 'bg-[#e5f6ec] text-[#22c55e]']">
                             <i class="fas fa-check"></i> 完成
                           </span>
                         </div>
                         <div class="mt-0.5 truncate"
-                             :class="settingsStore.isDark ? 'text-indigo-300/70' : 'text-indigo-500/80'"
+                             :class="settingsStore.isDark ? 'text-[#a78bfa]/70' : 'text-[#8b5cf6]/80'"
                              :title="tc.description">
                           {{ tc.description }}
                         </div>
@@ -140,13 +141,13 @@
                   <div class="markdown-body" v-html="renderMessage(message)"></div>
                   <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-1 mt-1">
                     <div
-                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse']">
+                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-[#8b8899]' : 'bg-[#b6b3c2]', 'animate-pulse']">
                     </div>
                     <div
-                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-100']">
+                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-[#8b8899]' : 'bg-[#b6b3c2]', 'animate-pulse delay-100']">
                     </div>
                     <div
-                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-gray-400' : 'bg-gray-300', 'animate-pulse delay-200']">
+                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-[#8b8899]' : 'bg-[#b6b3c2]', 'animate-pulse delay-200']">
                     </div>
                   </div>
                 </div>
@@ -155,16 +156,16 @@
           </div>
         </main>
         <footer
-          :class="['border-t p-4 flex-shrink-0', settingsStore.isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200']">
+          :class="['border-t p-4 flex-shrink-0 backdrop-blur-md', settingsStore.isDark ? 'bg-[rgba(26,26,46,0.7)] border-[#3a3850]' : 'bg-[rgba(251,251,253,0.85)] border-[rgba(38,35,54,0.05)]']">
           <div class="max-w-3xl mx-auto relative">
             <div class="flex items-center">
               <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage"
                 @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse"
                 placeholder="输入您的问题..."
-                :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide', settingsStore.isDark ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-400 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 focus:ring-blue-500 focus:border-transparent']"
+                :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide transition-all duration-200', settingsStore.isDark ? 'bg-[rgba(40,38,54,0.6)] border-[#3a3850] text-gray-100 focus:ring-[#f0436e] focus:border-[#f0436e] placeholder-[#6b6880]' : 'bg-[rgba(255,255,255,0.7)] border-[#eceaf4] text-[#262336] focus:ring-[#f0436e] focus:border-[#f0436e] placeholder-[#b6b3c2]']"
                 rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
               <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading"
-                :class="['ml-2 p-3 rounded-lg', isLoading ? (settingsStore.isDark ? 'bg-red-700 hover:bg-red-800 text-red-100' : 'bg-red-500 hover:bg-red-600 text-white') : (settingsStore.isDark ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-100' : 'bg-blue-500 hover:bg-blue-600 text-white'), 'disabled:opacity-50 disabled:cursor-not-allowed']">
+                :class="['ml-2 h-10 w-10 flex items-center justify-center rounded-lg chat-btn', isLoading ? 'chat-btn-warning' : 'chat-btn-primary']">
                 <i :class="isLoading ? 'fas fa-stop' : 'fas fa-paper-plane'"></i>
               </button>
             </div>
@@ -329,16 +330,17 @@ const renderMessage = (message) => {
       if (tableHtml) {
         const rowCountLabel = message.dataRowCount != null ? `（共 ${message.dataRowCount} 条）` : '';
         html += `<div class="mt-3 data-table-wrap" style="max-width: 100%;">
-                   <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">查询结果${rowCountLabel}</div>
+                   <div class="text-xs mb-1" style="color: #8b8899;">查询结果${rowCountLabel}</div>
                    <div style="overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">${tableHtml}</div>
                  </div>`;
       }
     }
 
     if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
-      html += `<div class="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+      html += `<div class="mt-3 pt-2" style="border-top: 1px solid #eceaf4;">
              <a href="javascript:void(0)"
-                class="route-link text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                class="route-link font-medium"
+                style="color: #f0436e;"
                 data-url="${message.routeUrl}">
                 <i class="fas fa-external-link-alt mr-1"></i>点击跳转
              </a>
@@ -348,7 +350,7 @@ const renderMessage = (message) => {
     return html;
   } catch (error) {
     console.error('Markdown 渲染异常:', error);
-    return '<div class="whitespace-pre-wrap text-gray-600 dark:text-gray-300">' + message.content.replace(/data:/g, '') + '</div>';
+    return '<div class="whitespace-pre-wrap" style="color: #4b4861;">' + message.content.replace(/data:/g, '') + '</div>';
   }
 };
 
@@ -1146,10 +1148,10 @@ const renderDataTable = (data) => {
   const headers = Object.keys(data[0]);
   // 不强制 width:100%，让列多时自然撑开由外层容器 overflow-x 滚动；
   // 单元格限制最大宽度并允许换行，避免长内容（hash/URL）撑爆
-  let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; min-width: 100%; width: auto; font-size: 12px; table-layout: auto;">';
+  let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; min-width: 100%; width: auto; font-size: 12px; table-layout: auto; border: 1px solid #eceaf4; border-radius: 8px; overflow: hidden;">';
   html += '<thead><tr>';
   headers.forEach(header => {
-    html += `<th style="background: #f5f5f5; padding: 6px 8px; text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${header}">${header}</th>`;
+    html += `<th style="background: #f4f3f8; color: #262336; padding: 6px 8px; text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid #eceaf4;" title="${header}">${header}</th>`;
   });
   html += '</tr></thead><tbody>';
   data.forEach(row => {
@@ -1157,7 +1159,7 @@ const renderDataTable = (data) => {
     headers.forEach(header => {
       const value = row[header];
       const text = value !== undefined && value !== null ? String(value) : '';
-      html += `<td style="padding: 6px 8px; border-top: 1px solid #eee; max-width: 220px; word-break: break-all; overflow-wrap: anywhere;">${text}</td>`;
+      html += `<td style="padding: 6px 8px; color: #4b4861; border-top: 1px solid #eceaf4; max-width: 220px; word-break: break-all; overflow-wrap: anywhere;">${text}</td>`;
     });
     html += '</tr>';
   });
@@ -1238,6 +1240,35 @@ const destroyAllEchartsInstances = () => {
   height: 100%;
 }
 
+/* 左侧最近对话栏：亮/暗双态背景与边框（替代失效的 Tailwind 任意值 class） */
+.chat-aside {
+  background: transparent;
+  border-right: 1px solid #eceaf4;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+
+  &.is-dark {
+    background: rgba(26, 26, 46, 0.6);
+    border-right-color: #3a3850;
+  }
+}
+
+.chat-aside-footer {
+  border-top: 1px solid #eceaf4;
+  transition: border-color 0.3s ease;
+
+  &.is-dark {
+    border-top-color: #3a3850;
+  }
+}
+
+.chat-aside-footer-text {
+  color: #b6b3c2;
+}
+
+.chat-aside.is-dark .chat-aside-footer-text {
+  color: #6b6880;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -1247,12 +1278,12 @@ const destroyAllEchartsInstances = () => {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #b6b3c2;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #8b8899;
 }
 
 aside::-webkit-scrollbar {
@@ -1260,7 +1291,7 @@ aside::-webkit-scrollbar {
 }
 
 aside::-webkit-scrollbar-thumb {
-  background: #888;
+  background: #8b8899;
 }
 
 textarea {
@@ -1326,6 +1357,47 @@ textarea {
   }
   to {
     opacity: 1;
+  }
+}
+
+/* 与 .el-button--primary 统一规范：8px 圆角、500 字重、0.25s cubic-bezier 过渡、translateY 位移、主色阴影 */
+.chat-btn {
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover { transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  &:disabled:hover { transform: none; }
+}
+
+.chat-btn-primary {
+  background-color: #f0436e;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+
+  &:hover {
+    background-color: #d9305c;
+    box-shadow: 0 8px 24px rgba(240, 67, 110, 0.28);
+  }
+}
+
+.chat-btn-warning {
+  background-color: #f59e0b;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+
+  &:hover {
+    background-color: #d97706;
+    box-shadow: 0 8px 24px rgba(240, 67, 110, 0.28);
   }
 }
 </style>

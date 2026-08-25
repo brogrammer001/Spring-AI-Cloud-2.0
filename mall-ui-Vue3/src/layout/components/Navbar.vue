@@ -171,33 +171,41 @@ async function toggleTheme(event) {
 }
 
 .navbar {
-  height: 50px;
+  height: 64px;
   overflow: hidden;
   position: relative;
+  /* 参考图：顶部白色横带，与侧边栏 logo 区同色连成一体 */
   background: var(--navbar-bg);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  backdrop-filter: blur(16px) saturate(180%);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  box-shadow: none;
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  padding: 0 12px;
+  padding: 0 20px;
+
+  /* 当未启用 TagsView 时，由 navbar 承担顶部横带底部的 1px 极淡分界线
+   * 启用 TagsView 时由 TagsView 自身提供分界，navbar 不重复
+   * 注：实际生效的样式见文件末尾非 scoped 块（避免 scoped 属性作用域问题）
+   */
 
   .hamburger-container {
-    line-height: 46px;
+    line-height: 64px;
     height: 100%;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: all 0.25s ease;
     -webkit-tap-highlight-color: transparent;
     display: flex;
     align-items: center;
     flex-shrink: 0;
     margin-right: 8px;
     padding: 0 10px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-full);
+    color: var(--el-color-primary, #f0436e);
 
     &:hover {
-      background: rgba(99, 102, 241, 0.08);
+      background: rgba(240, 67, 110, 0.08);
+      color: var(--el-color-primary, #f0436e);
     }
   }
 
@@ -207,7 +215,7 @@ async function toggleTheme(event) {
 
   .topmenu-container {
     position: absolute;
-    left: 50px;
+    left: 56px;
   }
 
   .topbar-container {
@@ -221,9 +229,11 @@ async function toggleTheme(event) {
 
   .right-menu {
     height: 100%;
-    line-height: 50px;
+    line-height: 64px;
     display: flex;
     align-items: center;
+    /* design.md 4.5 间距刻度：8px */
+    gap: 8px;
     margin-left: auto;
 
     &:focus {
@@ -231,21 +241,26 @@ async function toggleTheme(event) {
     }
 
     .right-menu-item {
-      display: inline-block;
-      padding: 0 10px;
-      height: 100%;
-      font-size: 18px;
-      color: var(--text-regular, #475569);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      padding: 0 6px;
+      font-size: 17px;
+      color: var(--el-color-primary, #f0436e);
       vertical-align: text-bottom;
 
       &.hover-effect {
+        width: 36px;
+        padding: 0;
         cursor: pointer;
-        transition: background 0.25s ease, color 0.25s ease;
-        border-radius: var(--radius-sm);
+        transition: all 0.25s ease;
+        border-radius: var(--radius-full);
 
         &:hover {
-          background: rgba(99, 102, 241, 0.10);
-          color: var(--el-color-primary, #409eff);
+          /* design.md 4.5 右侧图标 hover 玫红轻染 + 文字玫红 */
+          background: rgba(240, 67, 110, 0.10);
+          color: var(--el-color-primary, #f0436e);
         }
       }
 
@@ -264,38 +279,64 @@ async function toggleTheme(event) {
     }
 
     .avatar-container {
-      margin-right: 0;
-      padding-right: 0;
+      width: auto;
+      height: auto;
+      margin-left: 4px;
 
       .avatar-wrapper {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 0 8px;
-        height: 100%;
+        padding: 5px 12px 5px 5px;
+        height: auto;
         cursor: pointer;
+        border-radius: var(--radius-full);
+        transition: all 0.25s ease;
+
+        &:hover {
+          /* design.md 4.5 头像区 hover 胶囊轻染 */
+          background: rgba(240, 67, 110, 0.05);
+        }
 
         .user-avatar {
-          width: 30px;
-          height: 30px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           object-fit: cover;
-          box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+          /* 参考图：白边圆环头像 */
+          box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px rgba(240, 67, 110, 0.25);
+          transition: box-shadow 0.25s ease;
+        }
+
+        &:hover .user-avatar {
+          /* hover 时玫红光环加深 */
+          box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px rgba(240, 67, 110, 0.45);
         }
 
         .user-nickname {
           font-size: 14px;
           font-weight: 600;
-          color: var(--text-regular, #475569);
+          color: var(--text-primary, #262336);
         }
 
         i {
           cursor: pointer;
           font-size: 12px;
-          color: var(--text-secondary, #94a3b8);
+          color: var(--text-secondary, #8b8899);
         }
       }
     }
   }
+}
+</style>
+
+<style lang="scss">
+/* 当未启用 TagsView 时（main-container 无 hasTagsView 类），
+ * 由 navbar 承担顶部横带底部的 1px 极淡分界线
+ * 启用 TagsView 时由 TagsView 自身提供分界，navbar 不重复
+ * design.md 4.5：横带底部 1px 极淡分界 rgba(38,35,54,0.05)
+ */
+.main-container:not(.hasTagsView) .navbar {
+  border-bottom: 1px solid rgba(38, 35, 54, 0.05);
 }
 </style>

@@ -171,45 +171,79 @@ onMounted(() => {
 </script>
 
 <style lang="scss">
-.topmenu-container.el-menu--horizontal > .el-menu-item {
-  float: left;
-  height: 50px !important;
-  line-height: 50px !important;
-  color: #303133 !important;
-  padding: 0 5px !important;
-  margin: 0 10px !important;
-}
+/* 顶部菜单项：淡紫马卡龙风
+ * 参考 design.md 4.5/4.7：
+ * - 64px 高、padding 0 5px、间距 0 10px
+ * - 默认 --text-regular，hover 玫红染色 + 文字变玫红
+ * - 激活态玫红 600 + 玫红胶囊底（inset 2px 8px）
+ */
+.topmenu-container.el-menu--horizontal {
+  /* 移除 Element 默认底部蓝色边框，改用胶囊 */
+  border-bottom: none !important;
 
-.topmenu-container.el-menu--horizontal > .el-menu-item.is-active, .el-menu--horizontal > .el-sub-menu.is-active .el-submenu__title {
-  border-bottom: 2px solid #{'var(--theme)'} !important;
-  color: #303133;
-}
+  > .el-menu-item,
+  > .el-sub-menu .el-sub-menu__title {
+    height: 64px !important;
+    line-height: 64px !important;
+    color: var(--text-regular, #4b4861) !important;
+    padding: 0 12px !important;
+    margin: 0 4px !important;
+    border-bottom: none !important;
+    border-radius: var(--radius-full, 999px);
+    transition: background 0.25s ease, color 0.25s ease;
+    position: relative;
 
-/* sub-menu item */
-.topmenu-container.el-menu--horizontal > .el-sub-menu .el-sub-menu__title {
-  float: left;
-  height: 50px !important;
-  line-height: 50px !important;
-  color: #303133 !important;
-  padding: 0 5px !important;
-  margin: 0 10px !important;
-}
+    &:not(.is-disabled):hover,
+    &:not(.is-disabled):focus {
+      background-color: rgba(240, 67, 110, 0.06) !important;
+      color: var(--el-color-primary, #f0436e) !important;
+    }
+  }
 
-/* 背景色隐藏 */
-.topmenu-container.el-menu--horizontal>.el-menu-item:not(.is-disabled):focus, .topmenu-container.el-menu--horizontal>.el-menu-item:not(.is-disabled):hover, .topmenu-container.el-menu--horizontal>.el-submenu .el-submenu__title:hover {
-  background-color: #ffffff;
+  > .el-menu-item.is-active,
+  > .el-sub-menu.is-active > .el-sub-menu__title {
+    color: var(--el-color-primary, #f0436e) !important;
+    font-weight: 600;
+    background-color: rgba(240, 67, 110, 0.10);
+    border-bottom: none !important;
+  }
+
+  /* 子菜单 title（非顶层 is-active 路径）hover 同步玫红 */
+  > .el-sub-menu .el-sub-menu__title:hover {
+    background-color: rgba(240, 67, 110, 0.06) !important;
+  }
 }
 
 /* 图标右间距 */
 .topmenu-container .svg-icon {
-  margin-right: 4px;
+  margin-right: 6px;
+  vertical-align: -2px;
 }
 
 /* topmenu more arrow */
 .topmenu-container .el-sub-menu .el-sub-menu__icon-arrow {
   position: static;
   vertical-align: middle;
-  margin-left: 8px;
+  margin-left: 6px;
   margin-top: 0px;
+  color: var(--text-secondary, #8b8899);
+}
+
+/* 暗色模式覆盖 */
+html.dark .topmenu-container.el-menu--horizontal {
+  > .el-menu-item,
+  > .el-sub-menu .el-sub-menu__title {
+    color: var(--el-text-color-regular) !important;
+
+    &:not(.is-disabled):hover,
+    &:not(.is-disabled):focus {
+      background-color: rgba(240, 67, 110, 0.18) !important;
+    }
+  }
+
+  > .el-menu-item.is-active,
+  > .el-sub-menu.is-active > .el-sub-menu__title {
+    background-color: rgba(240, 67, 110, 0.22);
+  }
 }
 </style>

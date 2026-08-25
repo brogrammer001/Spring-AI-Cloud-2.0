@@ -19,9 +19,9 @@
         @contextmenu.prevent="openMenu(tag, $event)"
       >
         <svg-icon v-if="tagsIcon && tag.meta && tag.meta.icon && tag.meta.icon !== '#'" :icon-class="tag.meta.icon" />
-        {{ tag.title }}
-        <span v-if="!isAffix(tag)" @click.prevent.stop="closeSelectedTag(tag)">
-          <close class="el-icon-close" style="width: 1em; height: 1em;vertical-align: middle;" />
+        <span class="tags-view-title">{{ tag.title }}</span>
+        <span v-if="!isAffix(tag)" class="tags-close-btn" @click.prevent.stop="closeSelectedTag(tag)">
+          <close class="el-icon-close" />
         </span>
       </router-link>
     </scroll-pane>
@@ -370,20 +370,19 @@ function handleScroll() {
 
 <style lang="scss" scoped>
 .tags-view-container {
-  height: 34px;
+  height: 40px;
   width: 100%;
-  background: var(--tags-bg, #fff);
-  border-bottom: 1px solid var(--tags-item-border, #d8dce5);
+  /* 与导航栏同色，组成顶部白色横带 */
+  background: var(--navbar-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  border-bottom: 1px solid rgba(38, 35, 54, 0.05);
   display: flex;
   align-items: center;
   overflow: hidden;
 
   $btn-width: 28px;
-  $btn-color: #71717a;
-  $btn-hover-bg: #f0f2f5;
-  $btn-hover-color: #303133;
-  $btn-disabled-color: #c0c4cc;
-  $divider: 1px solid var(--tags-item-border, #d8dce5);
+  $divider: 1px solid var(--tags-item-border, #eceaf4);
 
   .tags-nav-btn {
     flex-shrink: 0;
@@ -391,20 +390,20 @@ function handleScroll() {
     align-items: center;
     justify-content: center;
     width: $btn-width;
-    height: 34px;
+    height: 40px;
     cursor: pointer;
-    color: $btn-color;
+    color: var(--text-secondary, #8b8899);
     font-size: 13px;
     user-select: none;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.2s ease, color 0.2s ease;
 
     &:hover:not(.disabled) {
-      background: $btn-hover-bg;
-      color: $btn-hover-color;
+      background: rgba(240, 67, 110, 0.06);
+      color: var(--el-color-primary, #f0436e);
     }
 
     &.disabled {
-      color: $btn-disabled-color;
+      color: var(--text-placeholder, #b6b3c2);
       cursor: not-allowed;
     }
 
@@ -418,26 +417,47 @@ function handleScroll() {
     height: 100%;
 
     .tags-view-item {
-      display: inline-block;
+      /* inline-flex：让内部 svg-icon / 文字 / 关闭按钮垂直居中对齐，
+       * 配合 vertical-align: middle 在父 line-height: 40px 容器中垂直居中。
+       * 此前用 inline-block + baseline 对齐，导致 close 图标视觉偏下被挤。 */
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      vertical-align: middle;
       position: relative;
       cursor: pointer;
       height: 26px;
-      line-height: 26px;
-      border: 1px solid var(--tags-item-border, #d8dce5);
-      color: var(--tags-item-text, #495060);
-      background: var(--tags-item-bg, #fff);
-      padding: 0 8px;
+      line-height: 1;
+      border: 1px solid var(--tags-item-border, #eceaf4);
+      color: var(--tags-item-text, #4b4861);
+      background: var(--tags-item-bg, rgba(255, 255, 255, 0.8));
+      padding: 0 10px;
       font-size: 12px;
       margin-left: 5px;
-      border-radius: 3px;
+      border-radius: var(--radius-full, 999px);
+      transition: all 0.25s ease;
+      white-space: nowrap;
 
       &:first-of-type { margin-left: 6px; }
       &:last-of-type  { margin-right: 15px; }
 
+      &:hover {
+        color: var(--el-color-primary, #f0436e);
+        border-color: rgba(240, 67, 110, 0.25);
+        background: rgba(240, 67, 110, 0.04);
+      }
+
       &.active {
-        background-color: #42b983;
+        background-color: var(--el-color-primary, #f0436e);
         color: #fff;
-        border-color: #42b983;
+        border-color: var(--el-color-primary, #f0436e);
+        box-shadow: 0 2px 6px rgba(240, 67, 110, 0.25);
+
+        &:hover {
+          background-color: #d9305c;
+          border-color: #d9305c;
+          color: #fff;
+        }
 
         &::before {
           content: '';
@@ -447,8 +467,43 @@ function handleScroll() {
           height: 8px;
           border-radius: 50%;
           position: relative;
-          margin-right: 5px;
+          margin-right: 1px;
+          flex-shrink: 0;
         }
+      }
+
+      /* 关闭按钮：inline-flex 让 SVG 居中，避免 baseline 偏移 */
+      .tags-close-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        margin-left: 2px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        transition: background 0.2s ease, transform 0.2s ease;
+
+        .el-icon-close {
+          width: 12px;
+          height: 12px;
+        }
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.25);
+          transform: scale(1.1);
+        }
+      }
+
+      /* 激活态下关闭按钮 hover 用白色半透明，更醒目 */
+      &.active .tags-close-btn:hover {
+        background: rgba(255, 255, 255, 0.35);
+      }
+
+      /* 非激活态下关闭按钮 hover 用玫红浅染 */
+      &:not(.active) .tags-close-btn:hover {
+        background: rgba(240, 67, 110, 0.12);
+        color: var(--el-color-primary, #f0436e);
       }
     }
   }
@@ -468,22 +523,24 @@ function handleScroll() {
     align-items: center;
     justify-content: center;
     width: $btn-width;
-    height: 34px;
+    height: 40px;
     cursor: pointer;
-    color: $btn-color;
+    color: var(--text-secondary, #8b8899);
     font-size: 13px;
     border-left: $divider;
     user-select: none;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.2s ease, color 0.2s ease;
 
     &:hover {
-      background: $btn-hover-bg;
-      color: $btn-hover-color;
+      background: rgba(240, 67, 110, 0.06);
+      color: var(--el-color-primary, #f0436e);
     }
   }
 
   .tags-refresh-btn {
     width: 60px;
+    gap: 4px;
+    padding: 0 8px;
   }
 
   .contextmenu {
@@ -492,21 +549,28 @@ function handleScroll() {
     z-index: 3000;
     position: fixed;
     list-style-type: none;
-    padding: 5px 0;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 6px;
+    border-radius: var(--radius-sm, 8px);
+    font-size: 13px;
     font-weight: 400;
-    color: var(--tags-item-text, #333);
-    box-shadow: 2px 2px 3px 0 rgba(0, 0, 0, .3);
-    border: 1px solid var(--el-border-color-light, #e4e7ed);
+    color: var(--text-regular, #4b4861);
+    /* 柔和紫调阴影，禁硬阴影 */
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(124, 116, 160, 0.14));
+    border: 1px solid var(--card-border, #eceaf4);
 
     li {
       margin: 0;
-      padding: 7px 16px;
+      padding: 8px 14px;
       cursor: pointer;
+      border-radius: var(--radius-xs, 6px);
+      transition: background 0.15s ease, color 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
 
       &:hover {
-        background: var(--tags-item-hover, #eee);
+        background: rgba(240, 67, 110, 0.08);
+        color: var(--el-color-primary, #f0436e);
       }
     }
   }
@@ -514,32 +578,9 @@ function handleScroll() {
 </style>
 
 <style lang="scss">
-.tags-view-wrapper {
-  .tags-view-item {
-    .el-icon-close {
-      width: 16px;
-      height: 16px;
-      vertical-align: 2px;
-      border-radius: 50%;
-      text-align: center;
-      transition: all .3s cubic-bezier(.645, .045, .355, 1);
-      transform-origin: 100% 50%;
-
-      &:before {
-        transform: scale(.6);
-        display: inline-block;
-        vertical-align: -3px;
-      }
-
-      &:hover {
-        background-color: var(--tags-close-hover, #b4bccc);
-        color: #fff;
-        width: 12px !important;
-        height: 12px !important;
-      }
-    }
-  }
-}
+/* 旧版 .tags-view-item .el-icon-close 样式已废弃，
+ * 关闭按钮的样式由 scoped 块中的 .tags-close-btn 统一处理。
+ * 旧样式硬编码 vertical-align: 2px + hover 缩小尺寸，与 inline-flex 布局冲突。 */
 
 /* 页签全屏模式样式 */
 .main-container.fullscreen-mode {
@@ -567,14 +608,14 @@ function handleScroll() {
 
 .main-container.fullscreen-mode .app-main {
   position: fixed;
-  top: 34px;
+  top: 40px;
   left: 0;
   right: 0;
   bottom: 0;
   margin: 0 !important;
   padding: 0 !important;
-  height: calc(100vh - 34px) !important;
-  min-height: calc(100vh - 34px) !important;
+  height: calc(100vh - 40px) !important;
+  min-height: calc(100vh - 40px) !important;
   overflow: auto;
 }
 </style>

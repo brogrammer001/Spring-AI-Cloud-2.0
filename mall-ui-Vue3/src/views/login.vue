@@ -5,6 +5,10 @@
         <div class="brand-logo"><i class="fas fa-bolt"></i></div>
         <h3 class="title">{{ title }}</h3>
         <p class="subtitle">欢迎回来，请登录您的账户</p>
+        <div v-if="mockMode" class="offline-tip">
+          <i class="fas fa-plug-circle-xmark"></i>
+          离线演示模式：未连接后端接口，任意账号密码即可登录
+        </div>
       </div>
       <el-form-item prop="username">
         <el-input
@@ -76,8 +80,10 @@ import Cookies from "js-cookie"
 import { encrypt, decrypt } from "@/utils/jsencrypt"
 import useUserStore from '@/store/modules/user'
 import defaultSettings from '@/settings'
+import { isMockEnabled } from '@/utils/mock'
 
 const title = import.meta.env.VITE_APP_TITLE
+const mockMode = isMockEnabled()
 const footerContent = defaultSettings.footerContent
 const userStore = useUserStore()
 const route = useRoute()
@@ -172,15 +178,15 @@ getCookie()
 </script>
 
 <style lang='scss' scoped>
-/* ===== 现代极简风（Linear / Vercel 设计语言，浅色） ===== */
-$primary: #5b6ad8;          /* 低饱和靛蓝主色 */
-$primary-hover: #4a59c4;
-$text-strong: #111827;
-$text-regular: #374151;
-$text-muted: #6b7280;
-$text-faint: #9ca3af;
-$border: #e5e7eb;
-$border-hover: #d1d5db;
+/* ===== 淡紫马卡龙风（参考设计：玫瑰红主色 + 薰衣草底） ===== */
+$primary: #f0436e;          /* 玫瑰红主色 */
+$primary-hover: #d9305c;
+$text-strong: #262336;
+$text-regular: #4b4861;
+$text-muted: #8b8899;
+$text-faint: #b6b3c2;
+$border: #eceaf4;
+$border-hover: #dcd8ea;
 
 .login {
   position: relative;
@@ -192,10 +198,10 @@ $border-hover: #d1d5db;
   padding: 24px;
   overflow: hidden;
   background:
-    radial-gradient(at 12% 12%, rgba(224, 231, 255, 0.55) 0px, transparent 42%),
-    radial-gradient(at 88% 18%, rgba(219, 234, 254, 0.50) 0px, transparent 42%),
-    radial-gradient(at 80% 92%, rgba(232, 232, 240, 0.60) 0px, transparent 42%),
-    #f9fafb;
+    radial-gradient(at 12% 12%, rgba(250, 214, 226, 0.55) 0px, transparent 42%),
+    radial-gradient(at 88% 18%, rgba(221, 214, 246, 0.55) 0px, transparent 42%),
+    radial-gradient(at 80% 92%, rgba(214, 228, 250, 0.50) 0px, transparent 42%),
+    #f4f2f9;
 
   /* 柔和光斑：让毛玻璃卡片有内容可透（Linear 风格） */
   &::before,
@@ -213,7 +219,7 @@ $border-hover: #d1d5db;
     height: 480px;
     top: -140px;
     left: -100px;
-    background: radial-gradient(circle, rgba(91, 106, 216, 0.20) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(240, 67, 110, 0.16) 0%, transparent 70%);
   }
 
   &::after {
@@ -221,7 +227,7 @@ $border-hover: #d1d5db;
     height: 520px;
     bottom: -180px;
     right: -120px;
-    background: radial-gradient(circle, rgba(124, 138, 224, 0.18) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.20) 0%, transparent 70%);
   }
 }
 
@@ -271,7 +277,7 @@ $border-hover: #d1d5db;
     .el-input__wrapper.is-focus {
       border-color: $primary !important;
       background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 0 0 3px rgba(91, 106, 216, 0.12) !important;
+      box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.12) !important;
     }
 
     input {
@@ -308,8 +314,8 @@ $border-hover: #d1d5db;
     justify-content: center;
     font-size: 20px;
     color: #ffffff;
-    background: linear-gradient(135deg, $primary 0%, #7c8ae0 100%);
-    box-shadow: 0 4px 12px rgba(91, 106, 216, 0.28);
+    background: linear-gradient(135deg, $primary 0%, #ff7a9c 100%);
+    box-shadow: 0 4px 12px rgba(240, 67, 110, 0.30);
   }
 }
 
@@ -325,6 +331,21 @@ $border-hover: #d1d5db;
   margin: 0;
   font-size: 14px;
   color: $text-muted;
+}
+
+/* 离线演示模式提示条 */
+.offline-tip {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #b7791f;
+  background: rgba(245, 158, 11, 0.10);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+
+  i {
+    margin-right: 6px;
+  }
 }
 
 .login-options {
@@ -360,13 +381,13 @@ $border-hover: #d1d5db;
   border: none !important;
   background: $primary !important;
   color: #ffffff !important;
-  box-shadow: 0 1px 2px rgba(91, 106, 216, 0.22) !important;
+  box-shadow: 0 1px 2px rgba(240, 67, 110, 0.22) !important;
   transition: all 0.3s ease !important;
 
   &:hover {
     background: $primary-hover !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 8px 20px rgba(91, 106, 216, 0.30) !important;
+    box-shadow: 0 8px 20px rgba(240, 67, 110, 0.30) !important;
   }
 
   &:active {

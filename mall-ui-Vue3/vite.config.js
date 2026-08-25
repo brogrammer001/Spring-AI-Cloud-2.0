@@ -28,6 +28,8 @@ export default defineConfig(({ mode, command }) => {
       // https://vite.dev/config/build-options.html
       sourcemap: command === 'build' ? false : 'inline',
       outDir: 'dist',
+      // 构建前自动清空 dist，避免旧哈希产物残留
+      emptyOutDir: true,
       assetsDir: 'assets',
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
