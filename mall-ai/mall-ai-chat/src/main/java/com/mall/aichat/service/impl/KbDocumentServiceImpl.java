@@ -419,16 +419,16 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 continue;
             }
             // 合并短句，避免产生过小的单元
-            if (current.length() > 0 && current.length() + sentence.length() < 100) {
+            if (!current.isEmpty() && current.length() + sentence.length() < 100) {
                 current.append(sentence);
             } else {
-                if (current.length() > 0) {
+                if (!current.isEmpty()) {
                     sentences.add(current.toString());
                 }
                 current = new StringBuilder(sentence);
             }
         }
-        if (current.length() > 0) {
+        if (!current.isEmpty()) {
             sentences.add(current.toString());
         }
 

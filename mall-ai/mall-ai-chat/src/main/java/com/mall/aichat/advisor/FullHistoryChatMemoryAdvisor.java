@@ -72,10 +72,10 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
                 }
 
                 Generation generation = chatClientResponse.chatResponse().getResults().getFirst();
-                Message output = generation.getOutput();
 
                 // 1. 拦截大模型发起的工具调用指令
-                if (output instanceof AssistantMessage am && am.hasToolCalls()) {
+                AssistantMessage am = generation.getOutput();
+                if (am.hasToolCalls()) {
                     AssistantMessage.ToolCall toolCall = am.getToolCalls().getFirst();
                     String toolName = toolCall.name();
                     // 推送 calling 状态

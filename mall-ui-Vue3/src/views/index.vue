@@ -20,16 +20,13 @@
             :class="settingsStore.isDark ? 'text-[#6b6880]' : 'text-[#b6b3c2]'">
             暂无对话记录
           </div>
-          <div v-for="(conv, index) in conversations" :key="conv.id" @click="switchConversation(conv.id)" :class="[
-            'group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1 transition-colors duration-150',
-            conv.id === activeId ? (settingsStore.isDark ? 'bg-[rgba(240,67,110,0.15)] text-[#f0436e]' : 'bg-[rgba(240,67,110,0.10)] text-[#f0436e]') : (settingsStore.isDark ? 'text-[#b6b3c2] hover:bg-[rgba(240,67,110,0.05)]' : 'text-[#4b4861] hover:bg-[rgba(240,67,110,0.05)]')
-          ]">
-            <i class="fas fa-message mr-3 text-sm opacity-60"></i>
-            <div class="flex-1 truncate text-sm font-medium">
+          <div v-for="(conv, index) in conversations" :key="conv.id" @click="switchConversation(conv.id)"
+            :class="['conv-item group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1', { 'is-active': conv.id === activeId, 'is-dark': settingsStore.isDark }]">
+            <i class="fas fa-message mr-3 text-sm opacity-60 conv-item-icon"></i>
+            <div class="flex-1 truncate text-sm font-medium conv-item-title">
               {{ conv.title }}
             </div>
-            <button @click.stop="deleteConversation(conv.id)"
-              :class="['opacity-0 group-hover:opacity-100 p-1 rounded transition-all', settingsStore.isDark ? 'text-[#8b8899] hover:text-[#f0436e]' : 'text-[#b6b3c2] hover:text-[#f0436e]']">
+            <button @click.stop="deleteConversation(conv.id)" class="conv-item-delete p-1 rounded">
               <i class="fas fa-trash-alt text-xs"></i>
             </button>
           </div>
@@ -41,16 +38,15 @@
         </div>
       </aside>
       <div class="flex-1 flex flex-col h-full overflow-hidden">
-        <header
-          :class="['py-3 px-4 flex items-center justify-between flex-shrink-0 z-10 backdrop-blur-md', settingsStore.isDark ? 'bg-[rgba(26,26,46,0.7)] border-b border-[#3a3850]' : 'bg-[rgba(251,251,253,0.85)] border-b border-[rgba(38,35,54,0.05)]']">
+        <header class="chat-header flex-shrink-0" :class="{ 'is-dark': settingsStore.isDark }">
           <div class="flex items-center">
-            <div :class="['text-lg font-bold truncate', settingsStore.isDark ? 'text-[#f0436e]' : 'text-[#262336]']">
+            <div class="chat-header-title text-lg font-bold truncate" :class="{ 'is-dark': settingsStore.isDark }">
               {{ currentConversationTitle }}
             </div>
           </div>
         </header>
-        <main ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-6"
-          :class="{ 'bg-[#f4f2f9]': !settingsStore.isDark, 'bg-[rgba(20,18,30,0.6)]': settingsStore.isDark }" @click="handleRouteClick">
+        <main ref="chatContainer" class="chat-main flex-1 overflow-y-auto p-4 space-y-6"
+          :class="{ 'is-dark': settingsStore.isDark }" @click="handleRouteClick">
           <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
             <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
               <div
@@ -58,56 +54,59 @@
                 <img v-if="message.role === 'user'" :src="userStore.avatar && userStore.avatar.trim() ? userStore.avatar : defAva"
                   class="w-8 h-8 rounded-full flex-shrink-0 object-cover ring-2 ring-white" />
                 <div v-else
-                  :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', settingsStore.isDark ? 'bg-[rgba(240,67,110,0.20)] text-[#f0436e]' : 'bg-[rgba(240,67,110,0.15)] text-[#f0436e]']">
+                  class="chat-robot-avatar w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                  :class="{ 'is-dark': settingsStore.isDark }">
                   <i class="fas fa-robot"></i>
                 </div>
                 <div
-                  :class="['p-3 rounded-lg max-w-lg', message.role === 'user' ? 'bg-[#f0436e] text-white shadow-[0_2px_8px_rgba(240,67,110,0.22)]' : settingsStore.isDark ? 'bg-[rgba(40,38,54,0.85)] text-gray-100 border border-[#3a3850] backdrop-blur-md shadow-md' : 'bg-[rgba(255,255,255,0.85)] border border-[#eceaf4] text-[#4b4861] backdrop-blur-md shadow-md']">
+                  :class="['msg-bubble', message.role === 'user'
+                    ? (settingsStore.isDark ? 'msg-bubble-user is-dark' : 'msg-bubble-user')
+                    : (settingsStore.isDark ? 'msg-bubble-ai is-dark' : 'msg-bubble-ai')]">
                   <!-- RAG 知识库检索区块（马卡龙绿：#22c55e / 浅底 #e5f6ec） -->
                   <div v-if="message.role === 'assistant' && message.ragRetrieve"
-                       class="mb-3">
-                    <div class="flex items-center text-xs font-medium mb-1"
-                         :class="settingsStore.isDark ? 'text-[#4ade80]' : 'text-[#22c55e]'">
+                       class="mb-3"
+                       :class="{ 'is-dark': settingsStore.isDark }">
+                    <div class="rag-title flex items-center text-xs font-medium mb-1"
+                         :class="{ 'is-dark': settingsStore.isDark }">
                       <i class="fas fa-book-open mr-1.5"></i> 知识库检索
                     </div>
-                    <div class="flex items-center gap-2 px-2.5 py-2 rounded-md text-xs"
-                         :class="settingsStore.isDark ? 'bg-[rgba(34,197,94,0.10)] border border-[rgba(34,197,94,0.30)] text-[#4ade80]'
-                                                       : 'bg-[#e5f6ec] border border-[rgba(34,197,94,0.30)] text-[#22c55e]'">
+                    <div class="rag-box flex items-center gap-2 px-2.5 py-2 rounded-md text-xs"
+                         :class="{ 'is-dark': settingsStore.isDark }">
                       <i class="fas fa-book-bookmark flex-shrink-0"></i>
                       <span class="font-semibold">检索状态</span>
                       <span v-if="message.ragRetrieve.status === 'running'"
-                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-[rgba(245,158,11,0.20)] text-[#fbbf24]' : 'bg-[#fdf0e3] text-[#f59e0b]'">
+                            class="rag-badge rag-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-circle-notch fa-spin"></i> 检索中
                       </span>
                       <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'success'"
-                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-[rgba(34,197,94,0.20)] text-[#4ade80]' : 'bg-[#e5f6ec] text-[#22c55e]'">
+                            class="rag-badge rag-badge-success inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-check"></i> 已检索到内容
                       </span>
                       <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'empty'"
-                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-[rgba(139,136,153,0.20)] text-[#b6b3c2]' : 'bg-[#f4f3f8] text-[#8b8899]'">
+                            class="rag-badge rag-badge-empty inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-circle-info"></i> 未检索到内容
                       </span>
                       <span v-else
-                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                            :class="settingsStore.isDark ? 'bg-[rgba(34,197,94,0.20)] text-[#4ade80]' : 'bg-[#e5f6ec] text-[#22c55e]'">
+                            class="rag-badge rag-badge-success inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-check"></i> 完成
                       </span>
                     </div>
                   </div>
                   <!-- 工具调用区块（马卡龙紫：#8b5cf6 / 浅底 #efeafc） -->
                   <div v-if="message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0"
-                       class="mb-3 space-y-1.5">
-                    <div class="flex items-center text-xs font-medium mb-1"
-                         :class="settingsStore.isDark ? 'text-[#a78bfa]' : 'text-[#8b5cf6]'">
+                       class="mb-3 space-y-1.5"
+                       :class="{ 'is-dark': settingsStore.isDark }">
+                    <div class="tool-title flex items-center text-xs font-medium mb-1"
+                         :class="{ 'is-dark': settingsStore.isDark }">
                       <i class="fas fa-wand-magic-sparkles mr-1.5"></i> 已调用工具
                     </div>
                     <div v-for="(tc, tcIdx) in message.toolCalls" :key="tcIdx"
-                         :class="['flex items-start gap-2.5 px-2.5 py-2 rounded-md text-xs',
-                                  settingsStore.isDark ? 'bg-[rgba(139,92,246,0.10)] border border-[rgba(139,92,246,0.30)] text-[#a78bfa]'
-                                                        : 'bg-[#efeafc] border border-[rgba(139,92,246,0.30)] text-[#8b5cf6]']">
+                         class="tool-box flex items-start gap-2.5 px-2.5 py-2 rounded-md text-xs"
+                         :class="{ 'is-dark': settingsStore.isDark }">
                       <span class="flex-shrink-0 mt-0.5">
                         <!-- 工具图标 -->
                         <i class="fas"
@@ -120,18 +119,18 @@
                         <div class="flex items-center gap-1.5 flex-wrap">
                           <span class="font-semibold font-mono">{{ tc.toolName }}</span>
                           <span v-if="tc.status === 'running'"
-                                :class="['inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]',
-                                         settingsStore.isDark ? 'bg-[rgba(245,158,11,0.20)] text-[#fbbf24]' : 'bg-[#fdf0e3] text-[#f59e0b]']">
+                                class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                                :class="{ 'is-dark': settingsStore.isDark }">
                             <i class="fas fa-circle-notch fa-spin"></i> 调用中
                           </span>
                           <span v-else-if="tc.status === 'done'"
-                                :class="['inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]',
-                                         settingsStore.isDark ? 'bg-[rgba(34,197,94,0.20)] text-[#4ade80]' : 'bg-[#e5f6ec] text-[#22c55e]']">
+                                class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                                :class="{ 'is-dark': settingsStore.isDark }">
                             <i class="fas fa-check"></i> 完成
                           </span>
                         </div>
-                        <div class="mt-0.5 truncate"
-                             :class="settingsStore.isDark ? 'text-[#a78bfa]/70' : 'text-[#8b5cf6]/80'"
+                        <div class="tool-desc mt-0.5 truncate"
+                             :class="{ 'is-dark': settingsStore.isDark }"
                              :title="tc.description">
                           {{ tc.description }}
                         </div>
@@ -139,30 +138,25 @@
                     </div>
                   </div>
                   <div class="markdown-body" v-html="renderMessage(message)"></div>
-                  <div v-if="message.role === 'assistant' && message.isLoading" class="flex space-x-1 mt-1">
-                    <div
-                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-[#8b8899]' : 'bg-[#b6b3c2]', 'animate-pulse']">
-                    </div>
-                    <div
-                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-[#8b8899]' : 'bg-[#b6b3c2]', 'animate-pulse delay-100']">
-                    </div>
-                    <div
-                      :class="['w-1.5 h-1.5 rounded-full', settingsStore.isDark ? 'bg-[#8b8899]' : 'bg-[#b6b3c2]', 'animate-pulse delay-200']">
-                    </div>
+                  <div v-if="message.role === 'assistant' && message.isLoading"
+                    class="typing-dots flex space-x-1 mt-1" :class="{ 'is-dark': settingsStore.isDark }">
+                    <div class="typing-dot animate-pulse"></div>
+                    <div class="typing-dot animate-pulse delay-100"></div>
+                    <div class="typing-dot animate-pulse delay-200"></div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </main>
-        <footer
-          :class="['border-t p-4 flex-shrink-0 backdrop-blur-md', settingsStore.isDark ? 'bg-[rgba(26,26,46,0.7)] border-[#3a3850]' : 'bg-[rgba(251,251,253,0.85)] border-[rgba(38,35,54,0.05)]']">
+        <footer class="chat-footer flex-shrink-0" :class="{ 'is-dark': settingsStore.isDark }">
           <div class="max-w-3xl mx-auto relative">
             <div class="flex items-center">
               <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage"
                 @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse"
                 placeholder="输入您的问题..."
-                :class="['flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide transition-all duration-200', settingsStore.isDark ? 'bg-[rgba(40,38,54,0.6)] border-[#3a3850] text-gray-100 focus:ring-[#f0436e] focus:border-[#f0436e] placeholder-[#6b6880]' : 'bg-[rgba(255,255,255,0.7)] border-[#eceaf4] text-[#262336] focus:ring-[#f0436e] focus:border-[#f0436e] placeholder-[#b6b3c2]']"
+                class="chat-input flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide transition-all duration-200"
+                :class="{ 'is-dark': settingsStore.isDark }"
                 rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
               <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading"
                 :class="['ml-2 h-10 w-10 flex items-center justify-center rounded-lg chat-btn', isLoading ? 'chat-btn-warning' : 'chat-btn-primary']">
@@ -193,6 +187,7 @@ import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
 import useTagsViewStore from '@/store/modules/tagsView';
 import {md} from '@/utils/markdown';
+import {createEventStream} from '@/utils/chatStream';
 import * as echarts from 'echarts';
 import router from '@/router';
 
@@ -700,229 +695,222 @@ const sendMessage = async () => {
 
     const messageIndex = messages.value.length - 1;
 
-    // await parseStream({
-    //   response,
-    //   onTextChange: (text) => {
-    //     const msg = messages.value[messageIndex];
-    //     msg.content += text;
-    //     scrollToBottom();
-    //   },
-    //   onJsonChunk: (chunk) => {
-    //     if (chunk.code !== undefined) {
-    //       if (chunk.code === 8001 && chunk.data && typeof chunk.data === 'string' && chunk.data.trim()) {
-    //         messages.value[messageIndex].routeUrl = chunk.data;
-    //         setTimeout(() => {
-    //           handleRouteJump(chunk.data.trim(), { proxy, router });
-    //         }, 500);
-    //       } else if (chunk.code === 0) {
-    //         messages.value[messageIndex].isLoading = false;
-    //         messages.value[messageIndex].isStreaming = false;
-    //       } else if (chunk.code === 500) {
-    //         messages.value[messageIndex].isLoading = false;
-    //       }
-    //     }
-    //   },
-    //   onDone: () => {
-    //     if (messages.value[messageIndex].content === '') {
-    //       messages.value[messageIndex].content = '(无返回内容)';
-    //       messages.value[messageIndex].visibleChars = 6;
-    //     }
-    //     messages.value[messageIndex].isLoading = false;
-    //     messages.value[messageIndex].isStreaming = false;
-    //   },
-    //   onError: (error) => {
-    //     if (error.name !== 'AbortError') {
-    //       console.error('流处理错误:', error);
-    //       messages.value[messageIndex].content = error.message;
-    //       messages.value[messageIndex].visibleChars = error.message.length;
-    //     }
-    //   }
-    // });
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-    let streamEnded = false;
-    let innerBuffer = "";
-    let isInnerJson = false;
+    // 基于 SSE 规范的事件流解析：由 createEventStream 统一处理 event:/data: 行协议，
+    // 业务侧按事件类型 addEventListener 分发，不再手工截取识别
+    const es = createEventStream(response);
 
-    while (true) {
-      if (streamEnded) break;
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (!trimmedLine) continue;
-
-        if (trimmedLine.startsWith("event:")) {
-          const eventType = trimmedLine.substring(6).trim();
-          if (eventType === "done" || eventType === "message_end") {
-            streamEnded = true;
-            break;
+    /** 把上一轮仍处于"调用中"的工具/RAG 检索标记为"完成" */
+    const finishPendingTools = () => {
+      if (messages.value[messageIndex].toolCalls) {
+        messages.value[messageIndex].toolCalls.forEach(t => {
+          if (t.status === 'running') {
+            t.status = 'done';
+            t.endTime = Date.now();
           }
-          continue;
+        });
+      }
+      if (messages.value[messageIndex].ragRetrieve && messages.value[messageIndex].ragRetrieve.status === 'running') {
+        messages.value[messageIndex].ragRetrieve.status = 'done';
+        messages.value[messageIndex].ragRetrieve.endTime = Date.now();
+      }
+    };
+
+    /** 流结束统一收尾（complete 与 start 返回后各执行一次，逻辑幂等） */
+    const finalize = () => {
+      if (messages.value[messageIndex].content === '') {
+        messages.value[messageIndex].content = '(无返回内容)';
+        messages.value[messageIndex].visibleChars = 6;
+      }
+      finishPendingTools();
+      messages.value[messageIndex].isLoading = false;
+      messages.value[messageIndex].isStreaming = false;
+    };
+
+    /** 追加正文并滚动到底部 */
+    const appendText = (text) => {
+      if (!text) return;
+      messages.value[messageIndex].content += text;
+      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      scrollToBottom();
+    };
+
+    // 正文内容（新协议）：
+    //   event: message      + data: {"event":"message","content":"分片文本","conversationId":"..."}
+    //   event: message_end  + data: {"event":"message_end","messageId":"...","conversationId":"..."}
+    // 旧协议兼容：data: {"text":"..."} / {"code":...,"msg":...} / 纯文本
+    es.addEventListener('message', (e) => {
+      // 正文开始输出：上一轮仍"调用中"的工具/RAG 检索标记完成
+      finishPendingTools();
+
+      const json = e.json;
+      // 新协议：分片文本在 content 字段（仅追加字符串，忽略 messageId/index 等其他字段）
+      if (json && typeof json.content === 'string') {
+        appendText(json.content);
+        if (json.conversationId) {
+          messages.value[messageIndex].conversationId = json.conversationId;
         }
-
-        let content = trimmedLine;
-        if (content.startsWith("data:")) {
-          content = content.substring(5).trim();
+        return;
+      }
+      if (json && typeof json.text === 'string') {
+        appendText(json.text);
+        return;
+      }
+      if (json && json.code !== undefined) {
+        // 旧协议 JSON 分片（code 8000/8001/9999/500）
+        appendText(json.msg || '');
+        if (json.code === 8001 && json.data && typeof json.data === 'string' && json.data.trim()) {
+          messages.value[messageIndex].routeUrl = json.data;
+          setTimeout(() => {
+            handleRouteJump(json.data.trim(), { proxy, router });
+          }, 500);
+        } else if (json.code === 9999 && json.data && typeof json.data === 'object') {
+          // 数据查询结果：data 为对象，含 result(数组)/summary/generatedSql/rowCount
+          messages.value[messageIndex].dataTable = Array.isArray(json.data.result) ? json.data.result : [];
+          messages.value[messageIndex].dataRowCount = json.data.rowCount;
+          if (json.data.summary) {
+            appendText('\n\n' + json.data.summary);
+          }
         }
-        if (!content) continue;
+        messages.value[messageIndex].isLoading = false;
+        scrollToBottom();
+        return;
+      }
+      // 纯文本载荷（data 非 JSON）
+      if (e.data && !json) {
+        appendText(e.data);
+      }
+    });
 
-        try {
-          const jsonData = JSON.parse(content);
+    // 思考过程事件（event: thought）：累积到 thoughts 数组，不混入消息正文
+    es.addEventListener('thought', (e) => {
+      if (!e.json) return;
+      if (!messages.value[messageIndex].thoughts) {
+        messages.value[messageIndex].thoughts = [];
+      }
+      messages.value[messageIndex].thoughts.push(e.json);
+      scrollToBottom();
+    });
 
-          // 通过 JSON event 字段判断消息结束（新格式无 SSE event 行）
-          if (jsonData.event === "message_end") {
-            if (jsonData.messageId) {
-              messages.value[messageIndex].messageId = jsonData.messageId;
-            }
-            if (jsonData.conversationId) {
-              messages.value[messageIndex].conversationId = jsonData.conversationId;
-            }
-            streamEnded = true;
-            break;
-          }
-
-          // RAG 知识库检索事件：单独存到 ragRetrieve 对象，不混入消息正文
-          if (jsonData.event === "rag_retrieve") {
-            const phase = (jsonData.content != null ? jsonData.content : jsonData.msg) || '';
-            if (phase === 'start' || phase === 'rag_retrieval') {
-              // 检索开始
-              messages.value[messageIndex].ragRetrieve = {
-                status: 'running',
-                result: 'pending',
-                startTime: Date.now()
-              };
-            } else if (phase === 'success' || phase === 'rag_retrieved') {
-              // 检索成功
-              if (messages.value[messageIndex].ragRetrieve) {
-                messages.value[messageIndex].ragRetrieve.status = 'done';
-                messages.value[messageIndex].ragRetrieve.result = 'success';
-                messages.value[messageIndex].ragRetrieve.endTime = Date.now();
-              } else {
-                messages.value[messageIndex].ragRetrieve = {
-                  status: 'done',
-                  result: 'success',
-                  startTime: Date.now(),
-                  endTime: Date.now()
-                };
-              }
-            } else if (phase === 'empty') {
-              // 检索无结果
-              if (messages.value[messageIndex].ragRetrieve) {
-                messages.value[messageIndex].ragRetrieve.status = 'done';
-                messages.value[messageIndex].ragRetrieve.result = 'empty';
-                messages.value[messageIndex].ragRetrieve.endTime = Date.now();
-              } else {
-                messages.value[messageIndex].ragRetrieve = {
-                  status: 'done',
-                  result: 'empty',
-                  startTime: Date.now(),
-                  endTime: Date.now()
-                };
-              }
-            }
-            scrollToBottom();
-            continue;
-          }
-
-          // 工具调用事件：单独存到 toolCalls 数组，不混入消息正文
-          if (jsonData.event === "tool_call") {
-            const rawText = (jsonData.content != null ? jsonData.content : jsonData.msg) || '';
-            // 兼容两种格式：1) 直接工具名 "toolSearchTool"  2) 包装文案 "正在为您调用工具: [xxx]，请稍候"
-            const toolMatch = rawText.match(/\[([^\]]+)\]/);
-            let toolName = '';
-            let desc = '';
-            if (toolMatch) {
-              toolName = toolMatch[1];
-              desc = rawText.replace(/^\s*正在为您调用工具[:：]\s*/, '').replace(/[，,]\s*请稍候\s*$/, '').trim();
-            } else {
-              // 直接工具名格式
-              toolName = rawText.trim();
-              desc = '';
-            }
-            if (!toolName) toolName = '未知工具';
-            if (!messages.value[messageIndex].toolCalls) {
-              messages.value[messageIndex].toolCalls = [];
-            }
-            // 避免同一工具重复添加（如流式重复输出）
-            const exists = messages.value[messageIndex].toolCalls.some(t => t.toolName === toolName);
-            if (!exists) {
-              // 收到新的工具调用时，把上一轮仍处于"调用中"的工具标记为"完成"
-              messages.value[messageIndex].toolCalls.forEach(t => {
-                if (t.status === 'running') {
-                  t.status = 'done';
-                  t.endTime = Date.now();
-                }
-              });
-              messages.value[messageIndex].toolCalls.push({
-                toolName,
-                description: desc,
-                status: 'running',
-                index: jsonData.index,
-                startTime: Date.now()
-              });
-            }
-            scrollToBottom();
-            continue;
-          }
-
-          // 收到 message 事件（开始输出消息内容）时，把上一轮仍处于"调用中"的工具/RAG 检索标记为"完成"
-          if (jsonData.event === "message") {
-            if (messages.value[messageIndex].toolCalls) {
-              messages.value[messageIndex].toolCalls.forEach(t => {
-                if (t.status === 'running') {
-                  t.status = 'done';
-                  t.endTime = Date.now();
-                }
-              });
-            }
-            if (messages.value[messageIndex].ragRetrieve && messages.value[messageIndex].ragRetrieve.status === 'running') {
-              messages.value[messageIndex].ragRetrieve.status = 'done';
-              messages.value[messageIndex].ragRetrieve.endTime = Date.now();
-            }
-          }
-
-          // 提取文本：优先 content（新格式），其次 msg（旧格式兼容）
-          const text = jsonData.content != null ? jsonData.content : jsonData.msg;
-
-          if (text && typeof text === "string") {
-            if (!isInnerJson && (text.startsWith('{') || text.startsWith('['))) {
-              isInnerJson = true;
-            }
-            innerBuffer += text;
-            if (tryParseInnerJson(innerBuffer, messageIndex, isInnerJson)) {
-              innerBuffer = "";
-            }
-          }
-        } catch (e) {
-          console.error("解析 JSON 失败:", content, e);
+    // RAG 知识库检索事件：单独存到 ragRetrieve 对象，不混入消息正文
+    es.addEventListener('rag_retrieve', (e) => {
+      const phase = e.text || '';
+      if (phase === 'start' || phase === 'rag_retrieval') {
+        // 检索开始
+        messages.value[messageIndex].ragRetrieve = {
+          status: 'running',
+          result: 'pending',
+          startTime: Date.now()
+        };
+      } else if (phase === 'success' || phase === 'rag_retrieved') {
+        // 检索成功
+        if (messages.value[messageIndex].ragRetrieve) {
+          messages.value[messageIndex].ragRetrieve.status = 'done';
+          messages.value[messageIndex].ragRetrieve.result = 'success';
+          messages.value[messageIndex].ragRetrieve.endTime = Date.now();
+        } else {
+          messages.value[messageIndex].ragRetrieve = {
+            status: 'done',
+            result: 'success',
+            startTime: Date.now(),
+            endTime: Date.now()
+          };
+        }
+      } else if (phase === 'empty') {
+        // 检索无结果
+        if (messages.value[messageIndex].ragRetrieve) {
+          messages.value[messageIndex].ragRetrieve.status = 'done';
+          messages.value[messageIndex].ragRetrieve.result = 'empty';
+          messages.value[messageIndex].ragRetrieve.endTime = Date.now();
+        } else {
+          messages.value[messageIndex].ragRetrieve = {
+            status: 'done',
+            result: 'empty',
+            startTime: Date.now(),
+            endTime: Date.now()
+          };
         }
       }
-    }
+      scrollToBottom();
+    });
 
-    processRemainingBuffer(innerBuffer, messageIndex, isInnerJson);
+    // 工具调用事件：单独存到 toolCalls 数组，不混入消息正文
+    es.addEventListener('tool_call', (e) => {
+      const rawText = e.text || '';
+      // 兼容两种格式：1) 直接工具名 "toolSearchTool"  2) 包装文案 "正在为您调用工具: [xxx]，请稍候"
+      const toolMatch = rawText.match(/\[([^\]]+)\]/);
+      let toolName = '';
+      let desc = '';
+      if (toolMatch) {
+        toolName = toolMatch[1];
+        desc = rawText.replace(/^\s*正在为您调用工具[:：]\s*/, '').replace(/[，,]\s*请稍候\s*$/, '').trim();
+      } else {
+        // 直接工具名格式
+        toolName = rawText.trim();
+        desc = '';
+      }
+      if (!toolName) toolName = '未知工具';
+      if (!messages.value[messageIndex].toolCalls) {
+        messages.value[messageIndex].toolCalls = [];
+      }
+      // 避免同一工具重复添加（如流式重复输出）
+      const exists = messages.value[messageIndex].toolCalls.some(t => t.toolName === toolName);
+      if (!exists) {
+        // 收到新的工具调用时，把上一轮仍处于"调用中"的工具标记为"完成"
+        messages.value[messageIndex].toolCalls.forEach(t => {
+          if (t.status === 'running') {
+            t.status = 'done';
+            t.endTime = Date.now();
+          }
+        });
+        messages.value[messageIndex].toolCalls.push({
+          toolName,
+          description: desc,
+          status: 'running',
+          index: e.json ? e.json.index : undefined,
+          startTime: Date.now()
+        });
+      }
+      scrollToBottom();
+    });
 
-    // 流结束后的处理（保持原有逻辑）
-    if (messages.value[messageIndex].content === '') {
-      messages.value[messageIndex].content = '(无返回内容)';
-      messages.value[messageIndex].visibleChars = 6;
-    }
-    // tool_call 状态标记完成
-    if (messages.value[messageIndex].toolCalls && messages.value[messageIndex].toolCalls.length > 0) {
-      messages.value[messageIndex].toolCalls.forEach(tc => { tc.status = 'done'; });
-    }
-    if (messages.value[messageIndex].ragRetrieve && messages.value[messageIndex].ragRetrieve.status === 'running') {
-      messages.value[messageIndex].ragRetrieve.status = 'done';
-      messages.value[messageIndex].ragRetrieve.endTime = Date.now();
-    }
-    messages.value[messageIndex].isLoading = false;
-    messages.value[messageIndex].isStreaming = false;
+    // 流结束（data 可能是 {"state":"rag_start"} 等任意载荷）：携带 messageId/conversationId 时回填
+    es.addEventListener('message_end', (e) => {
+      const json = e.json || {};
+      if (json.messageId) {
+        messages.value[messageIndex].messageId = json.messageId;
+      }
+      if (json.conversationId) {
+        messages.value[messageIndex].conversationId = json.conversationId;
+      }
+    });
+
+    // 服务端业务错误（event: error，如 data: {"state":"500"}）
+    es.addEventListener('error', (e) => {
+      const state = (e.json && e.json.state) || '';
+      const errMsg = (e.json && (e.json.msg || e.json.message)) || '服务异常，请稍后重试';
+      appendText((messages.value[messageIndex].content ? '\n\n' : '') + (state ? `[错误 ${state}] ` : '') + errMsg);
+    });
+
+    // 传输层错误（网络中断 / 用户中止）
+    es.addEventListener('stream_error', (e) => {
+      if (e.error && e.error.name === 'AbortError') {
+        console.log('请求被用户中止');
+        if (messages.value[messageIndex].content === '') {
+          messages.value[messageIndex].content = '已停止';
+          messages.value[messageIndex].visibleChars = 4;
+        }
+      } else {
+        console.error('流处理错误:', e.error);
+        messages.value[messageIndex].content = (e.error && e.error.message) || '连接中断';
+        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      }
+    });
+
+    // 流关闭：统一收尾
+    es.addEventListener('complete', finalize);
+
+    await es.start();
+    finalize();
   } catch (error) {
     if (error.name === 'AbortError') {
       console.log('请求被用户中止');
@@ -952,64 +940,6 @@ const sendMessage = async () => {
       currentConv.messages = JSON.parse(JSON.stringify(messages.value));
     }
     scrollToBottom();
-  }
-};
-
-const processChunk = (dataPart, messageIndex, currentConversationId) => {
-  try {
-    const chunk = JSON.parse(dataPart);
-    const code = chunk.code;
-    const msg = chunk.msg || '';
-
-    switch (code) {
-      case 8000:
-        messages.value[messageIndex].content += msg;
-        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-        messages.value[messageIndex].isLoading = false;
-        scrollToBottom();
-        break;
-
-      case 8001:
-        if (msg) {
-          messages.value[messageIndex].content += msg;
-          messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-        }
-        if (chunk.data && typeof chunk.data === 'string' && chunk.data.trim()) {
-          messages.value[messageIndex].routeUrl = chunk.data;
-          setTimeout(() => {
-            handleRouteJump(chunk.data.trim(), { proxy, router });
-          }, 500);
-        }
-        messages.value[messageIndex].isLoading = false;
-        scrollToBottom();
-        break;
-
-      case 200:
-        messages.value[messageIndex].content += '\n\n' + msg;
-        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-        messages.value[messageIndex].isLoading = false;
-        scrollToBottom();
-        break;
-
-      case 500:
-        messages.value[messageIndex].content += '\n\n错误: ' + msg;
-        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-        messages.value[messageIndex].isLoading = false;
-        scrollToBottom();
-        break;
-
-      case 0:
-        messages.value[messageIndex].isLoading = false;
-        messages.value[messageIndex].isStreaming = false;
-        scrollToBottom();
-        break;
-
-      default:
-        console.warn('未知的 code:', code);
-        break;
-    }
-  } catch (e) {
-    console.error('解析数据失败:', dataPart, e);
   }
 };
 
@@ -1043,104 +973,6 @@ const parseNestedJson = (buffer) => {
   }
 
   return null;
-};
-
-const tryParseInnerJson = (buffer, messageIndex, isInnerJson) => {
-  if (!buffer) return false;
-
-  if (!isInnerJson) {
-    messages.value[messageIndex].content += buffer;
-    scrollToBottom();
-    return true;
-  }
-
-  const parsed = parseNestedJson(buffer);
-
-  if (parsed) {
-    const innerMsg = parsed.msg || '';
-    const innerCode = parsed.code;
-    const innerData = parsed.data;
-
-    if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
-      messages.value[messageIndex].content += innerMsg;
-      messages.value[messageIndex].routeUrl = innerData;
-      scrollToBottom();
-      setTimeout(() => {
-        handleRouteJump(innerData.trim(), { proxy, router });
-      }, 500);
-    } else if (innerCode === 9999 && innerData && typeof innerData === 'object') {
-      // 数据查询结果：data 为对象，含 result(数组)/summary/generatedSql/rowCount
-      const rows = Array.isArray(innerData.result) ? innerData.result : [];
-      const summary = innerData.summary || '';
-      const rowCount = innerData.rowCount;
-      messages.value[messageIndex].content += innerMsg;
-      if (summary) {
-        messages.value[messageIndex].content += '\n\n' + summary;
-      }
-      messages.value[messageIndex].dataTable = rows;
-      messages.value[messageIndex].dataRowCount = rowCount;
-      scrollToBottom();
-    } else if (innerCode === 500) {
-      messages.value[messageIndex].content += innerMsg;
-      scrollToBottom();
-    } else {
-      if (innerMsg && typeof innerMsg === 'string') {
-        messages.value[messageIndex].content += innerMsg;
-        scrollToBottom();
-      }
-    }
-    return true;
-  }
-  return false;
-};
-
-const processRemainingBuffer = (buffer, messageIndex, isInnerJson) => {
-  if (!buffer) return;
-
-  if (!isInnerJson) {
-    messages.value[messageIndex].content += buffer;
-    scrollToBottom();
-    return;
-  }
-
-  const parsed = parseNestedJson(buffer);
-
-  if (parsed) {
-    const innerMsg = parsed.msg || '';
-    const innerCode = parsed.code;
-    const innerData = parsed.data;
-
-    if (innerCode === 8001 && innerData && typeof innerData === 'string' && innerData.trim()) {
-      messages.value[messageIndex].content += innerMsg;
-      messages.value[messageIndex].routeUrl = innerData;
-      scrollToBottom();
-      setTimeout(() => {
-        handleRouteJump(innerData.trim(), { proxy, router });
-      }, 500);
-    } else if (innerCode === 9999 && innerData && typeof innerData === 'object') {
-      const rows = Array.isArray(innerData.result) ? innerData.result : [];
-      const summary = innerData.summary || '';
-      const rowCount = innerData.rowCount;
-      messages.value[messageIndex].content += innerMsg;
-      if (summary) {
-        messages.value[messageIndex].content += '\n\n' + summary;
-      }
-      messages.value[messageIndex].dataTable = rows;
-      messages.value[messageIndex].dataRowCount = rowCount;
-      scrollToBottom();
-    } else if (innerCode === 500) {
-      messages.value[messageIndex].content += innerMsg;
-      scrollToBottom();
-    } else {
-      if (innerMsg && typeof innerMsg === 'string') {
-        messages.value[messageIndex].content += innerMsg;
-        scrollToBottom();
-      }
-    }
-  } else {
-    messages.value[messageIndex].content += buffer;
-    scrollToBottom();
-  }
 };
 
 const renderDataTable = (data) => {
@@ -1361,6 +1193,327 @@ textarea {
 }
 
 /* 与 .el-button--primary 统一规范：8px 圆角、500 字重、0.25s cubic-bezier 过渡、translateY 位移、主色阴影 */
+/* ===== 消息区域主题化（替代失效的 Tailwind 任意值 class）===== */
+
+/* 顶部标题栏：亮色毛玻璃 / 暗色深紫 */
+.chat-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+  background: rgba(251, 251, 253, 0.85);
+  border-bottom: 1px solid rgba(38, 35, 54, 0.05);
+
+  &.is-dark {
+    background: rgba(26, 26, 46, 0.7);
+    border-bottom-color: #3a3850;
+  }
+}
+
+.chat-header-title {
+  color: #262336;
+
+  &.is-dark {
+    color: #f0436e;
+  }
+}
+
+/* 消息主区域：亮色淡紫 / 暗色深底 */
+.chat-main {
+  background: #f4f2f9;
+
+  &.is-dark {
+    background: rgba(20, 18, 30, 0.6);
+  }
+}
+
+/* AI 机器人头像 */
+.chat-robot-avatar {
+  background: rgba(240, 67, 110, 0.15);
+  color: #f0436e;
+
+  &.is-dark {
+    background: rgba(240, 67, 110, 0.20);
+  }
+}
+
+/* RAG 检索区块（马卡龙绿） */
+.rag-title {
+  color: #22c55e;
+
+  &.is-dark {
+    color: #4ade80;
+  }
+}
+
+.rag-box {
+  background: #e5f6ec;
+  border: 1px solid rgba(34, 197, 94, 0.30);
+  color: #22c55e;
+
+  &.is-dark {
+    background: rgba(34, 197, 94, 0.10);
+    color: #4ade80;
+  }
+}
+
+.rag-badge {
+  &.rag-badge-running {
+    background: #fdf0e3;
+    color: #f59e0b;
+
+    &.is-dark {
+      background: rgba(245, 158, 11, 0.20);
+      color: #fbbf24;
+    }
+  }
+
+  &.rag-badge-success {
+    background: #e5f6ec;
+    color: #22c55e;
+
+    &.is-dark {
+      background: rgba(34, 197, 94, 0.20);
+      color: #4ade80;
+    }
+  }
+
+  &.rag-badge-empty {
+    background: #f4f3f8;
+    color: #8b8899;
+
+    &.is-dark {
+      background: rgba(139, 136, 153, 0.20);
+      color: #b6b3c2;
+    }
+  }
+}
+
+/* 工具调用区块（马卡龙紫） */
+.tool-title {
+  color: #8b5cf6;
+
+  &.is-dark {
+    color: #a78bfa;
+  }
+}
+
+.tool-box {
+  background: #efeafc;
+  border: 1px solid rgba(139, 92, 246, 0.30);
+  color: #8b5cf6;
+
+  &.is-dark {
+    background: rgba(139, 92, 246, 0.10);
+    color: #a78bfa;
+  }
+}
+
+.tool-badge {
+  &.tool-badge-running {
+    background: #fdf0e3;
+    color: #f59e0b;
+
+    &.is-dark {
+      background: rgba(245, 158, 11, 0.20);
+      color: #fbbf24;
+    }
+  }
+
+  &.tool-badge-done {
+    background: #e5f6ec;
+    color: #22c55e;
+
+    &.is-dark {
+      background: rgba(34, 197, 94, 0.20);
+      color: #4ade80;
+    }
+  }
+}
+
+.tool-desc {
+  color: rgba(139, 92, 246, 0.80);
+
+  &.is-dark {
+    color: rgba(167, 139, 250, 0.70);
+  }
+}
+
+/* 输入中动画圆点 */
+.typing-dots {
+  .typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #b6b3c2;
+  }
+
+  &.is-dark .typing-dot {
+    background: #8b8899;
+  }
+}
+
+/* 底部输入区 */
+.chat-footer {
+  border-top: 1px solid rgba(38, 35, 54, 0.05);
+  padding: 16px;
+  backdrop-filter: blur(12px);
+  background: rgba(251, 251, 253, 0.85);
+
+  &.is-dark {
+    background: rgba(26, 26, 46, 0.7);
+    border-top-color: #3a3850;
+  }
+}
+
+/* 输入框：聚焦玫红光环（design.md 4.6） */
+.chat-input {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: #eceaf4;
+  color: #262336;
+
+  &::placeholder {
+    color: #b6b3c2;
+  }
+
+  &:focus {
+    border-color: #f0436e;
+    --tw-ring-color: rgba(240, 67, 110, 0.35);
+  }
+
+  &.is-dark {
+    background: rgba(40, 38, 54, 0.6);
+    border-color: #3a3850;
+    color: #f3f4f6;
+
+    &::placeholder {
+      color: #6b6880;
+    }
+  }
+}
+
+/* 最近对话列表项（替代失效的 Tailwind 任意值 class）：hover 轻染 + 激活态玫红胶囊 */
+.conv-item {
+  color: #4b4861;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  /* hover 移入选中：主色浅染 + 文字变玫红 + 左侧图标点亮 */
+  &:hover {
+    background: rgba(240, 67, 110, 0.05);
+
+    .conv-item-title,
+    .conv-item-icon {
+      color: #f0436e;
+    }
+  }
+
+  /* 激活态：主色胶囊底 + 玫红文字（design.md 4.5 菜单激活样式） */
+  &.is-active {
+    background: rgba(240, 67, 110, 0.10);
+
+    .conv-item-title,
+    .conv-item-icon {
+      color: #f0436e;
+    }
+
+    /* hover 时胶囊略微加深，保持选中可感知 */
+    &:hover {
+      background: rgba(240, 67, 110, 0.14);
+    }
+  }
+
+  /* 暗色模式 */
+  &.is-dark {
+    color: #b6b3c2;
+
+    &:hover {
+      background: rgba(240, 67, 110, 0.08);
+
+      .conv-item-title,
+      .conv-item-icon {
+        color: #f0436e;
+      }
+    }
+
+    &.is-active {
+      background: rgba(240, 67, 110, 0.15);
+
+      .conv-item-title,
+      .conv-item-icon {
+        color: #f0436e;
+      }
+
+      &:hover {
+        background: rgba(240, 67, 110, 0.20);
+      }
+    }
+  }
+
+  /* 删除按钮：默认隐藏，hover 浮现（配合 group） */
+  .conv-item-delete {
+    opacity: 0;
+    color: #b6b3c2;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: opacity 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      color: #f0436e;
+    }
+  }
+
+  &:hover .conv-item-delete,
+  &.is-active .conv-item-delete {
+    opacity: 1;
+  }
+
+  &.is-dark .conv-item-delete {
+    color: #8b8899;
+
+    &:hover {
+      color: #f0436e;
+    }
+  }
+}
+
+/* 消息气泡公共样式（替代失效的 Tailwind 任意值 class） */
+.msg-bubble {
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 32rem;
+}
+
+/* 用户气泡：玫红底白字（design.md 主按钮同款配色）；暗色用明显加深的玫红 + 白色描边，切换差异清晰可感知 */
+.msg-bubble-user {
+  background: #f0436e;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+
+  &.is-dark {
+    background: #b0254e;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* AI 气泡：亮色毛玻璃白卡 / 暗色深紫 */
+.msg-bubble-ai {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #eceaf4;
+  color: #4b4861;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(124, 116, 160, 0.10);
+
+  &.is-dark {
+    background: rgba(40, 38, 54, 0.85);
+    border-color: #3a3850;
+    color: #f3f4f6;
+  }
+}
+
 .chat-btn {
   border: none;
   cursor: pointer;
@@ -1386,7 +1539,7 @@ textarea {
 
   &:hover {
     background-color: #d9305c;
-    box-shadow: 0 8px 24px rgba(240, 67, 110, 0.28);
+
   }
 }
 
@@ -1397,7 +1550,7 @@ textarea {
 
   &:hover {
     background-color: #d97706;
-    box-shadow: 0 8px 24px rgba(240, 67, 110, 0.28);
+
   }
 }
 </style>

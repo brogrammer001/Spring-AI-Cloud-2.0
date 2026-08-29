@@ -104,9 +104,10 @@ const getLogoTextColor = computed(() => {
       font-size: 17px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       letter-spacing: -0.2px;
-      /* 关键：flex item 默认 min-width: auto，标题超长会撑破容器导致整体被 overflow 裁剪 */
+      /* 不占满 flex 剩余空间，让「图标 + 标题」整体由 justify-content: center 居中 */
+      flex: 0 1 auto;
       min-width: 0;
-      flex: 1;
+      max-width: 100%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

@@ -135,16 +135,21 @@
   }
 
   &.el-button--primary:not(.is-disabled) {
-    box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+
 
     &:hover {
-      box-shadow: var(--shadow-primary);
+
       transform: translateY(-1px);
     }
 
     &:active {
       transform: translateY(0);
     }
+  }
+
+  /* link 型文字按钮（表格操作列等）：hover 选中色改为 design.md 主色 */
+  &.is-link {
+    --el-button-hover-link-text-color: #f0436e;
   }
 }
 
@@ -264,6 +269,96 @@ html.dark .el-table th.el-table__cell {
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
 
+  /* 高度固定：占满且不超过 app-main 可视区（fixed-header 时父级为固定高度滚动容器）。
+     用 height 而非 min-height——min-height 只设下限，数据多时仍会被撑高导致页面滚动、分页被挤走 */
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  /* 表格固定高度：数据增多时表格体内部滚动，分页固定在底部不被推走 */
+  > .el-table {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* 分页固定右下角（flex 尾部 + 右对齐，不随表格高度变化） */
+  > .pagination-container {
+    flex-shrink: 0;
+    margin-top: 16px;
+  }
+
+  /* splitpanes 主结构页（user/dept 等）：主体行撑满剩余空间 */
+  > .el-row:has(.splitpanes) {
+    flex: 1;
+    min-height: 0;
+
+    .splitpanes.default-theme {
+      height: 100%;
+
+      .splitpanes__pane {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        > .el-col {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+
+          /* 右侧表格：固定高度内部滚动 */
+          > .el-table {
+            flex: 1;
+            min-height: 0;
+          }
+
+          > .pagination-container {
+            flex-shrink: 0;
+            margin-top: 16px;
+          }
+
+          /* 左侧部门树容器：超高时自身滚动 */
+          > .head-container:last-child {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+          }
+        }
+      }
+    }
+  }
+
+  /* 卡片型页面：表格卡片撑满剩余空间 */
+  > .el-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
+    > .el-card__body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+
+      > .el-table {
+        flex: 1;
+        min-height: 0;
+      }
+
+      > .pagination-container {
+        flex-shrink: 0;
+        margin-top: 16px;
+      }
+    }
+  }
+
+  /* 表格空态提示块撑满可用区域并垂直居中（无数据时不塌缩） */
+  .el-table .el-table__empty-block {
+    flex: 1;
+  }
+
   /* 内部搜索表单区与按钮组之间留白 */
   > .el-form,
   > .el-row > .el-col > .el-form {
@@ -281,13 +376,17 @@ html.dark .el-table th.el-table__cell {
   }
 }
 
-/* 首页聊天 / 特殊页面通过 .no-card 重置回透明无框 */
+/* 首页聊天 / 特殊页面通过 .no-card 重置回透明无框（并还原块布局） */
 .app-container.no-card {
   padding: 0;
   background: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
+  display: block;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
 }
 
 /* ---------- 面包屑更轻盈 ---------- */

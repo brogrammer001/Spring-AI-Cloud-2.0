@@ -465,6 +465,76 @@ reranker:
 - `punctuationMarks` 同时包含中英文标点，适配中文文档
 - `minChunkSizeChars` 设为 `chunkSize` 的 10%，尽量保留上下文（参考 Dify overlap 设计）
 
+##### 2.6.2.4 语义分块（Semantic Chunking）
+
+在固定 Token/段落分块之外，系统新增了**语义分块**能力。通过 `kb_document` 表的 `semantic_chunking` 字段控制（`true`-语义分块，`false`-固定 token/段落分块），文档上传时前端可针对不同文档选择合适的分块策略。
+
+**核心思想**：基于 Embedding 向量计算段落间的语义相似度，将**语义相近的段落合并为同一块**，避免固定长度切分导致语义断裂。例如：一段介绍"系统架构"的文字被固定切分到两个 chunk 中，检索时可能只命中一半，语义分块则能保证整段内容完整保留。
+
+**算法流程**（`KbDocumentServiceImpl.semanticSplit()`）：
+
+```
+文档内容
+  │
+  ├─ 1. 切分为语义最小单元（splitIntoSemanticUnits）
+  │   ├─ 优先按段落（空行/自定义分段符）切分
+  │   └─ 段落超过 500 字符时，按句子进一步切分（splitBySentences）
+  │       └─ 支持中英文标点（。！？!?；;），短句自动合并（<100字符）
+  │
+  ├─ 2. 计算每个单元的 Embedding 向量
+  │   ├─ 调用本地 Embedding 模型（Qwen3-Embedding-4B）
+  │   └─ 分批调用（batchSize=20），避免单次请求过大
+  │
+  ├─ 3. 计算相邻单元的余弦相似度（cosineSimilarity）
+  │   └─ 相似度 < 阈值（0.75）→ 该处为语义边界，标记切分点
+  │
+  ├─ 4. 按切分点合并单元，形成语义块
+  │   └─ 相邻语义相近的段落合并为同一 chunk
+  │
+  └─ 5. 对过大的语义块按 Token 细切分
+      └─ 超过 chunkSize × 2 的块，用 TokenTextSplitter 再切分
+```
+
+**关键参数**：
+
+| 参数 | 默认值 | 说明 |
+| :--- | :--- | :--- |
+| `semanticChunking` | `false` | 是否启用语义分块（`kb_document` 表字段） |
+| `threshold` | `0.75` | 语义相似度阈值，低于该值则切分（0~1，值越小越容易切分） |
+| `chunkSize` | `500` | 语义块最大 Token 数，超过 `chunkSize × 2` 再细切分 |
+| `batchSize` | `20` | Embedding 分批调用大小，避免单次请求过大 |
+| 段落超长阈值 | `500` 字符 | 超过则按句子进一步切分 |
+| 短句合并阈值 | `100` 字符 | 相邻短句自动合并，避免产生过小单元 |
+
+**降级机制**：
+
+| 场景 | 降级策略 |
+| :--- | :--- |
+| 未配置 `EmbeddingModel` | 降级为 Token 分块（`tokenSplitFallback()`） |
+| Embedding 计算异常 | 捕获异常，降级为 Token 分块 |
+| 文档仅 1 个语义单元 | 直接返回该单元，不执行向量计算 |
+
+**与固定分块的对比**：
+
+| 维度 | 固定 Token/段落分块 | 语义分块 |
+| :--- | :--- | :--- |
+| 切分依据 | 段落符 + Token 数量 | Embedding 向量语义相似度 |
+| 语义完整性 | 可能切断语义边界 | 语义相近段落自动合并 |
+| 计算开销 | 低（纯文本处理） | 高（需调用 Embedding 模型） |
+| 适用场景 | 结构规整、段落分明的文档 | 语义连贯、段落边界模糊的文档 |
+| 检索精度 | 依赖固定切分质量 | 语义块更完整，检索命中率更高 |
+
+**关键实现方法**（`KbDocumentServiceImpl`）：
+
+| 方法 | 职责 |
+| :--- | :--- |
+| `generalSmartSplit()` | 分块入口，根据 `semanticChunking` 选择语义分块或固定分块 |
+| `semanticSplit()` | 语义分块主流程：切单元 → 向量化 → 相似度计算 → 合并 → 细切分 |
+| `splitIntoSemanticUnits()` | 将文本切分为语义最小单元（段落优先，超长按句子） |
+| `splitBySentences()` | 按中英文标点切分句子，短句自动合并 |
+| `cosineSimilarity()` | 计算两个 Embedding 向量的余弦相似度 |
+| `tokenSplitFallback()` | 降级方案：Embedding 不可用时回退到 Token 分块 |
+
 ### 2.7 SSE 流式推送
 
 #### 2.7.1 双通道架构
@@ -1340,3 +1410,13 @@ spring:
 *   **客户端断开**：通过 `doOnCancel` 处理客户端主动断开。
 *   **异常脱敏**：`onErrorResume` 捕获异常后返回通用错误信息，不暴露内部细节。
 
+
+
+1，提示词文件放置位置
+2，chatAgent入口类，查询知识库代码优化
+3，chatAgent入口类Flux是否需要返回event
+4，advisor顺序问题
+5，加入流程编排
+6，分块策略
+7，向量消息压缩代码优化
+8，提示词管理

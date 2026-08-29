@@ -118,13 +118,13 @@ public class ChatClientConfig {
         //3在toolSearchAdvisor之前执行，保存标记了returnDirect=true的工具结果
         advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate).order(Ordered.HIGHEST_PRECEDENCE + 202).build());
 
-        // 4工具搜索顾问 - 如果 ToolIndex 依赖向量库，这里也需要做判断,
+        // 4工具搜索顾问
         advisors.add(toolSearchAdvisor); //Ordered.HIGHEST_PRECEDENCE + 300
 
         //5保存全量消息,必须在toolSearchAdvisor之后直接，要拿到工具调用信息
         advisors.add(FullHistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, chatMemory, agentEventSinkManager).order(1).build());
 
-        // 6. 日志顾问
+        // 6. 日志
         advisors.add(new SimpleLoggerAdvisor(2));
 
         ChatClient.Builder builder = ChatClient.builder(model)

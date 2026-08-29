@@ -10,7 +10,7 @@
 
     <div class="right-menu">
       <template v-if="appStore.device !== 'mobile'">
-        <header-search id="header-search" class="right-menu-item" />
+        <header-search id="header-search" class="right-menu-item hover-effect" />
 
         <screenfull id="screenfull" class="right-menu-item hover-effect" />
 
@@ -21,16 +21,12 @@
           </div>
         </el-tooltip>
 
-        <el-tooltip content="布局大小" effect="dark" placement="bottom">
-          <size-select id="size-select" class="right-menu-item hover-effect" />
-        </el-tooltip>
-
         <el-tooltip content="消息通知" effect="dark" placement="bottom">
           <header-notice id="header-notice" class="right-menu-item hover-effect" />
         </el-tooltip>
       </template>
 
-      <el-dropdown @command="handleCommand" class="avatar-container right-menu-item hover-effect" trigger="hover">
+      <el-dropdown @command="handleCommand" class="avatar-container" trigger="hover">
         <div class="avatar-wrapper">
           <img :src="userStore.avatar" class="user-avatar" />
           <span class="user-nickname"> {{ userStore.nickName }} </span>
@@ -232,8 +228,8 @@ async function toggleTheme(event) {
     line-height: 64px;
     display: flex;
     align-items: center;
-    /* design.md 4.5 间距刻度：8px */
-    gap: 8px;
+    /* design.md 4.5 间距刻度：图标之间 12px，避免挤在一起 */
+    gap: 12px;
     margin-left: auto;
 
     &:focus {

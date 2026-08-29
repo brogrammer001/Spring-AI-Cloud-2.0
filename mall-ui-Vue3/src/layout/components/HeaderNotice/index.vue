@@ -133,7 +133,6 @@ function markAllRead() {
 <style lang="scss" scoped>
 .notice-trigger {
   position: relative;
-  transform: translateX(-6px);
   .svg-icon { width: 1.2em; height: 1.2em; vertical-align: -0.2em; }
   .notice-badge {
     position: absolute;

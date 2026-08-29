@@ -5,7 +5,7 @@
 
 // 是否启用离线演示模式（VITE_APP_USE_BACKEND = false 时不连后端）
 export function isMockEnabled() {
-  return import.meta.env.VITE_APP_USE_BACKEND === 'false'
+  return import.meta.env.VITE_APP_USE_BACKEND === 'true'
 }
 
 const MOCK_TOKEN = 'mock-token-offline-demo'
