@@ -60,7 +60,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
     @Qualifier("toolVectorStore")
     private VectorStore toolVectorStore;
 
-    @Resource(name = "titleChatClient")
+    @Resource(name = "smallChatClient")
     public ChatClient titleChatClient;
 
     @Resource(name = "taskExecutor")
@@ -163,9 +163,29 @@ public class AiConversationServiceImpl implements IAiConversationService {
                     }
 
                     String aiTitle = titleChatClient.prompt()
+                        .system("""
+                            你是对话标题生成器。根据用户消息生成一个简短的对话标题。
+                            要求：不超过15个字；概括消息主题；不要标点结尾；不要解释；只输出标题本身。
+
+                            示例：
+                            消息：帮我看看这段Java代码为什么在多线程环境下会出现死锁
+                            标题：Java多线程死锁分析
+                            消息：我想了解一下现在跨境电商平台的主流技术架构是什么样的
+                            标题：跨境电商技术架构
+                            """)
                         .user(u -> u.text(question))
                         .call()
                         .content();
+
+                    // 后处理：取首行、去空白、截断到30字，防止模型输出多余内容污染标题
+                    if (StringUtils.isNotBlank(aiTitle)) {
+                        aiTitle = aiTitle.lines().map(String::trim)
+                            .filter(StringUtils::isNotBlank)
+                            .findFirst().orElse("");
+                        if (aiTitle.length() > 30) {
+                            aiTitle = aiTitle.substring(0, 30);
+                        }
+                    }
 
                     if (StringUtils.isNotBlank(aiTitle)) {
                         AiConversation updateEntity = new AiConversation();

@@ -7,11 +7,7 @@ import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
-import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.client.advisor.api.*;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -24,7 +20,7 @@ import reactor.core.publisher.Mono;
 import java.util.Date;
 import java.util.List;
 
-public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
+public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
     private int order;
 
@@ -40,7 +36,7 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
 
     @Override
     public String getName() {
-        return "ReturnDirectChatMemoryAdvisor";
+        return "针对MCP工具标记了【returnDirect】=true的结果存储";
     }
 
     @Override
@@ -50,21 +46,23 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
 
     @Override
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
-        // 1. 获取会话ID
-        String conversationId = (String) request.context().get(ChatMemory.CONVERSATION_ID);
         return Mono.just(request)
             .publishOn(BaseAdvisor.DEFAULT_SCHEDULER)
             .flatMapMany(chain::nextStream)
             .transform(flux -> new ChatClientMessageAggregator().aggregateChatClientResponse(flux,
-                chatClientResponse -> this.after(chatClientResponse, conversationId)));
+                chatClientResponse -> this.after(chatClientResponse, chain)));
     }
 
+    @Override
+    public ChatClientRequest before(ChatClientRequest chatClientRequest, AdvisorChain advisorChain) {
+        return chatClientRequest;
+    }
 
-    public void after(ChatClientResponse chatClientResponse, String conversationId) {
+    @Override
+    public ChatClientResponse after(ChatClientResponse chatClientResponse, AdvisorChain advisorChain) {
+        String conversationId = getConversationId(chatClientResponse.context());
         ChatResponse chatResponse = chatClientResponse.chatResponse();
-        if (chatResponse == null) {
-            return;
-        }
+        if (chatResponse == null) return chatClientResponse;
 
         Generation result = chatResponse.getResult();
         ChatGenerationMetadata generationMetadata = result.getMetadata();
@@ -89,9 +87,10 @@ public class ReturnDirectChatMemoryAdvisor implements StreamAdvisor {
                 history.setSequenceId(sequenceId);
                 return history;
             }).toList();
-            if (list.isEmpty()) return;
+            if (list.isEmpty()) return chatClientResponse;
             sysChatHistoryService.saveBatch(list);
         }
+        return chatClientResponse;
     }
 
     public static ReturnDirectChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate) {

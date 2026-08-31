@@ -37,8 +37,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <where>
             <if test="conversationId != null  and conversationId != ''"> and t1.conversation_id = #{conversationId}</if>
             <if test="content != null  and content != ''"> and t1.content = #{content}</if>
+            <if test="userName != null  and userName != ''"> and u.user_name = #{userName}</if>
             <if test="type != null  and type != ''"> and t1.type = #{type}</if>
-            <if test="timestamp != null "> and t1.timestamp = #{timestamp}</if>
+            <if test="timestamp != null "> and STR_TO_DATE(t1.timestamp, '%Y-%m-%d') = STR_TO_DATE(#{timestamp}, '%Y-%m-%d')</if>
             <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
             <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
             <if test="toolCalls != null  and toolCalls != ''"> and t1.tool_calls = #{toolCalls}</if>
@@ -78,7 +79,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="conversationId != null  and conversationId != ''"> and t1.conversation_id = #{conversationId}</if>
             <if test="content != null  and content != ''"> and t1.content = #{content}</if>
             <if test="type != null  and type != ''"> and t1.type = #{type}</if>
-            <if test="timestamp != null "> and t1.timestamp = #{timestamp}</if>
+            <if test="timestamp != null "> and STR_TO_DATE(t1.timestamp, '%Y-%m-%d') = STR_TO_DATE(#{timestamp}, '%Y-%m-%d')</if>
             <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
             <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
             <if test="toolCalls != null  and toolCalls != ''"> and t1.tool_calls = #{toolCalls}</if>

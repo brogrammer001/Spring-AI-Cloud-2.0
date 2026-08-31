@@ -18,6 +18,7 @@ import org.springframework.context.annotation.DependsOn;
 
 import java.util.List;
 
+import static com.mall.aichat.constant.ChatConstants.*;
 /**
  * 向量库配置
  * <p>三库分职责：① 会话记忆库 ② 知识库 ③ 工具索引库，启动时统一初始化 Schema。</p>
@@ -57,27 +58,20 @@ public class VectorStoreConfig {
 
     /**
      * ① 会话记忆向量库 (用于 VectorStoreChatMemoryAdvisor 检索对话历史 + 压缩记忆)
-     * <p>过滤字段与读写方对齐：{@code conversationId}（advisor 检索/压缩服务删除）、
+     * <p>过滤字段与读写方对齐：{@code userId}（advisor 长期记忆跨会话检索的主过滤维度）、
+     * {@code conversationId}（advisor 检索/压缩服务删除，仅随 metadata 落库用于追踪）、
      * {@code messageType}（advisor 读写）；其余为记忆 Schema 预留字段</p>
      */
     @Bean("conversationVectorStore")
     @DependsOn("weaviateSchemaInitializer") // 完整 Schema 必须先于首次写入落地，避免被 Weaviate 隐式 auto-schema 抢占
     public VectorStore conversationVectorStore(WeaviateClient weaviateClient, OpenAiEmbeddingModel openAiEmbedding) {
         return buildStore(weaviateClient, openAiEmbedding, weaviateChatMemoryObjectClass, List.of(
-            WeaviateVectorStore.MetadataField.text("conversationId"),
-            WeaviateVectorStore.MetadataField.text("messageType"),
-            // ↓ 记忆 Schema 预留字段（写入方落地后即可直接过滤，无需变更 Schema）
-            WeaviateVectorStore.MetadataField.text("userId"),
-            WeaviateVectorStore.MetadataField.text("memoryType"),
-            WeaviateVectorStore.MetadataField.text("category"),
-            WeaviateVectorStore.MetadataField.text("status"),
-            WeaviateVectorStore.MetadataField.text("supersededBy"),
-            WeaviateVectorStore.MetadataField.text("entities"),
-            WeaviateVectorStore.MetadataField.number("validFrom"),
-            WeaviateVectorStore.MetadataField.number("ingestedAt"),
-            WeaviateVectorStore.MetadataField.number("expireAt"),
-            WeaviateVectorStore.MetadataField.number("hitCount"),
-            WeaviateVectorStore.MetadataField.number("mergeCount")
+            WeaviateVectorStore.MetadataField.text(CHAT_MEMORY_USER_ID),
+            WeaviateVectorStore.MetadataField.text(CHAT_MEMORY_CONVERSATION_ID),
+            WeaviateVectorStore.MetadataField.text(CHAT_MEMORY_MESSAGE_TYPE),
+            WeaviateVectorStore.MetadataField.text(CHAT_MEMORY_STATUS),
+            WeaviateVectorStore.MetadataField.number(CHAT_MEMORY_INGESTED_AT),
+            WeaviateVectorStore.MetadataField.number(CHAT_MEMORY_EXPIRE_AT)
         ));
     }
 
@@ -90,14 +84,9 @@ public class VectorStoreConfig {
     @DependsOn("weaviateSchemaInitializer") // 完整 Schema 必须先于首次写入落地，避免被 Weaviate 隐式 auto-schema 抢占
     public VectorStore knowledgeVectorStore(WeaviateClient weaviateClient, OpenAiEmbeddingModel embeddingModel) {
         return buildStore(weaviateClient, embeddingModel, weaviateKnowledgeObjectClass, List.of(
-            WeaviateVectorStore.MetadataField.text("knowledgeId"),
-            WeaviateVectorStore.MetadataField.text("source"),
-            WeaviateVectorStore.MetadataField.text("filename"),
-            // ↓ 预留字段
-            WeaviateVectorStore.MetadataField.text("docType"),
-            WeaviateVectorStore.MetadataField.number("chunkIndex"),
-            WeaviateVectorStore.MetadataField.number("version"),
-            WeaviateVectorStore.MetadataField.number("updatedAt")
+            WeaviateVectorStore.MetadataField.text(KNOWLEDGE_ID),
+            WeaviateVectorStore.MetadataField.text(KNOWLEDGE_SOURCE),
+            WeaviateVectorStore.MetadataField.text(KNOWLEDGE_FILENAME)
         ));
     }
 
@@ -113,8 +102,8 @@ public class VectorStoreConfig {
     @DependsOn("weaviateSchemaInitializer") // 完整 Schema 必须先于首次写入落地，避免被 Weaviate 隐式 auto-schema 抢占
     public VectorStore toolVectorStore(WeaviateClient weaviateClient, OpenAiEmbeddingModel embeddingModel) {
         return buildStore(weaviateClient, embeddingModel, weaviateToolIndexObjectClass, List.of(
-            WeaviateVectorStore.MetadataField.text("sessionId"),
-            WeaviateVectorStore.MetadataField.text("toolName")
+            WeaviateVectorStore.MetadataField.text(TOOL_SESSION_ID),
+            WeaviateVectorStore.MetadataField.text(TOOL_NAME)
         ));
     }
 
@@ -171,39 +160,19 @@ public class VectorStoreConfig {
             Property.builder().name("metadata").dataType(List.of("text")).build(),
             Property.builder().name(contentField).dataType(List.of("text"))
                 .indexSearchable(true).build(),
-            // 现有读写方使用的过滤字段
-            Property.builder().name(prefix + "conversationId").dataType(List.of("text"))
+            // 现有读写方使用的过滤字段（userId 为长期记忆跨会话检索的主过滤维度）
+            Property.builder().name(prefix + CHAT_MEMORY_USER_ID).dataType(List.of("text"))
                 .indexFilterable(true).build(),
-            Property.builder().name(prefix + "messageType").dataType(List.of("text"))
+            Property.builder().name(prefix + CHAT_MEMORY_CONVERSATION_ID).dataType(List.of("text"))
                 .indexFilterable(true).build(),
-            // ↓ 记忆 Schema 预留字段（写入方落地后即可过滤，无需再改 Schema）
-            // TODO 存量数据预留字段均为 null，不会命中这些过滤；记忆写入方上线时需批量回填历史数据（如 userId/status 默认值）
-            Property.builder().name(prefix + "userId").dataType(List.of("text"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "memoryType").dataType(List.of("text"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "category").dataType(List.of("text"))
+            Property.builder().name(prefix + CHAT_MEMORY_MESSAGE_TYPE).dataType(List.of("text"))
                 .indexFilterable(true).build(),
             // 状态枚举用字符串而非 boolean（Weaviate boolean 过滤存在已知问题）
-            Property.builder().name(prefix + "status").dataType(List.of("text"))
+            Property.builder().name(prefix + CHAT_MEMORY_STATUS).dataType(List.of("text"))
                 .indexFilterable(true).build(),
-            Property.builder().name(prefix + "supersededBy").dataType(List.of("text"))
+            Property.builder().name(prefix + CHAT_MEMORY_INGESTED_AT).dataType(List.of("number"))
                 .indexFilterable(true).build(),
-            // 实体列表：整体作为单个 token，避免空格切词打散实体
-            Property.builder().name(prefix + "entities").dataType(List.of("text"))
-                .indexFilterable(true).indexSearchable(true)
-                .tokenization("field").build(),
-            // 数值型：时间戳
-            Property.builder().name(prefix + "validFrom").dataType(List.of("number"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "ingestedAt").dataType(List.of("number"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "expireAt").dataType(List.of("number"))
-                .indexFilterable(true).build(),
-            // 数值型：计数（统一 number，与 Spring AI NUMBER 序列化对齐，计数器语义无损）
-            Property.builder().name(prefix + "hitCount").dataType(List.of("number"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "mergeCount").dataType(List.of("number"))
+            Property.builder().name(prefix + CHAT_MEMORY_EXPIRE_AT).dataType(List.of("number"))
                 .indexFilterable(true).build()
         );
     }
@@ -218,20 +187,11 @@ public class VectorStoreConfig {
             Property.builder().name(contentField).dataType(List.of("text"))
                 .indexSearchable(true).build(),
             // 现有读写方使用的过滤字段（RAG 检索/删除、写入方已携带）
-            Property.builder().name(prefix + "knowledgeId").dataType(List.of("text"))
+            Property.builder().name(prefix + KNOWLEDGE_ID).dataType(List.of("text"))
                 .indexFilterable(true).build(),
-            Property.builder().name(prefix + "source").dataType(List.of("text"))
+            Property.builder().name(prefix + KNOWLEDGE_SOURCE).dataType(List.of("text"))
                 .indexFilterable(true).build(),
-            Property.builder().name(prefix + "filename").dataType(List.of("text"))
-                .indexFilterable(true).build(),
-            // ↓ 预留字段
-            Property.builder().name(prefix + "docType").dataType(List.of("text"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "chunkIndex").dataType(List.of("number"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "version").dataType(List.of("number"))
-                .indexFilterable(true).build(),
-            Property.builder().name(prefix + "updatedAt").dataType(List.of("number"))
+            Property.builder().name(prefix + KNOWLEDGE_FILENAME).dataType(List.of("text"))
                 .indexFilterable(true).build()
         );
     }
@@ -247,9 +207,9 @@ public class VectorStoreConfig {
             Property.builder().name(contentField).dataType(List.of("text"))
                 .indexSearchable(true).build(),
             // 框架级字段：索引时写入、检索时按会话过滤，不可删除（契约见 toolVectorStore 注释）
-            Property.builder().name(prefix + "sessionId").dataType(List.of("text"))
+            Property.builder().name(prefix + TOOL_SESSION_ID).dataType(List.of("text"))
                 .indexFilterable(true).build(),
-            Property.builder().name(prefix + "toolName").dataType(List.of("text"))
+            Property.builder().name(prefix + TOOL_NAME).dataType(List.of("text"))
                 .indexFilterable(true).build()
         );
     }

@@ -9,10 +9,7 @@ import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.*;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -27,7 +24,7 @@ import reactor.core.publisher.Mono;
 import java.util.*;
 import java.util.stream.Stream;
 
-public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
+public class FullHistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
     private int order;
 
@@ -50,7 +47,7 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
 
     @Override
     public String getName() {
-        return "FullHistoryChatMemoryAdvisor";
+        return "全量消息存储";
     }
 
     @Override
@@ -61,10 +58,10 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
     @Override
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
         // 1. 获取会话ID
-        String conversationId = (String) request.context().get(ChatMemory.CONVERSATION_ID);
+        String conversationId = getConversationId(request.context());
         return Mono.just(request)
             .publishOn(BaseAdvisor.DEFAULT_SCHEDULER)
-            .map(chatClientRequest -> this.before(chatClientRequest, conversationId))
+            .map(chatClientRequest -> this.before(chatClientRequest, chain))
             .flatMapMany(chain::nextStream)
             .flatMap(chatClientResponse -> {
                 if (chatClientResponse.chatResponse() == null || chatClientResponse.chatResponse().getResults().isEmpty()) {
@@ -84,15 +81,15 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
                 return Flux.just(chatClientResponse);
             })
             .transform(flux -> new ChatClientMessageAggregator().aggregateChatClientResponse(flux,
-                chatClientResponse -> this.after(chatClientResponse, conversationId)));
+                chatClientResponse -> this.after(chatClientResponse, chain)));
     }
 
-    private ChatClientRequest before(ChatClientRequest request, String conversationId) {
-        // 1. Retrieve the chat memory for the current conversation.
+    @Override
+    public ChatClientRequest before(ChatClientRequest chatClientRequest, AdvisorChain advisorChain) {
+        String conversationId = getConversationId(chatClientRequest.context());
         List<Message> memoryMessages = this.chatMemory.get(conversationId);
 
-        // 2. Advise the request messages list.
-        List<Message> promptMessages = request.prompt().getInstructions();
+        List<Message> promptMessages = chatClientRequest.prompt().getInstructions();
         List<Message> processedMessages = new ArrayList<>();
         if (!isMemoryAlreadyInPrompt(promptMessages, memoryMessages)) {
             processedMessages.addAll(memoryMessages);
@@ -109,16 +106,32 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
         }
 
         // 3. Create a new request with the advised messages.
-        ChatClientRequest processedChatClientRequest = request.mutate()
-            .prompt(request.prompt().mutate().messages(processedMessages).build())
+        ChatClientRequest processedChatClientRequest = chatClientRequest.mutate()
+            .prompt(chatClientRequest.prompt().mutate().messages(processedMessages).build())
             .build();
 
         // 4. Add the new user message to the conversation memory.
         Message userMessage = processedChatClientRequest.prompt().getLastUserOrToolResponseMessage();
 
         this.saveHistory(conversationId, Collections.singletonList(userMessage));
-        return request;
+        return chatClientRequest;
     }
+
+    @Override
+    public ChatClientResponse after(ChatClientResponse chatClientResponse, AdvisorChain advisorChain) {
+        String conversationId = getConversationId(chatClientResponse.context());
+        List<Message> assistantMessages = new ArrayList<>();
+        if (chatClientResponse.chatResponse() != null) {
+            assistantMessages = chatClientResponse.chatResponse()
+                .getResults()
+                .stream()
+                .map(g -> (Message) g.getOutput())
+                .toList();
+        }
+        this.saveHistory(conversationId, assistantMessages);
+        return chatClientResponse;
+    }
+
 
     private void saveHistory(String conversationId, List<Message> messageList) {
         List<SysChatHistory> list = messageList.stream().flatMap(message -> {
@@ -188,18 +201,6 @@ public class FullHistoryChatMemoryAdvisor implements StreamAdvisor {
             }
         }
         return true;
-    }
-
-    public void after(ChatClientResponse chatClientResponse, String conversationId) {
-        List<Message> assistantMessages = new ArrayList<>();
-        if (chatClientResponse.chatResponse() != null) {
-            assistantMessages = chatClientResponse.chatResponse()
-                .getResults()
-                .stream()
-                .map(g -> (Message) g.getOutput())
-                .toList();
-        }
-        this.saveHistory(conversationId, assistantMessages);
     }
 
     public static FullHistoryChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate,

@@ -1,5 +1,7 @@
 package com.mall.aichat.service.impl;
 
+import com.knuddels.jtokkit.Encodings;
+import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.EncodingType;
 import com.mall.aichat.domain.KbDocument;
 import com.mall.aichat.domain.KbDocumentChunk;
@@ -34,10 +36,12 @@ import org.springframework.util.MimeTypeUtils;
 
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 知识库文档Service业务层处理
@@ -48,6 +52,19 @@ import java.util.regex.Pattern;
 @Service
 public class KbDocumentServiceImpl implements IKbDocumentService {
     private static final Logger log = LoggerFactory.getLogger(KbDocumentServiceImpl.class);
+
+    // ============ 语义分块参数 ============
+    /** 滑动窗口大小：断点两侧各取 WINDOW_SIZE 个单元拼接成缓冲句再比相似度，抗单点噪声（参考 LlamaIndex SemanticSplitter） */
+    private static final int WINDOW_SIZE = 1;
+    /** 动态切分阈值百分位：相似度最低的 SPLIT_PERCENTILE 分位作为切分点，避免固定阈值对不同 embedding 模型失效 */
+    private static final double SPLIT_PERCENTILE = 0.20;
+    /** 语义分块阈值计算的最小间隔样本数，样本过少时不硬编码阈值，降级为 Token 分块 */
+    private static final int MIN_GAP_SAMPLES = 4;
+    /** 最小语义单元/语义块字符数：短句合并上限，也是块合并下限，避免过小单元导致向量噪声大 */
+    private static final int MIN_UNIT_CHARS = 250;
+    /** Token 编码器：与 TokenTextSplitter 的 CL100K_BASE 保持一致，用于估算文本 Token 数 */
+    private static final EncodingRegistry ENCODING_REGISTRY = Encodings.newLazyEncodingRegistry();
+
     @Autowired
     private KbDocumentMapper kbDocumentMapper;
 
@@ -267,41 +284,35 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
 
         // 参考 Dify: 提供重叠度以保留上下文，虽然 Spring AI 的 TokenTextSplitter 不直接支持 overlap，
         // 但可以通过设置 minChunkSizeChars 来尽量保证完整性
-        TokenTextSplitter splitter = TokenTextSplitter.builder()
-            .withChunkSize(chunkSize)
-            .withMinChunkSizeChars((int) (chunkSize * 0.1))
-            .withMinChunkLengthToEmbed(5)
-            .withMaxNumChunks(10000)
-            .withKeepSeparator(true)
-            // 增加更多的标点符号切分支持
-            .withPunctuationMarks(List.of('.', '?', '!', '。', '？', '！', '\n', ';', '；'))
-            .withEncodingType(EncodingType.CL100K_BASE)
-            .build();
-        return splitter.apply(preSplitDocs);
+        return buildTokenSplitter(chunkSize).apply(preSplitDocs);
     }
 
     /**
-     * 语义分块策略
-     * 基于 EmbeddingModel 计算段落向量，通过余弦相似度判断相邻段落是否属于同一语义块。
+     * 语义分块策略（滑动窗口 + 动态阈值，参考 LlamaIndex SemanticSplitter）
      * 算法步骤：
-     * 1. 将文档按段落/句子切分为最小单元
+     * 1. 将文档按段落/句子切分为最小单元（短句合并到 MIN_UNIT_CHARS，保证单元向量质量）
      * 2. 对每个单元计算 embedding 向量
-     * 3. 计算相邻单元的余弦相似度
-     * 4. 相似度低于阈值的边界处切分，形成语义块
-     * 5. 对过大的语义块再按 Token 细切分
+     * 3. 滑动窗口计算断点相似度：断点两侧各取 WINDOW_SIZE 个单元拼接后再比，抗单点噪声
+     * 4. 动态阈值：取相似度最低的 SPLIT_PERCENTILE 分位作为切分点，不依赖模型特定的绝对相似度分布
+     * 5. 按切分点合并单元形成语义块，小于 MIN_UNIT_CHARS 的块并入相邻块（先写后并，不丢内容）
+     * 6. 按 Token 数（而非字符数）判断超长，超过 chunkSize 的块用 TokenTextSplitter 细切分
      */
     private List<Document> semanticSplit(Document document, KbDocument kbDocument) {
         String text = document.getText();
         int chunkSize = kbDocument.getChunkSize() != null ? kbDocument.getChunkSize().intValue() : 500;
-        // 语义相似度阈值：低于该值则切分（0~1，值越小越容易切分）
-        double threshold = 0.75;
 
-        // 1. 按段落/句子切分为最小单元
-        List<String> units = splitIntoSemanticUnits(text, kbDocument.getChunkSeparator());
+        // 1. 按段落/句子切分为最小单元（短句已合并到 MIN_UNIT_CHARS）
+        List<String> units = splitIntoSemanticUnits(text, kbDocument.getChunkSeparator(), chunkSize);
 
         if (units.size() <= 1) {
-            // 只有一个单元，直接返回
-            return List.of(new Document(units.getFirst(), document.getMetadata()));
+            // 只有一个单元，仍需保证不超 Token 上限，交给 Token 切分器兜底（短文本会原样返回）
+            return buildTokenSplitter(chunkSize).apply(List.of(document));
+        }
+
+        // 单元数不足以构成一个滑动窗口断点时，语义比较无意义，直接走 Token 分块（同样控制长度）
+        if (units.size() < 2 * WINDOW_SIZE + 1) {
+            log.info("语义单元数 {} 过少，无法构成滑动窗口断点，采用 Token 分块", units.size());
+            return buildTokenSplitter(chunkSize).apply(List.of(document));
         }
 
         // 2. 如果未配置 EmbeddingModel，降级为 Token 分块
@@ -322,78 +333,170 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 embeddings.addAll(batchEmbeddings);
             }
         } catch (Exception e) {
-            log.error("Embedding 计算失败，语义分块降级为 Token 分块: {}", e.getMessage());
+            log.error("Embedding 计算失败，语义分块降级为 Token 分块", e);
             return tokenSplitFallback(document, kbDocument, chunkSize);
         }
 
-        // 4. 计算相邻单元的余弦相似度，确定切分点
+        // 4. 滑动窗口计算断点相似度：断点 p 处比较 [p-WINDOW_SIZE, p) 与 [p, p+WINDOW_SIZE) 两段缓冲句，
+        //    相比逐对比较，单个噪声向量被窗口内其它向量稀释，抗噪能力更强（LlamaIndex buffer_size=1）
+        List<Integer> gaps = new ArrayList<>();
+        List<Double> gapSimilarities = new ArrayList<>();
+        for (int p = WINDOW_SIZE; p <= units.size() - WINDOW_SIZE; p++) {
+            float[] left = averageEmbedding(embeddings.subList(p - WINDOW_SIZE, p));
+            float[] right = averageEmbedding(embeddings.subList(p, p + WINDOW_SIZE));
+            gaps.add(p);
+            gapSimilarities.add(cosineSimilarity(left, right));
+        }
+
+        // 5. 动态阈值：取相似度最低的 SPLIT_PERCENTILE 分位作为切分阈值。
+        //    不同 embedding 模型的绝对相似度分布差异极大（bge 中文普遍 0.8+，text-embedding-3 可能 0.3 左右），
+        //    固定阈值对部分模型会退化为"永不切分"或"处处切分"，百分位阈值自适应文档自身的相似度分布。
+        if (gapSimilarities.size() < MIN_GAP_SAMPLES) {
+            // 样本过少时不硬编码阈值（会导致全篇合一巨块），降级为 Token 分块控制块长
+            log.info("语义断点样本数 {} 不足，跳过分位数阈值，降级为 Token 分块", gapSimilarities.size());
+            return tokenSplitFallback(document, kbDocument, chunkSize);
+        }
+        List<Double> sorted = gapSimilarities.stream().sorted().collect(Collectors.toList());
+        int idx = Math.max(0, (int) Math.floor(SPLIT_PERCENTILE * (sorted.size() - 1)));
+        double splitThreshold = sorted.get(idx);
+
         List<Integer> splitPoints = new ArrayList<>();
-        for (int i = 0; i < embeddings.size() - 1; i++) {
-            double similarity = cosineSimilarity(embeddings.get(i), embeddings.get(i + 1));
-            if (similarity < threshold) {
-                splitPoints.add(i + 1); // 在 i 和 i+1 之间切分
+        for (int g = 0; g < gaps.size(); g++) {
+            // 该处相似度显著低于文档整体分布，判定为语义边界（切分点为单元下标，即在第 p-1 与 p 单元之间）
+            if (gapSimilarities.get(g) < splitThreshold) {
+                splitPoints.add(gaps.get(g));
             }
         }
 
-        // 5. 根据切分点合并单元，形成语义块
-        List<Document> semanticChunks = new ArrayList<>();
+        // 6. 按切分点合并相邻单元，形成语义块（先写后并，不丢内容）
+        List<String> chunkTexts = new ArrayList<>();
         int start = 0;
         for (int splitPoint : splitPoints) {
-            String chunkText = String.join("\n\n", units.subList(start, splitPoint));
-            if (StringUtils.isNotEmpty(chunkText.trim())) {
-                semanticChunks.add(new Document(chunkText.trim(), document.getMetadata()));
-            }
+            chunkTexts.add(String.join("\n\n", units.subList(start, splitPoint)).trim());
             start = splitPoint;
         }
-        // 最后一段
-        String lastChunk = String.join("\n\n", units.subList(start, units.size()));
-        if (StringUtils.isNotEmpty(lastChunk.trim())) {
-            semanticChunks.add(new Document(lastChunk.trim(), document.getMetadata()));
+        chunkTexts.add(String.join("\n\n", units.subList(start, units.size())).trim());
+
+        // 7. 合并过小的语义块：小于 MIN_UNIT_CHARS 的块检索时上下文不足，并入相邻块（后一块临近 Token 上限时向前合并）
+        chunkTexts = mergeSmallChunks(chunkTexts, chunkSize);
+
+        List<Document> semanticChunks = new ArrayList<>();
+        for (String chunkText : chunkTexts) {
+            if (StringUtils.isNotEmpty(chunkText)) {
+                semanticChunks.add(Document.builder().text(chunkText).metadata(document.getMetadata()).build());
+            }
         }
 
-        // 6. 对过大的语义块按 Token 细切分
+        // 8. 按 Token 数（与 TokenTextSplitter 的 CL100K_BASE 口径一致）判断超长并细切分；
+        //    中文 1 字符 ≈ 0.6~1 token，直接用字符数与 chunkSize 比较会导致超长块漏切或正常块误切，故统一用 Token 数判断。
         List<Document> finalChunks = new ArrayList<>();
         for (Document chunk : semanticChunks) {
-            if (chunk.getText().length() > chunkSize * 2) {
-                // 超过 chunkSize 2 倍的块需要再切分
-                TokenTextSplitter splitter = TokenTextSplitter.builder()
-                    .withChunkSize(chunkSize)
-                    .withMinChunkSizeChars((int) (chunkSize * 0.1))
-                    .withMinChunkLengthToEmbed(5)
-                    .withMaxNumChunks(10000)
-                    .withKeepSeparator(true)
-                    .withPunctuationMarks(List.of('.', '?', '!', '。', '？', '！', '\n', ';', '；'))
-                    .withEncodingType(EncodingType.CL100K_BASE)
-                    .build();
-                finalChunks.addAll(splitter.apply(List.of(chunk)));
+            if (estimateTokens(chunk.getText()) > chunkSize) {
+                finalChunks.addAll(buildTokenSplitter(chunkSize).apply(List.of(chunk)));
             } else {
                 finalChunks.add(chunk);
             }
         }
 
-        log.info("语义分块完成: 原始段落 {} 个，生成语义块 {} 个", units.size(), finalChunks.size());
+        log.info("语义分块完成: 最小单元 {} 个，语义断点 {} 个（阈值={}），最终块 {} 个",
+            units.size(), splitPoints.size(), String.format("%.4f", splitThreshold), finalChunks.size());
         return finalChunks;
     }
 
     /**
-     * 将文本切分为语义最小单元（段落/句子）
-     * 优先按段落（空行）切分，如果段落过大则按句子切分
+     * 计算向量组逐维平均向量（用于滑动窗口缓冲句的合成向量）
      */
-    private List<String> splitIntoSemanticUnits(String text, String customSeparator) {
-        List<String> units = new ArrayList<>();
+    private float[] averageEmbedding(List<float[]> vectors) {
+        if (vectors.size() == 1) {
+            return vectors.getFirst();
+        }
+        int dim = vectors.getFirst().length;
+        float[] avg = new float[dim];
+        for (float[] vec : vectors) {
+            for (int d = 0; d < dim && d < vec.length; d++) {
+                avg[d] += vec[d];
+            }
+        }
+        for (int d = 0; d < dim; d++) {
+            avg[d] /= vectors.size();
+        }
+        return avg;
+    }
 
+    /**
+     * 合并过小的语义块：小于 MIN_UNIT_CHARS 的块并入下一块；末尾小块并入上一块。
+     * 若相邻块已接近 chunkSize Token 上限，则跳过强制合并，交由后续 Token 细切分处理，避免产生超大块。
+     */
+    private List<String> mergeSmallChunks(List<String> chunks, int chunkSize) {
+        List<String> merged = new ArrayList<>();
+        for (String chunk : chunks) {
+            if (StringUtils.isEmpty(chunk)) {
+                continue;
+            }
+            if (!merged.isEmpty() && merged.getLast().length() < MIN_UNIT_CHARS
+                && estimateTokens(merged.getLast() + chunk) <= chunkSize) {
+                merged.set(merged.size() - 1, merged.getLast() + "\n\n" + chunk);
+            } else {
+                merged.add(chunk);
+            }
+        }
+        // 末尾残留的小块向前合并，避免最后一个块过小；若合并后超限则保留原状（由 Token 细切分兜底）
+        if (merged.size() > 1 && merged.getLast().length() < MIN_UNIT_CHARS
+            && estimateTokens(merged.get(merged.size() - 2) + merged.getLast()) <= chunkSize) {
+            String last = merged.remove(merged.size() - 1);
+            merged.set(merged.size() - 1, merged.getLast() + "\n\n" + last);
+        }
+        return merged;
+    }
+
+    /**
+     * 估算文本的 Token 数（CL100K_BASE，与 TokenTextSplitter 口径一致）
+     */
+    private int estimateTokens(String text) {
+        if (StringUtils.isEmpty(text)) {
+            return 0;
+        }
+        return ENCODING_REGISTRY.getEncoding(EncodingType.CL100K_BASE).encode(text).size();
+    }
+
+    /**
+     * 构建统一配置的 Token 切分器（固定分块、语义分块细切分、降级分块共用）
+     */
+    private TokenTextSplitter buildTokenSplitter(int chunkSize) {
+        return TokenTextSplitter.builder()
+            .withChunkSize(chunkSize)
+            .withMinChunkSizeChars((int) (chunkSize * 0.1))
+            .withMinChunkLengthToEmbed(5)
+            .withMaxNumChunks(10000)
+            .withKeepSeparator(true)
+            // 增加更多的标点符号切分支持（中英文）
+            .withPunctuationMarks(List.of('.', '?', '!', '。', '？', '！', '\n', ';', '；'))
+            .withEncodingType(EncodingType.CL100K_BASE)
+            .build();
+    }
+
+    /**
+     * 将文本切分为语义最小单元（段落/句子）
+     * 优先按段落（空行）切分，如果段落超过单块容量则按句子切分，保证单个单元不会占满整个块容量导致窗口比较退化。
+     */
+    private List<String> splitIntoSemanticUnits(String text, String customSeparator, int chunkSize) {
+        List<String> units = new ArrayList<>();
+    
         // 1. 按段落切分
         String separator = StringUtils.isNotEmpty(customSeparator) ? customSeparator : "\\n\\n";
         String[] paragraphs = text.split(separator);
-
+    
+        // 段落长度上限：大致对应一个块能容纳的最大字符数（中文 1 字符 ≈ 0.6~1 token，取宽裕估计）
+        int maxUnitChars = chunkSize * 2;
+    
         for (String para : paragraphs) {
             String trimmed = para.trim();
             if (StringUtils.isEmpty(trimmed)) {
                 continue;
             }
-
-            // 2. 如果段落过长（超过 500 字符），按句子进一步切分
-            if (trimmed.length() > 500) {
+    
+            // 2. 如果段落过长（超过单块容量），按句子进一步切分，避免单个单元占满整块导致切分点失效
+            if (trimmed.length() > maxUnitChars) {
                 units.addAll(splitBySentences(trimmed));
             } else {
                 units.add(trimmed);
@@ -418,8 +521,8 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
             if (StringUtils.isEmpty(sentence)) {
                 continue;
             }
-            // 合并短句，避免产生过小的单元
-            if (!current.isEmpty() && current.length() + sentence.length() < 100) {
+            // 合并短句至 MIN_UNIT_CHARS，避免产生过小的语义单元（短句向量噪声大，相邻相似度抖动严重）
+            if (!current.isEmpty() && current.length() + sentence.length() < MIN_UNIT_CHARS) {
                 current.append(sentence);
             } else {
                 if (!current.isEmpty()) {
@@ -464,16 +567,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
      * Token 分块降级方案（当 EmbeddingModel 不可用时使用）
      */
     private List<Document> tokenSplitFallback(Document document, KbDocument kbDocument, int chunkSize) {
-        TokenTextSplitter splitter = TokenTextSplitter.builder()
-            .withChunkSize(chunkSize)
-            .withMinChunkSizeChars((int) (chunkSize * 0.1))
-            .withMinChunkLengthToEmbed(5)
-            .withMaxNumChunks(10000)
-            .withKeepSeparator(true)
-            .withPunctuationMarks(List.of('.', '?', '!', '。', '？', '！', '\n', ';', '；'))
-            .withEncodingType(EncodingType.CL100K_BASE)
-            .build();
-        return splitter.apply(List.of(document));
+        return buildTokenSplitter(chunkSize).apply(List.of(document));
     }
 
     /**

@@ -1,9 +1,9 @@
 package com.mall.aichat.config;
 
-import com.mall.aichat.advisor.FullHistoryChatMemoryAdvisor;
-import com.mall.aichat.advisor.ReturnDirectChatMemoryAdvisor;
-import com.mall.aichat.advisor.WrappedMcpToolCallbackProvider;
+import com.mall.aichat.advisor.*;
+import com.mall.aichat.service.IKbDocumentService;
 import com.mall.aichat.service.ISysChatHistoryService;
+import com.mall.aichat.service.impl.RerankerService;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
@@ -11,7 +11,6 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
-import org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.mcp.AsyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -51,11 +50,23 @@ public class ChatClientConfig {
     @Value("${mineru.vl.model}")
     private String model;
 
+    @Value("${smallmodel.base-url}")
+    private String smallModelBaseUrl;
+
+    @Value("${smallmodel.api-key}")
+    private String smallModelApiKey;
+
+    @Value("${smallmodel.model}")
+    private String smallModelName;
+
     @Value("${vectorstore.enabled}")
     private boolean vectorStoreEnabled;
 
     @Value("${spring.ai.mcp.client.enabled}")
     private boolean mcpEnabled;
+
+    @Value("classpath:/prompts/system-prompt-simplify.md")
+    private org.springframework.core.io.Resource systemSimplifyPromptResource;
 
     /**
      * 方案 A: 向量检索索引
@@ -96,10 +107,14 @@ public class ChatClientConfig {
     @Bean(name = "qwenChatClient")
     public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
                                      @Qualifier("conversationVectorStore") @Autowired(required = false) VectorStore conversationVectorStore,
+                                     @Qualifier("knowledgeVectorStore") @Autowired(required = false) VectorStore knowledgeVectorStore,
                                      ToolSearchToolCallingAdvisor toolSearchAdvisor,
                                      ISysChatHistoryService sysChatHistoryService,
+                                     IKbDocumentService kbDocumentService,
+                                     RerankerService rerankerService,
                                      StringRedisTemplate mallRedisTemplate,
                                      AgentEventSinkManager agentEventSinkManager,
+                                     ChatClient smallChatClient,
                                      @Qualifier("mcpAsyncToolCallbacks") @Autowired(required = false) AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
@@ -109,9 +124,16 @@ public class ChatClientConfig {
 
         // 2. 向量内存 - 根据 vectorEnabled 和 conversationVectorStore 是否存在来决定
         if (vectorStoreEnabled && conversationVectorStore != null) {
-            advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore)
+            advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore, smallChatClient)
                 .order(Ordered.HIGHEST_PRECEDENCE + 201)
                 .defaultTopK(vectorStoreChatMemoryDefaultTopK)
+                .build());
+        }
+
+        // 2.1 知识库上下文查询 - 根据 vectorEnabled 和 knowledgeVectorStore 是否存在来决定
+        if (vectorStoreEnabled && knowledgeVectorStore != null) {
+            advisors.add(RagContextQueryAdvisor.builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager)
+                .order(Ordered.HIGHEST_PRECEDENCE + 201)
                 .build());
         }
 
@@ -128,6 +150,7 @@ public class ChatClientConfig {
         advisors.add(new SimpleLoggerAdvisor(2));
 
         ChatClient.Builder builder = ChatClient.builder(model)
+            .defaultSystem(systemSimplifyPromptResource)
             .defaultAdvisors(advisors);
 
         if (mcpEnabled) {
@@ -138,42 +161,36 @@ public class ChatClientConfig {
     }
 
     /**
-     * 会话标题概述会话
+     * 概述小模型，专门用于概述总结
      *
-     * @param model
      * @return
      */
-    @Bean(name = "titleChatClient")
-    public ChatClient titleChatClient(OpenAiChatModel model) {
-        return ChatClient
-            .builder(model)
-            .defaultSystem("""
-                你是会话标题助手。任务：在用户发送首个问题时，用一句简短、明确的概述该问题，
-                用作会话标题。要求：不超过20字，仅输出概述，不带任何解释或标点。禁止输出“标题是”“概述”“会话标题”等前缀或说明。
-                """)
+    @Bean("smallChatClient")
+    public ChatClient smallChatClient() {
+        // 1) 构造同步客户端
+        OpenAIClient client = OpenAIOkHttpClient.builder()
+            .baseUrl(smallModelBaseUrl)
+            .apiKey(smallModelApiKey)
+            .timeout(Duration.ofMinutes(5)) // 设置超时时间为 5 分钟
             .build();
-    }
 
-    /**
-     * 向量压缩会话
-     *
-     * @param model
-     * @return
-     */
-    @Bean(name = "compressChatClient")
-    public ChatClient compressChatClient(OpenAiChatModel model) {
-        return ChatClient
-            .builder(model)
-            .defaultSystem("""
-                请从以下对话中提取关键的用户偏好、事实和决策，输出为JSON列表格式：
-                [
-                  {"fact": "用户不喜欢吃香菜"},
-                  {"fact": "用户正在学习 Spring AI"}
-                ]
-                对话记录：
-                %s
-                """)
+        // 2) 选项中补全 apiKey 和 baseUrl，供 build() 内部创建 async client 使用
+        OpenAiChatOptions options = OpenAiChatOptions.builder()
+            .model(smallModelName)
+            .apiKey(smallModelApiKey)     // 关键：补上 apiKey
+            .baseUrl(smallModelBaseUrl)     // 关键：补上 baseUrl
+            .temperature(0.0)
+            .maxTokens(4096)
             .build();
+
+        // 3) 构造 OpenAiChatModel
+        OpenAiChatModel smallChatModel = OpenAiChatModel.builder()
+            .openAiClient(client)
+            .options(options)
+            .build();
+
+        // 4) 包装成 ChatClient
+        return ChatClient.builder(smallChatModel).build();
     }
 
     /**
@@ -195,7 +212,7 @@ public class ChatClientConfig {
             .model(model)
             .apiKey(apiKey)     // 关键：补上 apiKey
             .baseUrl(llmBaseUrl)     // 关键：补上 baseUrl
-            .temperature(0.2)
+            .temperature(0.1)
             .maxTokens(4096) // 增加最大 token 限制，但要有上限防止死循环
             .build();
 

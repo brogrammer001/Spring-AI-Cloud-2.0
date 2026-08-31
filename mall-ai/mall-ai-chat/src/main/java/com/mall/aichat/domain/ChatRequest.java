@@ -20,6 +20,9 @@ public class ChatRequest {
     /** 会话ID（Controller 中已归一化，保证非空） */
     private final String conversationId;
 
+    /** 用户标识（Controller 中已归一化，缺失时为 anonymous），长期记忆跨会话作用域 */
+    private final String userId;
+
     /** 本次回复的消息ID */
     private final String messageId;
 
@@ -29,6 +32,7 @@ public class ChatRequest {
     private ChatRequest(Builder builder) {
         this.question = builder.question;
         this.conversationId = builder.conversationId;
+        this.userId = builder.userId;
         this.messageId = UUID.randomUUID().toString();
     }
 
@@ -38,6 +42,10 @@ public class ChatRequest {
 
     public String getConversationId() {
         return conversationId;
+    }
+
+    public String getUserId() {
+        return userId;
     }
 
     public String getMessageId() {
@@ -55,6 +63,7 @@ public class ChatRequest {
     public static class Builder {
         private String question;
         private String conversationId;
+        private String userId;
 
         public Builder question(String question) {
             this.question = question;
@@ -63,6 +72,11 @@ public class ChatRequest {
 
         public Builder conversationId(String conversationId) {
             this.conversationId = conversationId;
+            return this;
+        }
+
+        public Builder userId(String userId) {
+            this.userId = userId;
             return this;
         }
 

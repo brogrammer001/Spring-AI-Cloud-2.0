@@ -51,9 +51,11 @@ router.beforeEach((to, from, next) => {
             next({ ...to, replace: true }) // hack方法 确保addRoutes已完成
           })
         }).catch(err => {
-          useUserStore().logOut().then(() => {
-            ElMessage.error(err)
-            next({ path: '/' })
+          // 无论退出登录是否成功，都必须跳转，避免路由守卫卡死
+          isRelogin.show = false
+          useUserStore().logOut().finally(() => {
+            ElMessage.error(err || '登录状态已失效，请重新登录')
+            next(`/login?redirect=${to.fullPath}`)
           })
         })
       } else {

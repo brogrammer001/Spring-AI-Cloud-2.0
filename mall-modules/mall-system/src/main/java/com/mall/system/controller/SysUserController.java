@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.mall.common.core.domain.R;
+import com.mall.common.core.exception.auth.NotLoginException;
 import com.mall.common.core.text.Convert;
 import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.StringUtils;
@@ -175,13 +176,25 @@ public class SysUserController extends BaseController
     public AjaxResult getInfo()
     {
         LoginUser loginUser = SecurityUtils.getLoginUser();
-        SysUser user = loginUser.getSysUser();
-        // 角色集合
-        Set<String> roles = permissionService.getRolePermission(user);
-        // 权限集合
-        Set<String> permissions = permissionService.getMenuPermission(user);
-        if (!loginUser.getPermissions().equals(permissions))
+        if (loginUser == null)
         {
+            // token已过期或无效，抛出401异常让前端直接退出登录，避免NPE返回500
+            throw new NotLoginException("登录状态已过期，请重新登录");
+        }
+        SysUser user = loginUser.getSysUser();
+        // 优先使用登录时缓存的角色/权限，避免每次请求都查数据库
+        Set<String> roles = loginUser.getRoles();
+        Set<String> permissions = loginUser.getPermissions();
+        if (roles == null || roles.isEmpty())
+        {
+            // 缓存中没有角色信息时，才查询数据库
+            roles = permissionService.getRolePermission(user);
+            loginUser.setRoles(roles);
+        }
+        if (permissions == null || permissions.isEmpty())
+        {
+            // 缓存中没有权限信息时，才查询数据库
+            permissions = permissionService.getMenuPermission(user);
             loginUser.setPermissions(permissions);
             tokenService.refreshToken(loginUser);
         }

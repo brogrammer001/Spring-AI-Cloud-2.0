@@ -14,6 +14,7 @@ import com.mall.common.core.constant.HttpStatus;
 import com.mall.common.core.exception.DemoModeException;
 import com.mall.common.core.exception.InnerAuthException;
 import com.mall.common.core.exception.ServiceException;
+import com.mall.common.core.exception.auth.NotLoginException;
 import com.mall.common.core.exception.auth.NotPermissionException;
 import com.mall.common.core.exception.auth.NotRoleException;
 import com.mall.common.core.text.Convert;
@@ -30,6 +31,17 @@ import com.mall.common.core.web.domain.AjaxResult;
 public class GlobalExceptionHandler
 {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * 登录认证异常（token过期/无效），返回401让前端直接退出登录
+     */
+    @ExceptionHandler(NotLoginException.class)
+    public AjaxResult handleNotLoginException(NotLoginException e, HttpServletRequest request)
+    {
+        String requestURI = request.getRequestURI();
+        log.error("请求地址'{}',登录认证失败'{}'", requestURI, e.getMessage());
+        return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录状态已过期，请重新登录");
+    }
 
     /**
      * 权限码异常

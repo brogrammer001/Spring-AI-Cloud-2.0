@@ -2,6 +2,8 @@ package com.mall.system.service.impl;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,30 @@ import com.mall.system.service.ISysConfigService;
 @Service
 public class SysConfigServiceImpl implements ISysConfigService
 {
+    /** 本地缓存过期时间：5分钟（毫秒） */
+    private static final long LOCAL_CACHE_TTL = 5 * 60 * 1000L;
+
+    /** 参数本地缓存，减少Redis网络往返，提升getInfo等高频接口响应速度 */
+    private final Map<String, LocalCacheEntry> localCache = new ConcurrentHashMap<>();
+
+    /** 本地缓存条目 */
+    private static class LocalCacheEntry
+    {
+        final String value;
+        final long expireAt;
+
+        LocalCacheEntry(String value, long expireAt)
+        {
+            this.value = value;
+            this.expireAt = expireAt;
+        }
+
+        boolean isExpired()
+        {
+            return System.currentTimeMillis() > expireAt;
+        }
+    }
+
     @Autowired
     private SysConfigMapper configMapper;
 
@@ -61,17 +87,27 @@ public class SysConfigServiceImpl implements ISysConfigService
     @Override
     public String selectConfigByKey(String configKey)
     {
+        // 1. 先查本地缓存（无网络开销）
+        LocalCacheEntry entry = localCache.get(configKey);
+        if (entry != null && !entry.isExpired())
+        {
+            return entry.value;
+        }
+        // 2. 本地缓存未命中，查Redis
         String configValue = Convert.toStr(redisService.getCacheObject(getCacheKey(configKey)));
         if (StringUtils.isNotEmpty(configValue))
         {
+            localCache.put(configKey, new LocalCacheEntry(configValue, System.currentTimeMillis() + LOCAL_CACHE_TTL));
             return configValue;
         }
+        // 3. Redis未命中，查数据库并回填缓存
         SysConfig config = new SysConfig();
         config.setConfigKey(configKey);
         SysConfig retConfig = configMapper.selectConfig(config);
         if (StringUtils.isNotNull(retConfig))
         {
             redisService.setCacheObject(getCacheKey(configKey), retConfig.getConfigValue());
+            localCache.put(configKey, new LocalCacheEntry(retConfig.getConfigValue(), System.currentTimeMillis() + LOCAL_CACHE_TTL));
             return retConfig.getConfigValue();
         }
         return StringUtils.EMPTY;
@@ -102,6 +138,7 @@ public class SysConfigServiceImpl implements ISysConfigService
         if (row > 0)
         {
             redisService.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue());
+            localCache.remove(config.getConfigKey());
         }
         return row;
     }
@@ -125,6 +162,7 @@ public class SysConfigServiceImpl implements ISysConfigService
         if (row > 0)
         {
             redisService.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue());
+            localCache.remove(config.getConfigKey());
         }
         return row;
     }
@@ -146,6 +184,7 @@ public class SysConfigServiceImpl implements ISysConfigService
             }
             configMapper.deleteConfigById(configId);
             redisService.deleteObject(getCacheKey(config.getConfigKey()));
+            localCache.remove(config.getConfigKey());
         }
     }
 
@@ -159,6 +198,7 @@ public class SysConfigServiceImpl implements ISysConfigService
         for (SysConfig config : configsList)
         {
             redisService.setCacheObject(getCacheKey(config.getConfigKey()), config.getConfigValue());
+            localCache.put(config.getConfigKey(), new LocalCacheEntry(config.getConfigValue(), System.currentTimeMillis() + LOCAL_CACHE_TTL));
         }
     }
 
@@ -170,6 +210,7 @@ public class SysConfigServiceImpl implements ISysConfigService
     {
         Collection<String> keys = redisService.keys(CacheConstants.SYS_CONFIG_KEY + "*");
         redisService.deleteObject(keys);
+        localCache.clear();
     }
 
     /**

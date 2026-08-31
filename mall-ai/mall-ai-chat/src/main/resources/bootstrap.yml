@@ -98,8 +98,19 @@ reranker:
   base-url: http://127.0.0.1:8887
   top-n: 3
 
+smallmodel:
+#  base-url: http://114.132.102.8:8888/v1
+#  api-key: 123456
+#  model: MiniCPM5-1B-Q8_0
+#  base-url: https://apihub.agnes-ai.com/v1
+#  api-key: sk-8liWySJNPd8Znk0Z7Fk3iOl7MfjE9MIgdLLRME3fp8HYdBKV
+#  model: agnes-2.5-flash
+  base-url: https://api-inference.modelscope.cn/v1
+  api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
+  model: deepseek-ai/DeepSeek-V4-Pro-0813
+
 vectorstore:
-  enabled: false #开启全局向量功能
+  enabled: true #开启全局向量功能
   chat-memory-default-topk: 1
   compression-threshold: 4
   weaviate:
@@ -109,7 +120,6 @@ vectorstore:
 
 chat-memory:
   max-messages: 4
-
 
 ai:
   chat:

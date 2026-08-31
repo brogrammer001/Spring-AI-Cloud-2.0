@@ -117,18 +117,22 @@ LLM 决定调用工具
 com.mall.aichat
 ├── MallAiChatApplication.java          # 启动类
 ├── config/
-│   ├── ChatClientConfig.java           # ChatClient Bean 配置（核心）
-│   ├── VectorStoreConfig.java          # 三个 VectorStore Bean
-│   ├── AgentEventSinkManager.java      # SSE 旁路推送管理
+│   ├── ChatClientConfig.java           # ChatClient Bean 配置（核心，含 smallChatClient 概述小模型）
+│   ├── VectorStoreConfig.java          # 三个 VectorStore Bean（字段常量收敛到 ChatConstants）
+│   ├── AgentEventSinkManager.java      # SSE 旁路推送管理（tool_call / rag_retrieve 事件）
 │   └── SaLlmConfig.java                # 会话记忆配置（ChatMemory + MinerU RestClient + 线程池）
+├── constant/
+│   └── ChatConstants.java              # 向量库字段常量 + Advisor context key 统一契约
 ├── advisor/
+│   ├── VectorStoreChatMemoryAdvisor.java       # 长期语义记忆 Advisor（userId 跨会话 + 异步写入 + upsert 合并）
+│   ├── RagContextQueryAdvisor.java             # 知识库上下文查询 Advisor（RAG 检索 + 注入系统提示词 + rag_retrieve 事件）
 │   ├── FullHistoryChatMemoryAdvisor.java       # 全量历史记录 Advisor
 │   ├── ReturnDirectChatMemoryAdvisor.java      # returnDirect 工具结果 Advisor
 │   ├── RedisCachedAndMysqlMemoryRepository.java # Redis+MySQL 双层存储
 │   ├── WrappedMcpToolCallbackProvider.java     # MCP 工具包装器
 │   └── ReturnDirectToolCallbackWrapper.java    # 工具调用拦截器（dataId 缓存）
 ├── controller/
-│   ├── ChatAgent.java                  # 聊天入口（SSE 流式）
+│   ├── ChatAgent.java                  # 聊天入口（SSE 流式，支持 userId 参数）
 │   ├── AiConversationController.java   # 会话管理（创建/删除/列表）
 │   ├── SpringAiChatMemoryController.java # 窗口记忆管理（JDBC表CRUD）
 │   ├── KbDocumentController.java       # 知识库文档管理
@@ -136,15 +140,16 @@ com.mall.aichat
 │   └── SysChatHistoryController.java   # 聊天历史
 ├── service/impl/
 │   ├── AiConversationServiceImpl.java  # 会话管理（创建+异步标题生成+级联删除）
-│   ├── RagRetrieveContextService.java  # RAG 检索（向量+重排序）
+│   ├── ChatAgentService.java           # LLM 流式阶段（RAG 已下沉到 Advisor）
+│   ├── RagRetrieveContextService.java  # RAG 检索（供外部 API / NL2SQL 工具调用）
 │   ├── RerankerService.java            # Reranker 重排序服务
-│   ├── VectorCompressionService.java   # 向量记忆压缩
 │   ├── ToolDataCacheService.java       # 工具大数据 Redis 缓存
 │   ├── KbDocumentServiceImpl.java      # 文档解析+切片+向量化
 │   ├── MinerUService.java              # MinerU 文档解析
 │   └── ...
 └── domain/
     ├── ChatStreamEvent.java            # SSE 事件结构
+    ├── ChatRequest.java                # 聊天请求（question + conversationId + userId）
     ├── SysChatHistory.java             # 聊天历史实体（全量记录）
     ├── AiConversation.java             # 会话实体（userId+conversationId+title）
     ├── SpringAiChatMemory.java         # 窗口记忆实体（JDBC表）
@@ -177,16 +182,17 @@ com.mall.aichat
 
 ### 2.3 Advisor 链（核心拦截层）
 
-Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执行：
+Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执行：
 
 | 顺序 | Advisor | Order | 职责 |
 | :--- | :--- | :--- | :--- |
 | 1 | `MessageChatMemoryAdvisor` | HIGHEST+200 | 近期上下文读写（Redis+MySQL 双层） |
 | 2 | `VectorStoreChatMemoryAdvisor` | HIGHEST+201 | 长期语义记忆检索（Weaviate） |
-| 3 | `ReturnDirectChatMemoryAdvisor` | HIGHEST+202 | 拦截 `returnDirect=true` 的工具结果，单独入库 |
-| 4 | `ToolSearchToolCallingAdvisor` | HIGHEST+300 | 工具动态检索（每次仅注入相关工具，详见 2.8.2） |
-| 5 | `FullHistoryChatMemoryAdvisor` | 1 | 全量聊天记录入库 MySQL + 工具调用事件推送 |
-| 6 | `SimpleLoggerAdvisor` | 2 | 请求/响应日志 |
+| 3 | `RagContextQueryAdvisor` | HIGHEST+201 | 知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件） |
+| 4 | `ReturnDirectChatMemoryAdvisor` | HIGHEST+202 | 拦截 `returnDirect=true` 的工具结果，单独入库 |
+| 5 | `ToolSearchToolCallingAdvisor` | HIGHEST+300 | 工具动态检索（每次仅注入相关工具，详见 2.8.2） |
+| 6 | `FullHistoryChatMemoryAdvisor` | 1 | 全量聊天记录入库 MySQL + 工具调用事件推送 |
+| 7 | `SimpleLoggerAdvisor` | 2 | 请求/响应日志 |
 
 #### 2.3.1 FullHistoryChatMemoryAdvisor
 
@@ -205,7 +211,37 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 
 **判断逻辑**：检查 `ChatGenerationMetadata.finishReason == "returnDirect"`。
 
-#### 2.3.3 RedisCachedAndMysqlMemoryRepository
+#### 2.3.3 VectorStoreChatMemoryAdvisor（长期语义记忆）
+
+**核心职责**：将用户消息异步提取为"记忆事实"写入 Weaviate，并在进入模型前按 **userId** 检索生效中的长期记忆注入系统提示词。**作用域从 conversationId 改为 userId，长期记忆跨会话生效**。
+
+**关键设计**：
+
+| 设计点 | 说明 |
+| :--- | :--- |
+| 作用域 | `userId`（跨会话检索主过滤字段），`conversationId` 仅随 metadata 落库用于追踪 |
+| 异步写入 | `storeMemoryAsync()` 运行在 advisor 自身 scheduler 上，不阻塞请求链路，首 token 延迟不受摘要/查重/写入影响 |
+| 记忆提取 | `summarizeMessage()` 调用 `smallChatClient`（概述小模型）将用户消息总结为一句以"用户"开头的短句；无实质信息（输出"无"）跳过写入 |
+| 记忆合并 | `upsertMemoryItem()` 采用 Dify op 模型：无相近 → ADD；精确相同 → NOOP（纯代码续期 TTL）；语义相近 → `mergeMemory()` 单对判定合并（相同/冲突存新替换旧，不同则 ADD） |
+| 记忆有效期 | 默认 30 天（`DEFAULT_MEMORY_TTL_MS`），写入时推导 `expireAt`；检索时过滤 `expireAt > now`，过期记忆不注入模型 |
+| 降级 | 向量库不可用时降级为无记忆继续对话，不中断请求 |
+| 摘要输入上限 | 超长消息（>200 字符）先截断，避免塞爆摘要 prompt |
+| AI 回复不入库 | 只存用户消息；AI 回复是通用知识/任务结果，写入会污染记忆库 |
+
+**记忆 Schema 字段**（与 `VectorStoreConfig` 会话记忆库对齐，常量收敛到 `ChatConstants`）：
+
+| 字段 | 说明 |
+| :--- | :--- |
+| `userId` | 记忆归属用户 ID，长期记忆跨会话检索的基础过滤字段 |
+| `conversationId` | 归属会话 ID，仅随 metadata 落库用于追踪 |
+| `messageType` | 消息角色（USER / ASSISTANT / SYSTEM） |
+| `status` | 记忆状态（active / archived / superseded / expired，用字符串而非 boolean） |
+| `ingestedAt` | 记忆写入时间戳（毫秒） |
+| `expireAt` | 记忆过期时间戳（毫秒），0 表示不过期 |
+
+**检索过滤表达式**：`userId = {userId} AND status = active AND expireAt > now`
+
+#### 2.3.4 RedisCachedAndMysqlMemoryRepository
 
 **核心职责**：实现 `ChatMemoryRepository` 接口，提供 Redis + MySQL 双层存储。
 
@@ -225,6 +261,11 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 2. **直接将用户第一条消息 `question` 作为会话标题**写入 `ai_conversation.title`
 3. 写入 Redis（`chat:conversation:{conversationId}` → userId，TTL 7天）
 4. 前端在已有有效标题（非空、非"未命名对话"）时不再覆盖标题，仅对空标题或占位符生成新标题
+
+**标题生成（smallChatClient）**：
+- 使用 `smallChatClient`（概述小模型，替代原 `titleChatClient`）异步生成标题
+- 内置标题生成 System Prompt：不超过 15 字、概括主题、不要标点结尾、只输出标题本身
+- **后处理**：取首行、去空白、截断到 30 字，防止模型输出多余内容污染标题
 
 **关键类**：`AiConversationServiceImpl`、前端 `index.vue`（标题覆盖保护逻辑）
 
@@ -281,10 +322,13 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 
 *   **应用场景**：用户询问"我最初问了什么"，即使该对话不在当前窗口，AI 也能通过向量检索找到。
 *   **技术栈**：本地 Embedding 模型（Qwen3-Embedding-4B） + Weaviate 向量数据库。
-*   **检索逻辑**：基于 `VectorStoreChatMemoryAdvisor`，根据当前问题相似度检索历史。
+*   **检索逻辑**：基于 `VectorStoreChatMemoryAdvisor`，按 **userId** 检索生效中的长期记忆（`status=active AND expireAt > now`）。
     *   **参数**：`defaultTopK`（配置：`vectorstore.chat-memory-default-topk: 1`）。
-*   **压缩机制**：当未压缩消息数超过 `compression-threshold`（默认 4）时，`VectorCompressionService` 异步调用 LLM 生成摘要，删除旧向量，写入压缩后的摘要向量。
-*   **过滤增强**：压缩时仅保留非 `TOOL` 类型且 `toolCalls` 为空的记录（`!TOOL` + `StringUtils.isEmpty(toolCalls)`），避免工具调用细节污染摘要。
+*   **记忆写入（异步）**：用户消息经 `smallChatClient` 提取为"记忆事实"短句后异步写入向量库，不阻塞请求链路。
+*   **记忆合并（upsert）**：写入时按相似度查重——无相近 → 新增；精确相同 → 纯代码续期 TTL；语义相近 → 调用小模型合并（冲突以新记忆为准，不同话题合并为一句）。
+*   **记忆有效期**：默认 30 天（`expireAt` 字段），过期记忆不注入模型。
+*   **AI 回复不入库**：只存用户消息，避免通用知识/任务结果污染记忆库。
+*   **架构演进**：原 `VectorCompressionService`（批量压缩）已移除，由上述"单条 upsert 合并"机制取代。
 
 #### 2.5.4 全量聊天记录（业务展示）
 
@@ -301,7 +345,7 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 
 | kbType | 类型 | 适用场景 | 检索参数 |
 | :--- | :--- | :--- | :--- |
-| `10` | **通用知识库** | ChatAgent 对话默认注入的通用参考知识 | `RagRetrieveContextService.retrieveContext(question)`（默认重载走 10） |
+| `10` | **通用知识库** | ChatAgent 对话默认注入的通用参考知识 | `RagContextQueryAdvisor` 默认走 10（可通过 context key `rag_kb_type` 覆盖） |
 | `20` | **专用知识库** | NL2SQL 表结构等特定业务域的专用知识 | `Nl2SqlToolServiceImpl` 通过 Feign 调用 chat 服务时显式传 `kbType=20` |
 
 **设计要点**：
@@ -312,7 +356,9 @@ Advisor 链是 Agent 编排的核心，6 个 Advisor 按 order 排序依次执�
 
 #### 2.6.1 三步检索流程（标签匹配 → 单重过滤向量检索 → Reranker 重排序）
 
-`RagRetrieveContextService.retrieveContext()` 采用 **"先查询 tag + 单重过滤 + 重排序"** 三步检索策略，对标 Dify Knowledge Retrieve API：
+> **架构演进**：知识库查询逻辑已从 `ChatAgentService.ragPhase()` 迁移到 **`RagContextQueryAdvisor`**（参考 `VectorStoreChatMemoryAdvisor` 的 Advisor 模式）。Advisor 在 `before` 阶段执行检索，将结果注入系统提示词，并通过 `AgentEventSinkManager.emitRagRetrieve()` 推送 `rag_retrieve` 状态事件（start / success / empty）。`RagRetrieveContextService` 保留供外部 API（`KbRagRetrieveApi`）和 NL2SQL 工具（kbType=20）调用。
+
+`RagContextQueryAdvisor.retrieveContext()` 采用 **"先查询 tag + 单重过滤 + 重排序"** 三步检索策略，对标 Dify Knowledge Retrieve API：
 
 ```
 用户问题
@@ -399,6 +445,20 @@ reranker:
 - `mineru.model-version`：远程接口解析模式（vlm 推荐 / pipeline / MinerU-HTML）
 - `chunkSeparator`：自定义分段符，前端可传入（如 `---`、`###`）
 - `chunkSize`：分块大小，默认 500 token
+
+**知识库向量存储字段**（`knowledgeVectorStore` Bean 定义的 metadata Schema，常量收敛到 `ChatConstants`）：
+
+| 字段 | 类型 | 写入方 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `knowledgeId` | text | `KbDocumentServiceImpl` | 知识库归属 ID，RAG 检索/删除的基础过滤字段 |
+| `source` | text | `KbDocumentServiceImpl` | 文档来源标识（文件路径） |
+| `filename` | text | `KbDocumentServiceImpl` | 文档文件名 |
+| `docType` | text | 预留 | 文档类型（如 manual / faq / policy） |
+| `chunkIndex` | number | 预留 | 分块序号 |
+| `version` | number | 预留 | 知识版本号 |
+| `updatedAt` | number | 预留 | 知识更新时间戳（毫秒） |
+
+> **说明**：当前 `KbDocumentServiceImpl.insertKbDocument()` 写入向量库时携带 `filename`、`knowledgeId`、`source` 三个字段；`docType`、`chunkIndex`、`version`、`updatedAt` 为 Schema 预留字段，后续写入方落地后即可直接过滤，无需变更 Schema。
 
 ##### 2.6.2.1 文档解析路由（extractText）
 
@@ -547,6 +607,9 @@ ChatAgent.chatStream()
   └─ 旁路：FullHistoryChatMemoryAdvisor 拦截工具调用
            → tool_call 事件 → AgentEventSinkManager → 前端
   │
+  └─ 旁路：RagContextQueryAdvisor 推送 RAG 检索状态
+           → rag_retrieve 事件 → AgentEventSinkManager → 前端
+  │
   └─ Flux.merge(主流, 旁路) → 统一 SSE 输出
 ```
 
@@ -556,14 +619,18 @@ ChatAgent.chatStream()
 | :--- | :--- | :--- |
 | `message` | LLM 增量文本 | 流式输出每个 chunk |
 | `tool_call` | 工具调用通知 | LLM 发起工具调用时 |
+| `rag_retrieve` | RAG 检索状态（start / success / empty） | `RagContextQueryAdvisor` 检索知识库时 |
 | `message_end` | 消息结束 | 流式完成 |
 | `error` | 错误 | 异常时 |
+
+> **SSE 协议增强**：`tool_call` 与 `rag_retrieve` 事件现在显式设置 SSE `event` 头（`event: tool_call` / `event: rag_retrieve`），data 为 JSON 载荷（含 `event`、`content`、`conversationId` 字段）。前端按事件类型路由后解析 JSON 取 `content` 字段，非 JSON 载荷回退纯文本。
 
 #### 2.7.3 AgentEventSinkManager
 
 - 每个会话维护一个独立的 `Sinks.Many` 通道
 - `ConcurrentHashMap` 管理所有会话的 Sink
-- 工具调用时通过 `emitThought()` 推送旁路事件
+- 工具调用时通过 `emitThought()` 推送旁路事件（带 `event: tool_call` 头）
+- RAG 检索时通过 `emitRagRetrieve()` 推送状态事件（带 `event: rag_retrieve` 头）
 - 流结束时 `complete()` 清理通道
 
 ### 2.8 工具调用编排
@@ -1162,7 +1229,7 @@ spring:
 
 | Bean 名称 | ObjectClass | 用途 | 过滤字段 |
 | :--- | :--- | :--- | :--- |
-| `conversationVectorStore` | ConversationHistory | 会话记忆（长期记忆） | conversationId |
+| `conversationVectorStore` | ConversationHistory | 会话记忆（长期记忆） | userId（主）+ conversationId + status + expireAt |
 | `knowledgeVectorStore` | KnowledgeBase | 知识库文档（RAG 检索） | knowledgeId |
 | `toolVectorStore` | ToolIndex | 工具索引（Tool Search） | sessionId |
 
@@ -1191,7 +1258,8 @@ spring:
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
 | `MessageChatMemoryAdvisor` | 处理近期上下文的读/写切面 | 负责调用 ChatMemory |
-| `VectorStoreChatMemoryAdvisor` | 处理长期语义检索的读切面 | 负责调用 VectorStore 搜索 |
+| `VectorStoreChatMemoryAdvisor` | **自定义**：长期语义记忆（userId 跨会话检索 + 异步写入 + upsert 合并） | 实现 BaseChatMemoryAdvisor，调用 smallChatClient 提取/合并记忆 |
+| `RagContextQueryAdvisor` | **自定义**：知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件） | 参考 VectorStoreChatMemoryAdvisor 模式 |
 | `FullHistoryChatMemoryAdvisor` | **自定义**：全量聊天记录入库 + 工具调用事件推送 | 流式拦截 ToolCall 事件 |
 | `ReturnDirectChatMemoryAdvisor` | **自定义**：拦截 returnDirect 工具结果 | 单独入库，不经过 LLM |
 | `ToolSearchToolCallingAdvisor` | 工具动态检索顾问 | 模型按需获取工具 |
@@ -1202,14 +1270,15 @@ spring:
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
 | `RedisCachedAndMysqlMemoryRepository` | **自定义**：Redis+MySQL 双层存储 | 实现 ChatMemoryRepository 接口 |
-| `VectorCompressionService` | 向量记忆压缩 | 超过阈值异步调用 LLM 生成摘要 |
+| `smallChatClient` | **概述小模型** ChatClient Bean | 记忆提取/合并、会话标题生成（替代原 titleChatClient / compressChatClient） |
 | `ToolDataCacheService` | 工具大数据 Redis 缓存 | dataId 机制，避免撑爆 LLM 上下文 |
 
 ### 5.3 RAG 检索
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
-| `RagRetrieveContextService` | 三步检索：先查 tag 再执行（前置检查→反向匹配→内存模糊匹配→全量降级）→ knowledgeId 单重过滤向量检索 → Reranker 重排序 | 通过 kbType 区分知识库类型（10-通用、20-NL2SQL专用表结构） |
+| `RagContextQueryAdvisor` | **自定义**：知识库上下文查询 Advisor，在请求链路内执行三步检索并注入系统提示词 | 参考 VectorStoreChatMemoryAdvisor 模式，推送 rag_retrieve 事件 |
+| `RagRetrieveContextService` | 三步检索：先查 tag 再执行（前置检查→反向匹配→内存模糊匹配→全量降级）→ knowledgeId 单重过滤向量检索 → Reranker 重排序 | 供外部 API（KbRagRetrieveApi）和 NL2SQL 工具（kbType=20）调用 |
 | `RerankerService` | 调用外部 Reranker 模型重排序 | 降级机制 |
 | `KbDocumentServiceImpl` | 文档解析+切片+向量化 | md 直读 / 图片走本地 MinerU-OCR / PDF/Word 走远程 MinerU |
 | `MinerUService` | MinerU 远程接口调用 | PDF/Word 解析，vlm 模式，轮询获取结果 |
@@ -1281,13 +1350,18 @@ chat-memory:
   max-messages: 4                            # 窗口记忆条数
 
 vectorstore:
-  enabled: true                              # 开启向量功能
+  enabled: true                              # 开启全局向量功能
   chat-memory-default-topk: 1               # 向量记忆检索条数
   compression-threshold: 4                   # 压缩阈值
   weaviate:
     knowledge-object-class: KnowledgeBase
     chat-memory-object-class: ConversationHistory
     tool-index-object-class: ToolIndex
+
+smallmodel:                                  # 概述小模型（记忆提取/合并 + 会话标题生成）
+  base-url: https://apihub.agnes-ai.com/v1
+  api-key: sk-xxx
+  model: agnes-2.5-flash
 
 reranker:
   enabled: false                             # 重排序开关
@@ -1379,14 +1453,15 @@ spring:
 ### 7.1 向量库成本与清理（高危）
 
 *   **存储成本**：向量库不仅存文本，还存高维浮点数组，磁盘占用是 MySQL 的 10 倍以上。
-*   **必须清理**：切勿永久存储所有向量。建议设置 TTL 或编写定时任务清理。
+*   **必须清理**：切勿永久存储所有向量。长期记忆默认 30 天 TTL（`expireAt` 字段），检索时过滤过期记忆。
 *   **数据一致性**：向量库更新是异步的，消息入库后立刻查询可能查不到（延迟问题）。
-*   **压缩机制**：`VectorCompressionService` 在消息数超过阈值时异步生成摘要，删除旧向量，写入压缩摘要。
+*   **记忆合并机制**：`VectorStoreChatMemoryAdvisor` 采用单条 upsert 合并（无相近 → 新增；精确相同 → 续期；语义相近 → 小模型合并），替代原批量压缩方案。
 
 ### 7.2 隐私隔离（安全）
 
-*   **向量检索隔离**：在调用 VectorStore 搜索时，必须在 Filter 中加入 `conversationId`。否则用户 A 可能搜到用户 B 的隐私记录。
-*   **推荐做法**：在写入 Document 时 metadata 强制加入 conversationId，查询时强制过滤。
+*   **向量检索隔离**：在调用 VectorStore 搜索时，必须在 Filter 中加入 `userId`（长期记忆）或 `knowledgeId`（知识库）。否则用户 A 可能搜到用户 B 的隐私记录。
+*   **推荐做法**：在写入 Document 时 metadata 强制加入 userId / knowledgeId，查询时强制过滤。
+*   **长期记忆作用域**：`VectorStoreChatMemoryAdvisor` 检索表达式为 `userId = {userId} AND status = active AND expireAt > now`，缺失 userId 时兜底为 `anonymous`（生产环境应在入口处保证 userId 必传）。
 
 ### 7.3 消息顺序与偶数限制
 
@@ -1409,14 +1484,4 @@ spring:
 *   **超时控制**：设置 600 秒超时，防止大模型卡死导致连接挂死。
 *   **客户端断开**：通过 `doOnCancel` 处理客户端主动断开。
 *   **异常脱敏**：`onErrorResume` 捕获异常后返回通用错误信息，不暴露内部细节。
-
-
-
-1，提示词文件放置位置
-2，chatAgent入口类，查询知识库代码优化
-3，chatAgent入口类Flux是否需要返回event
-4，advisor顺序问题
-5，加入流程编排
-6，分块策略
-7，向量消息压缩代码优化
-8，提示词管理
+*   **事件头**：`tool_call` / `rag_retrieve` 事件显式设置 SSE `event` 头，前端按事件类型路由后解析 JSON 载荷。

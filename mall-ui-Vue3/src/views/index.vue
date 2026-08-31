@@ -549,7 +549,7 @@ const deleteConversation = async (id) => {
         type: 'warning'
       }
     );
-    await deleteByConversationId(id);
+    // 乐观删除：后端接口较慢，先立即清空前端并开启新对话，删除请求异步执行
     const index = conversations.value.findIndex(c => c.id === id);
     if (index !== -1) {
       conversations.value.splice(index, 1);
@@ -558,6 +558,9 @@ const deleteConversation = async (id) => {
         startNewConversation();
       }
     }
+    deleteByConversationId(id).catch((error) => {
+      console.error('删除对话失败（后端异步删除）:', error);
+    });
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除对话失败:', error);
@@ -791,9 +794,15 @@ const sendMessage = async () => {
       scrollToBottom();
     });
 
-    // RAG 知识库检索事件：单独存到 ragRetrieve 对象，不混入消息正文
+    // RAG 知识库检索事件（event: rag_retrieve）：单独存到 ragRetrieve 对象，不混入消息正文
+    // 新协议：event: rag_retrieve + data: {"event":"rag_retrieve","content":"start|success|empty",...}
     es.addEventListener('rag_retrieve', (e) => {
-      const phase = e.text || '';
+      const json = e.json;
+      // 先按事件类型路由到此处，再解析 JSON 取 content 阶段字段；非 JSON 载荷回退纯文本
+      const phase = (json && typeof json.content === 'string') ? json.content : (e.data || '');
+      if (json && json.conversationId && !messages.value[messageIndex].conversationId) {
+        messages.value[messageIndex].conversationId = json.conversationId;
+      }
       if (phase === 'start' || phase === 'rag_retrieval') {
         // 检索开始
         messages.value[messageIndex].ragRetrieve = {
@@ -833,9 +842,12 @@ const sendMessage = async () => {
       scrollToBottom();
     });
 
-    // 工具调用事件：单独存到 toolCalls 数组，不混入消息正文
+    // 工具调用事件（event: tool_call）：单独存到 toolCalls 数组，不混入消息正文
+    // 新协议：event: tool_call + data: {"event":"tool_call","content":"工具名或调用文案",...}
     es.addEventListener('tool_call', (e) => {
-      const rawText = e.text || '';
+      const json = e.json;
+      // 先按事件类型路由到此处，再解析 JSON 取 content 字段；非 JSON 载荷回退纯文本
+      const rawText = (json && typeof json.content === 'string') ? json.content : (e.data || '');
       // 兼容两种格式：1) 直接工具名 "toolSearchTool"  2) 包装文案 "正在为您调用工具: [xxx]，请稍候"
       const toolMatch = rawText.match(/\[([^\]]+)\]/);
       let toolName = '';

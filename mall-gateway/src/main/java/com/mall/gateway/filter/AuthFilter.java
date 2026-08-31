@@ -20,6 +20,9 @@ import com.mall.common.redis.service.RedisService;
 import com.mall.gateway.config.properties.IgnoreWhiteProperties;
 import io.jsonwebtoken.Claims;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
+import java.time.Duration;
 
 /**
  * 网关鉴权
@@ -62,11 +65,6 @@ public class AuthFilter implements GlobalFilter, Ordered
             return unauthorizedResponse(exchange, "令牌已过期或验证不正确！");
         }
         String userkey = JwtUtils.getUserKey(claims);
-        boolean islogin = redisService.hasKey(getTokenKey(userkey));
-        if (!islogin)
-        {
-            return unauthorizedResponse(exchange, "登录状态已过期");
-        }
         String userid = JwtUtils.getUserId(claims);
         String username = JwtUtils.getUserName(claims);
         if (StringUtils.isEmpty(userid) || StringUtils.isEmpty(username))
@@ -74,13 +72,32 @@ public class AuthFilter implements GlobalFilter, Ordered
             return unauthorizedResponse(exchange, "令牌验证失败");
         }
 
-        // 设置用户信息到请求
-        addHeader(mutate, SecurityConstants.USER_KEY, userkey);
-        addHeader(mutate, SecurityConstants.DETAILS_USER_ID, userid);
-        addHeader(mutate, SecurityConstants.DETAILS_USERNAME, username);
-        // 内部请求来源参数清除
-        removeHeader(mutate, SecurityConstants.FROM_SOURCE);
-        return chain.filter(exchange.mutate().request(mutate.build()).build());
+        // Redis 校验为阻塞调用，必须切到 boundedElastic 线程池执行：
+        // 若直接在 Netty 事件循环线程上调用，会阻塞事件循环导致网关所有请求排队（前端表现为"一直卡着"），
+        // 并发刷新时尤为明显。加 3 秒超时快速失败，避免 Redis 抖动时请求无限挂起。
+        return Mono.fromCallable(() -> redisService.hasKey(getTokenKey(userkey)))
+            .subscribeOn(Schedulers.boundedElastic())
+            .timeout(Duration.ofSeconds(3))
+            .flatMap(islogin -> {
+                if (!islogin)
+                {
+                    return unauthorizedResponse(exchange, "登录状态已过期");
+                }
+                // 设置用户信息到请求
+                addHeader(mutate, SecurityConstants.USER_KEY, userkey);
+                addHeader(mutate, SecurityConstants.DETAILS_USER_ID, userid);
+                addHeader(mutate, SecurityConstants.DETAILS_USERNAME, username);
+                // 内部请求来源参数清除
+                removeHeader(mutate, SecurityConstants.FROM_SOURCE);
+                return chain.filter(exchange.mutate().request(mutate.build()).build());
+            })
+            // Redis 异常/超时 ≠ 未登录：按网关服务异常返回，
+            // 避免把 Redis 抖动误判成"登录过期"导致前端误登出
+            .onErrorResume(e -> {
+                log.error("[鉴权异常处理]请求路径:{},Redis校验异常", url, e);
+                return ServletUtils.webFluxResponseWriter(exchange.getResponse(),
+                    "鉴权服务繁忙，请稍后重试", HttpStatus.ERROR);
+            });
     }
 
     private void addHeader(ServerHttpRequest.Builder mutate, String name, Object value)

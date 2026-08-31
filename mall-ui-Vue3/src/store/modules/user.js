@@ -74,13 +74,19 @@ const useUserStore = defineStore(
       // 退出系统
       logOut() {
         return new Promise((resolve, reject) => {
-          logout(this.token).then(() => {
+          // 无论退出接口是否成功，都清除本地登录状态
+          const clearLocal = () => {
             this.token = ''
             this.roles = []
             this.permissions = []
             removeToken()
+          }
+          logout(this.token).then(() => {
+            clearLocal()
             resolve()
           }).catch(error => {
+            // 退出接口失败也清除本地状态，避免卡死
+            clearLocal()
             reject(error)
           })
         })

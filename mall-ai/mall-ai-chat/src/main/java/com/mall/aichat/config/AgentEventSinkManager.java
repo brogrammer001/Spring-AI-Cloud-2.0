@@ -1,5 +1,6 @@
 package com.mall.aichat.config;
 
+import com.mall.aichat.constant.ChatConstants;
 import com.mall.aichat.domain.ChatStreamEvent;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
@@ -28,7 +29,20 @@ public class AgentEventSinkManager {
         Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.get(conversationId);
         if (sink != null) {
             ServerSentEvent<ChatStreamEvent> sse = ServerSentEvent.<ChatStreamEvent>builder()
+                .event(ChatConstants.EVENT_TOOL_CALL)
                 .data(ChatStreamEvent.toolCall(conversationId, toolName, 0))
+                .build();
+            sink.tryEmitNext(sse);
+        }
+    }
+
+    // 推送 RAG 检索状态事件（start / success / empty）
+    public void emitRagRetrieve(String conversationId, String stage) {
+        Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.get(conversationId);
+        if (sink != null) {
+            ServerSentEvent<ChatStreamEvent> sse = ServerSentEvent.<ChatStreamEvent>builder()
+                .event(ChatConstants.EVENT_RAG_RETRIEVE)
+                .data(ChatStreamEvent.ragRetrieve(conversationId, stage, 0))
                 .build();
             sink.tryEmitNext(sse);
         }
