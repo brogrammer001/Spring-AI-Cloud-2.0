@@ -78,4 +78,16 @@ public class SysUserApi extends BaseController {
         return R.ok(postIds);
     }
 
+    @PutMapping("/resetPwd")
+    @InnerAuth
+    public R<Boolean> resetPwd(@RequestBody SysUser user) {
+        return R.ok(userService.resetPwd(user) > 0);
+    }
+
+    @PutMapping("/changeStatus")
+    @InnerAuth
+    public R<Boolean> changeStatus(@RequestBody SysUser user) {
+        return R.ok(userService.updateUserStatus(user) > 0);
+    }
+
 }

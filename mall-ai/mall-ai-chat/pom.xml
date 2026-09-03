@@ -108,6 +108,25 @@
             <groupId>com.openai</groupId>
             <artifactId>openai-java-client-okhttp</artifactId>
         </dependency>
+
+        <!-- Apache POI 解析 Word/Excel 文档 -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+        </dependency>
+
+        <!-- Spring AI Tika 文档读取器（PDF/doc 等通用格式解析） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-tika-document-reader</artifactId>
+        </dependency>
+
+        <!-- FastExcel 大文件流式解析（EasyExcel 社区延续版） -->
+        <dependency>
+            <groupId>cn.idev.excel</groupId>
+            <artifactId>fastexcel</artifactId>
+            <version>1.3.0</version>
+        </dependency>
     </dependencies>
 
     <build>

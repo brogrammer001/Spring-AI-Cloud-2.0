@@ -89,6 +89,16 @@ public class RemoteUserFallbackFactory implements FallbackFactory<RemoteUserServ
             public R<List<Long>> getUserPostIds(Long userId) {
                 return R.fail("获取用户岗位列表失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Boolean> resetPwd(SysUser sysUser) {
+                return R.fail("重置用户密码失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> changeStatus(SysUser sysUser) {
+                return R.fail("修改用户状态失败:" + throwable.getMessage());
+            }
         };
     }
 }

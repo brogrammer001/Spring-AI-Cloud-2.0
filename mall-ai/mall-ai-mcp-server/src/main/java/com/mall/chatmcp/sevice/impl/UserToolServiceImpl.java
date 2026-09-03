@@ -225,6 +225,64 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
         }, "用户岗位分配");
     }
 
+    @Tool(description = "重置用户密码。参数：用户名(userName)和新密码(password)。")
+    public AjaxResult resetUserPassword(
+            @org.springframework.ai.tool.annotation.ToolParam(description = "用户名") String userName,
+            @org.springframework.ai.tool.annotation.ToolParam(description = "新密码") String password) {
+        return executeWithErrorHandling(() -> {
+            if (userName == null || userName.isEmpty()) {
+                return AjaxResult.error("用户名不能为空");
+            }
+            if (password == null || password.isEmpty()) {
+                return AjaxResult.error("新密码不能为空");
+            }
+            List<SysUser> users = getUsersByName(userName);
+            if (users.isEmpty()) {
+                return AjaxResult.error("用户不存在：" + userName);
+            }
+            if (users.size() > 1) {
+                return AjaxResult.error("查询到多个用户，请补充更多信息：" + formatUserList(users));
+            }
+            SysUser sysUser = new SysUser();
+            sysUser.setUserId(users.getFirst().getUserId());
+            sysUser.setPassword(password);
+            R<Boolean> result = remoteUserService.resetPwd(sysUser);
+            return result.getCode() == 200 && result.getData() ? AjaxResult.success("密码重置成功") : AjaxResult.error(result.getMsg());
+        }, "重置用户密码");
+    }
+
+    @Tool(description = "修改用户状态（启用/停用）。参数：用户名(userName)和状态(status: 有效/启用 或 无效/停用)。")
+    public AjaxResult changeUserStatus(
+            @org.springframework.ai.tool.annotation.ToolParam(description = "用户名") String userName,
+            @org.springframework.ai.tool.annotation.ToolParam(description = "状态：有效/启用 或 无效/停用") String status) {
+        return executeWithErrorHandling(() -> {
+            if (userName == null || userName.isEmpty()) {
+                return AjaxResult.error("用户名不能为空");
+            }
+            if (status == null || status.isEmpty()) {
+                return AjaxResult.error("状态不能为空");
+            }
+            List<SysUser> users = getUsersByName(userName);
+            if (users.isEmpty()) {
+                return AjaxResult.error("用户不存在：" + userName);
+            }
+            if (users.size() > 1) {
+                return AjaxResult.error("查询到多个用户，请补充更多信息：" + formatUserList(users));
+            }
+            SysUser sysUser = new SysUser();
+            sysUser.setUserId(users.getFirst().getUserId());
+            if ("有效".equals(status) || "启用".equals(status)) {
+                sysUser.setStatus("0");
+            } else if ("无效".equals(status) || "停用".equals(status)) {
+                sysUser.setStatus("1");
+            } else {
+                return AjaxResult.error("状态值不正确，请传入'有效'或'无效'");
+            }
+            R<Boolean> result = remoteUserService.changeStatus(sysUser);
+            return result.getCode() == 200 && result.getData() ? AjaxResult.success("用户状态修改成功") : AjaxResult.error(result.getMsg());
+        }, "修改用户状态");
+    }
+
     @Tool(description = "修改用户所属部门。 ")
     public AjaxResult userDeptAuth(UserDeptBo userDeptBo) {
         return executeWithErrorHandling(() -> {

@@ -81,4 +81,10 @@ public interface RemoteUserService
     @GetMapping("/api/user/authPost/{userId}")
     public R<List<Long>> getUserPostIds(@PathVariable("userId") Long userId);
 
+    @PutMapping("/api/user/resetPwd")
+    public R<Boolean> resetPwd(@RequestBody SysUser sysUser);
+
+    @PutMapping("/api/user/changeStatus")
+    public R<Boolean> changeStatus(@RequestBody SysUser sysUser);
+
 }
