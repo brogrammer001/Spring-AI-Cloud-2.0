@@ -26,7 +26,7 @@
 | 热缓存 | Redis |
 | 持久化 | MySQL |
 | 注册中心 | Nacos |
-| 文档解析（PDF/Word） | MinerU 远程接口（mineru.net，vlm 模式） |
+| 文档解析 | Apache Tika + POI + FastExcel（本地解析 PDF/Word/Excel/CSV/音频元数据） |
 | 图片 OCR | 本地 MinerU-OCR 视觉模型（opendatalab/MinerU2.5-Pro-2605-1.2B，端口 8890） |
 | 重排序 | Reranker 模型（本地部署，端口 8887） |
 | 工具协议 | MCP (Model Context Protocol) + Streamable HTTP |
@@ -123,6 +123,21 @@ com.mall.aichat
 │   └── SaLlmConfig.java                # 会话记忆配置（ChatMemory + MinerU RestClient + 线程池）
 ├── constant/
 │   └── ChatConstants.java              # 向量库字段常量 + Advisor context key 统一契约
+├── extractor/                           # 文档内容提取器（策略模式）
+│   ├── Extractor.java                  # 提取器接口（supports + extract）
+│   ├── ExtractorFactory.java           # 工厂类（Spring Bean 自动发现，按文件后缀路由）
+│   ├── AbstractTikaExtractor.java      # 基于 Apache Tika 的抽象基类（结构化 Markdown + 纯文本 + 输出上限降级）
+│   ├── PdfExtractor.java               # PDF 提取器（Tika 结构化 Markdown，标题/表格/列表保留）
+│   ├── WordExtractor.java              # Word 提取器（docx 用 POI 本地解析，doc 回退 Tika）
+│   ├── ExcelExtractor.java             # Excel/CSV 提取器（POI 全量 + FastExcel 流式 + CSV 状态机）
+│   ├── AudioExtractor.java             # 音频元数据提取器（Tika Metadata）
+│   ├── ImageExtractor.java             # 图片 OCR 提取器（调用本地 MinerU-OCR 视觉模型）
+│   └── MarkdownAndTextExtractor.java   # Markdown/TXT 直接读取
+├── chunker/                             # 文档分块策略（策略模式）
+│   ├── Chunker.java                    # 分块器接口（supports + chunk）
+│   ├── ChunkerFactory.java             # 工厂类（Spring Bean 自动发现，按配置选择策略）
+│   ├── SemanticChunker.java            # 语义分块（多尺度滑动窗口 + 动态阈值）
+│   └── TokenChunker.java               # Token 分块（固定分块，TokenTextSplitter）
 ├── advisor/
 │   ├── VectorStoreChatMemoryAdvisor.java       # 长期语义记忆 Advisor（userId 跨会话 + 异步写入 + upsert 合并）
 │   ├── RagContextQueryAdvisor.java             # 知识库上下文查询 Advisor（RAG 检索 + 注入系统提示词 + rag_retrieve 事件）
@@ -144,8 +159,7 @@ com.mall.aichat
 │   ├── RagRetrieveContextService.java  # RAG 检索（供外部 API / NL2SQL 工具调用）
 │   ├── RerankerService.java            # Reranker 重排序服务
 │   ├── ToolDataCacheService.java       # 工具大数据 Redis 缓存
-│   ├── KbDocumentServiceImpl.java      # 文档解析+切片+向量化
-│   ├── MinerUService.java              # MinerU 文档解析
+│   ├── KbDocumentServiceImpl.java      # 文档上传流程编排（调用 ExtractorFactory + ChunkerFactory）
 │   └── ...
 └── domain/
     ├── ChatStreamEvent.java            # SSE 事件结构
@@ -221,11 +235,18 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 | :--- | :--- |
 | 作用域 | `userId`（跨会话检索主过滤字段），`conversationId` 仅随 metadata 落库用于追踪 |
 | 异步写入 | `storeMemoryAsync()` 运行在 advisor 自身 scheduler 上，不阻塞请求链路，首 token 延迟不受摘要/查重/写入影响 |
-| 记忆提取 | `summarizeMessage()` 调用 `smallChatClient`（概述小模型）将用户消息总结为一句以"用户"开头的短句；无实质信息（输出"无"）跳过写入 |
+| 记忆提取 | `summarizeMessage()` 调用 `smallChatClient`（概述小模型）将用户消息总结为一句以“用户”开头的短句；无实质信息（输出“无”）跳过写入 |
+| 上下文感知提取 | 输入从“裸单条消息”升级为“上一轮 AI 回复 + 当前用户消息”，解决“那上海的呢？”这类依赖上下文的指代消息无法提取的问题（对齐 Mem0/LangMem 的 context-aware extraction） |
 | 记忆合并 | `upsertMemoryItem()` 采用 Dify op 模型：无相近 → ADD；精确相同 → NOOP（纯代码续期 TTL）；语义相近 → `mergeMemory()` 单对判定合并（相同/冲突存新替换旧，不同则 ADD） |
+| 多候选合并 | 合并候选从 top-1 扩大到 top-N（默认 2），新事实可能同时关联多条旧记忆，只对比一条会漏合并 |
 | 记忆有效期 | 默认 30 天（`DEFAULT_MEMORY_TTL_MS`），写入时推导 `expireAt`；检索时过滤 `expireAt > now`，过期记忆不注入模型 |
+| 永不过期修复 | TTL=0 的“永不过期”改用远期时间戳落地，避免被 `gt(expireAt, now)` 过滤直接排除 |
+| 语义查重阈值 | Builder 可配置（默认 0.9），控制“精确相同”与“语义相近”的边界 |
+| 敏感信息脱敏 | 长期记忆库会持久化用户事实，身份证/手机号/银行卡等敏感信息自动脱敏为 `***` 后再入库 |
+| 输出格式约束 | 摘要/合并指令补充输出前缀/引号禁止与长度约束，利用小模型 recency 效应提升遵从率 |
 | 降级 | 向量库不可用时降级为无记忆继续对话，不中断请求 |
 | 摘要输入上限 | 超长消息（>200 字符）先截断，避免塞爆摘要 prompt |
+| 记忆文本长度上限 | 小模型输出超过 100 字符视为异常，按失败处理 |
 | AI 回复不入库 | 只存用户消息；AI 回复是通用知识/任务结果，写入会污染记忆库 |
 
 **记忆 Schema 字段**（与 `VectorStoreConfig` 会话记忆库对齐，常量收敛到 `ChatConstants`）：
@@ -416,35 +437,21 @@ reranker:
 ```
 文件上传 → RemoteFileService 获取文件
   │
-  ├─ Markdown (.md) → 直接读取内容
-  ├─ 图片 (png/jpg/jpeg/gif) → 本地 MinerU-OCR 视觉模型解析（minerUChatClient）
-  │                            └─ opendatalab/MinerU2.5-Pro-2605-1.2B @ 127.0.0.1:8890
-  └─ PDF/Word → MinerU 远程接口解析为 Markdown（mineru.net，vlm 模式）
-  │              └─ 内嵌图片 → 本地 MinerU-OCR 模型生成图片描述，替换回原文
+  ├─ ExtractorFactory.getExtractor(filename)  # 按文件后缀自动路由
+  │   ├─ .md/.txt        → MarkdownAndTextExtractor（直接 Files.readString）
+  │   ├─ .pdf            → PdfExtractor（Tika 结构化 Markdown，标题/表格/列表保留）
+  │   ├─ .doc/.docx      → WordExtractor（docx: POI 本地解析; doc: 回退 Tika）
+  │   ├─ .xls/.xlsx/.csv → ExcelExtractor（POI全量/FastExcel流式/CSV状态机）
+  │   ├─ 图片(png/jpg/gif) → ImageExtractor（本地 MinerU-OCR 视觉模型）
+  │   └─ 音频(mp3/wav/flac) → AudioExtractor（Tika Metadata 提取）
   │
-  ├─ 内容清洗 (移除 OCR 噪声、页码、乱码)
-  ├─ 自定义分段符切分 (chunkSeparator，默认 \n\n)
-  ├─ TokenTextSplitter 细切分 (chunkSize=500)
+  ├─ 内容清洗 (DocumentCleaner: 移除 OCR 噪声、页码、乱码)
+  ├─ ChunkerFactory.chunk(document, semanticEnabled, chunkSize)  # 分块策略路由
+  │   ├─ semanticEnabled=true  → SemanticChunker（多尺度滑动窗口 + 动态阈值）
+  │   └─ semanticEnabled=false → TokenChunker（TokenTextSplitter 固定分块）
   ├─ 存入 Weaviate 向量库
   └─ 同步 MySQL chunk 记录
 ```
-
-**两种解析路径说明**：
-
-| 文件类型 | 解析方式 | 配置 | 关键类/Bean |
-| :--- | :--- | :--- | :--- |
-| `.md` | 直接 `Files.readString` | — | `KbDocumentServiceImpl` |
-| 图片 (png/jpg/jpeg/gif) | 本地 MinerU-OCR 视觉模型 | `mineru.vl.base-url` (127.0.0.1:8890) | `minerUChatClient` |
-| PDF/Word | MinerU 远程接口（vlm 模式） | `mineru.base-url` (mineru.net) | `MinerUService` |
-| PDF/Word 内嵌图片 | 本地 MinerU-OCR 模型 | 同上 | `parseImageWithLLM()` |
-
-**关键配置**：
-- `mineru.base-url`：远程 MinerU 接口地址（用于 PDF/Word 解析）
-- `mineru.vl.base-url`：本地 MinerU-OCR 模型地址（用于图片 OCR）
-- `mineru.vl.model`：本地视觉模型名称（opendatalab/MinerU2.5-Pro-2605-1.2B）
-- `mineru.model-version`：远程接口解析模式（vlm 推荐 / pipeline / MinerU-HTML）
-- `chunkSeparator`：自定义分段符，前端可传入（如 `---`、`###`）
-- `chunkSize`：分块大小，默认 500 token
 
 **知识库向量存储字段**（`knowledgeVectorStore` Bean 定义的 metadata Schema，常量收敛到 `ChatConstants`）：
 
@@ -460,29 +467,85 @@ reranker:
 
 > **说明**：当前 `KbDocumentServiceImpl.insertKbDocument()` 写入向量库时携带 `filename`、`knowledgeId`、`source` 三个字段；`docType`、`chunkIndex`、`version`、`updatedAt` 为 Schema 预留字段，后续写入方落地后即可直接过滤，无需变更 Schema。
 
-##### 2.6.2.1 文档解析路由（extractText）
+##### 2.6.2.1 Extractor 策略模式（文档内容提取）
 
-入口方法 `extractText(fileResource, filename)` 按文件后缀名（转小写）路由到不同提取器，参照 Dify 设计：
+采用 **接口 + 工厂 + 策略实现** 的经典设计模式，新增文件类型只需实现 `Extractor` 接口并注册为 Spring Bean，工厂自动发现并参与路由：
 
-| 分支 | 判断条件 | 处理逻辑 |
+| 提取器 | 支持格式 | 解析方式 | 关键特性 |
+| :--- | :--- | :--- | :--- |
+| `MarkdownAndTextExtractor` | .md, .txt | `Files.readString` | 零开销直读 |
+| `PdfExtractor` | .pdf | Tika XHTML SAX → Markdown | 标题层级/表格/列表结构保留；输出上限防 OOM；文件头魔数验证 |
+| `WordExtractor` | .docx, .doc | docx: POI XWPF 本地解析; doc: Tika 回退 | 标题四级匹配、列表缩进、合并单元格填值、内嵌图片 MD5 去重 + 并行 OCR、图片哨兵占位符 |
+| `ExcelExtractor` | .xls, .xlsx, .xlsm, .csv | 小文件: POI 全量; 大xlsx(≥10MB): FastExcel 流式; CSV: RFC4180 状态机 | 编码自动嗅探(UTF-8/GB18030)、合并单元格填值、隐藏sheet跳过、Tika兆底 |
+| `ImageExtractor` | .png, .jpg, .jpeg, .gif | 本地 MinerU-OCR 视觉模型 | opendatalab/MinerU2.5-Pro-2605-1.2B @ 127.0.0.1:8890 |
+| `AudioExtractor` | .mp3, .wav, .ogg, .flac, .m4a, .aac 等 | Tika Metadata | 提取标题/艺术家/专辑/时长/比特率等元数据 |
+
+**AbstractTikaExtractor 抽象基类**（PdfExtractor / WordExtractor / ExcelExtractor 共用）：
+
+| 解析路径 | 方法 | 说明 |
 | :--- | :--- | :--- |
-| Markdown | `.md` 后缀 | `Files.readString` 直接读取文件内容为字符串 |
-| 图片 | `isImageFile()`（png/jpg/jpeg/gif） | 调用 `parseImageWithLLM()` → 本地 MinerU-OCR |
-| 复杂文档 | 其他（PDF/Word 等） | 调用 `minerUService.parseMarkdown()` → 远程 MinerU |
+| 结构化 Markdown | `parseTikaToMarkdown(Path)` | XHTML SAX 事件流式转 Markdown，保留标题/表格/列表结构 |
+| 纯文本（兆底） | `parseWithTikaLimited(Path)` | 带输出上限的纯文本提取 |
 
-**图片解析 `parseImageWithLLM(resource)`**：
-1. `guessMimeType(filename)` 推断 MIME 类型（pdf/jpg/png/gif，默认 png）
-2. 构建 `Media` 对象（mimeType + data）
-3. 调用 `minerUChatClient`，user prompt 固定为 `"1"`，`media` 为图片二进制
-4. 返回 OCR 文本；异常时返回 `[图片解析失败]`，不中断主流程
+**降级策略**：
 
-**PDF/Word 内嵌图片处理**：
-远程 MinerU 解析返回 `MinerUResult(markdown, images)`，对 `images` 列表逐个处理：
-1. 调用 `parseImageWithLLM(new ByteArrayResource(imageData.data()))` 生成图片描述
-2. 将 Markdown 中的占位符 `![](images/{name})` 替换为 `\n[图片说明: {描述}]\n`
-3. 使用 `String.replace`（非正则），避免特殊字符转义问题
+| 场景 | 降级行为 |
+| :--- | :--- |
+| 文档超过输出上限（默认 2M 字符） | 返回部分内容 + “[文档过大，内容已截断]” |
+| 解析失败（加密/损坏） | 返回 “[文档解析失败]” 占位文案，不抛异常 |
+| 主路径失败（Excel） | Tika 纯文本兆底；Tika 也失败则还原原始异常 |
+| 扫描件（PDF 无文本层） | 输出接近空串，建议调用方转 OCR 链路 |
 
-##### 2.6.2.2 内容清洗策略（cleanContent）
+**关键配置**：
+```yaml
+extract:
+  tika-max-chars: 2097152    # Tika 解析输出上限（2M 字符 ≈ 4MB 内存）
+  images: true               # Word 图片提取总开关（批量灌库时可关闭提速）
+  page-break-mark: false     # Word 分页标记开关
+```
+
+##### 2.6.2.2 WordExtractor 详细设计
+
+`WordExtractor` 是最复杂的提取器（958 行），分两条路径：
+
+| 路径 | 格式 | 解析方式 | 输出质量 |
+| :--- | :--- | :--- | :--- |
+| POI 本地解析 | .docx | XWPF + XmlCursor 递归遍历 | 高（结构完整） |
+| Tika 回退 | .doc | XHTML SAX → Markdown | 中（结构部分保留） |
+
+**docx POI 解析核心能力**：
+
+| 功能 | 实现细节 |
+| :--- | :--- |
+| 标题识别 | 四级匹配：styleId=headingN → 数字styleId(交叉验证) → 样式名含"标题/heading" → outlineLvl大纲级别；另有无样式标题降级检测（全加粗+大字号+短文本） |
+| 列表缩进 | numPr 项目符号/编号，每级 2 空格（引用基类 `LIST_INDENT_UNIT` 常量） |
+| 表格合并 | gridSpan/vMerge 填值，单元格文本按实例缓存，嵌套表格转紧凑键值对 |
+| 图片处理 | blip@embed/imagedata@id → rId → 图片；内容 MD5 去重；小图过滤(<5KB)；共享线程池并行 OCR；总超时 120s |
+| 图片占位符 | 私用区哨兵字符(\uE000...\uE001)，不与正文碰撞 |
+| 特殊元素 | hyperlink/smartTag/sdt/fldSimple 内文本；过滤删除修订(del/delText)；AlternateContent 只取 Choice 分支 |
+| 内容控件 | XWPFSDT 兆底取文本 |
+
+##### 2.6.2.3 ExcelExtractor 详细设计
+
+按文件类型/大小分流解析为 Markdown 表格：
+
+| 路径 | 触发条件 | 解析方式 |
+| :--- | :--- | :--- |
+| POI 全量 | 小文件(<10MB) / .xls / .xlsm | WorkbookFactory + DataFormatter + FormulaEvaluator |
+| FastExcel 流式 | 大 .xlsx(≥10MB) | SAX 逐行读取，避免 OOM |
+| CSV 状态机 | .csv | RFC4180 解析（引号内换行续读、双引号转义） |
+| Tika 兆底 | 主路径失败 | 纯文本 + 输出上限 |
+
+**关键参数**：
+
+| 参数 | 值 | 说明 |
+| :--- | :--- | :--- |
+| `STREAMING_THRESHOLD` | 10MB | 超过则走 FastExcel 流式解析 |
+| `MAX_CELL_CHARS` | 1000 | 单元格最大字符数，超长截断 |
+| `MAX_ROWS_PER_SHEET` | 10000 | 单 sheet 最大数据行数，超出截断并标注 |
+| CSV 编码嗅探 | UTF-8 BOM → 严格UTF-8 → GB18030 | 自动检测文件编码 |
+
+##### 2.6.2.4 内容清洗策略（cleanContent）
 
 提取文本后执行 5 步规则清洗，移除 OCR 噪声：
 
@@ -496,17 +559,20 @@ reranker:
 
 最后执行 `trim()` 去除首尾空白。清洗后内容为空则抛出异常终止处理。
 
-##### 2.6.2.3 分块策略（generalSmartSplit）
+##### 2.6.2.5 分块策略（Chunker 策略模式）
 
-采用 **"段落粗切分 + Token 细切分"** 两阶段策略，兼顾语义完整与长度控制：
+分块逻辑已从 `KbDocumentServiceImpl` 独立为 **`chunker` 包**，采用与 Extractor 相同的策略模式设计：
 
-**阶段 1：段落粗切分（保证语义完整）**
+| 组件 | 职责 |
+| :--- | :--- |
+| `Chunker` 接口 | 定义 `supports(semanticEnabled, chunkSize)` + `chunk(document, chunkSize)` |
+| `ChunkerFactory` 工厂 | Spring Bean 自动发现所有 Chunker，按 `supports()` 优先级选择；无匹配时默认回退 TokenChunker |
+| `SemanticChunker` | 语义分块（多尺度滑动窗口 + 动态阈值） |
+| `TokenChunker` | Token 固定分块（TokenTextSplitter） |
 
-- 分段符：优先使用 `kbDocument.getChunkSeparator()`，为空则默认 `\\n\\n`（空行）
-- `text.split(separator)` 切分后，逐段 `trim()` 并过滤空段
-- **降级逻辑**：若切分后仅剩 ≤1 段（说明文档无标准段落分隔），直接将原文档作为单段交给阶段 2
+**调用方式**：`KbDocumentServiceImpl` 通过 `ChunkerFactory.chunk(document, semanticEnabled, chunkSize)` 一行代码完成分块，无需感知内部策略。
 
-**阶段 2：Token 细切分（防止超长）**
+**策略 A：TokenChunker（固定分块）**
 
 使用 Spring AI 的 `TokenTextSplitter`，关键参数：
 
@@ -520,80 +586,68 @@ reranker:
 | `punctuationMarks` | `. ? ! 。？ ！ \n ; ；` | 标点切分支持（中英文） |
 | `encodingType` | `CL100K_BASE` | Token 编码方式（GPT 系列） |
 
-**设计要点**：
-- 先按段落切分保证语义边界完整，再按 Token 切分防止单块超长
-- `punctuationMarks` 同时包含中英文标点，适配中文文档
-- `minChunkSizeChars` 设为 `chunkSize` 的 10%，尽量保留上下文（参考 Dify overlap 设计）
+**策略 B：SemanticChunker（语义分块 —— 多尺度滑动窗口 + 动态阈值）**
 
-##### 2.6.2.4 语义分块（Semantic Chunking）
+通过 `kb_document` 表的 `semantic_chunking` 字段控制启用。
 
-在固定 Token/段落分块之外，系统新增了**语义分块**能力。通过 `kb_document` 表的 `semantic_chunking` 字段控制（`true`-语义分块，`false`-固定 token/段落分块），文档上传时前端可针对不同文档选择合适的分块策略。
+**核心思想**：基于 Embedding 向量计算段落间的语义相似度，采用**多尺度滑动窗口算法**检测语义边界，将语义相近的段落合并为同一块。
 
-**核心思想**：基于 Embedding 向量计算段落间的语义相似度，将**语义相近的段落合并为同一块**，避免固定长度切分导致语义断裂。例如：一段介绍"系统架构"的文字被固定切分到两个 chunk 中，检索时可能只命中一半，语义分块则能保证整段内容完整保留。
-
-**算法流程**（`KbDocumentServiceImpl.semanticSplit()`）：
+**算法流程**（`SemanticChunker.chunk()`）：
 
 ```
 文档内容
   │
   ├─ 1. 切分为语义最小单元（splitIntoSemanticUnits）
-  │   ├─ 优先按段落（空行/自定义分段符）切分
-  │   └─ 段落超过 500 字符时，按句子进一步切分（splitBySentences）
-  │       └─ 支持中英文标点（。！？!?；;），短句自动合并（<100字符）
+  │   ├─ 优先按段落（空行）切分
+  │   └─ 段落超过 chunkSize 时，按句子进一步切分
+  │       └─ 支持中英文标点（。！？!?；;）
   │
   ├─ 2. 计算每个单元的 Embedding 向量
   │   ├─ 调用本地 Embedding 模型（Qwen3-Embedding-4B）
   │   └─ 分批调用（batchSize=20），避免单次请求过大
   │
-  ├─ 3. 计算相邻单元的余弦相似度（cosineSimilarity）
-  │   └─ 相似度 < 阈值（0.75）→ 该处为语义边界，标记切分点
+  ├─ 3. 多尺度滑动窗口计算切分点（findSplitPoints）
+  │   ├─ 窗口大小集合：{1, 2}（多尺度融合）
+  │   ├─ 每个位置 p：左右窗口平均向量的余弦相似度，多尺度取均值
+  │   └─ 动态阈值：取相似度最低的 20% 分位为切分点
   │
   ├─ 4. 按切分点合并单元，形成语义块
-  │   └─ 相邻语义相近的段落合并为同一 chunk
   │
-  └─ 5. 对过大的语义块按 Token 细切分
-      └─ 超过 chunkSize × 2 的块，用 TokenTextSplitter 再切分
+  ├─ 5. 合并过小的语义块（<250 字符向前合并）
+  │
+  └─ 6. 对过大的语义块按 Token 细切分
+      └─ 超过 chunkSize 的块，用 TokenTextSplitter 再切分
 ```
 
 **关键参数**：
 
 | 参数 | 默认值 | 说明 |
 | :--- | :--- | :--- |
-| `semanticChunking` | `false` | 是否启用语义分块（`kb_document` 表字段） |
-| `threshold` | `0.75` | 语义相似度阈值，低于该值则切分（0~1，值越小越容易切分） |
-| `chunkSize` | `500` | 语义块最大 Token 数，超过 `chunkSize × 2` 再细切分 |
-| `batchSize` | `20` | Embedding 分批调用大小，避免单次请求过大 |
-| 段落超长阈值 | `500` 字符 | 超过则按句子进一步切分 |
-| 短句合并阈值 | `100` 字符 | 相邻短句自动合并，避免产生过小单元 |
+| `WINDOW_SIZES` | `{1, 2}` | 多尺度滑动窗口大小集合 |
+| `SPLIT_PERCENTILE` | `0.20` | 动态切分阈值百分位（取相似度最低的 20%） |
+| `MIN_GAP_SAMPLES` | `4` | 最小语义断点样本数，不足则降级 |
+| `MIN_UNIT_CHARS` | `250` | 最小语义块字符数，过小则向前合并 |
+| `batchSize` | `20` | Embedding 分批调用大小 |
 
 **降级机制**：
 
 | 场景 | 降级策略 |
 | :--- | :--- |
-| 未配置 `EmbeddingModel` | 降级为 Token 分块（`tokenSplitFallback()`） |
+| 未配置 `EmbeddingModel` | `supports()` 返回 false，ChunkerFactory 自动选择 TokenChunker |
+| 语义单元数不足（≤ 2*MAX_WINDOW+1） | 降级为 Token 分块 |
 | Embedding 计算异常 | 捕获异常，降级为 Token 分块 |
-| 文档仅 1 个语义单元 | 直接返回该单元，不执行向量计算 |
+| 语义断点样本数 < MIN_GAP_SAMPLES | 降级为 Token 分块 |
 
 **与固定分块的对比**：
 
-| 维度 | 固定 Token/段落分块 | 语义分块 |
+| 维度 | TokenChunker（固定分块） | SemanticChunker（语义分块） |
 | :--- | :--- | :--- |
-| 切分依据 | 段落符 + Token 数量 | Embedding 向量语义相似度 |
+| 切分依据 | Token 数量 + 标点 | Embedding 向量语义相似度 |
 | 语义完整性 | 可能切断语义边界 | 语义相近段落自动合并 |
 | 计算开销 | 低（纯文本处理） | 高（需调用 Embedding 模型） |
 | 适用场景 | 结构规整、段落分明的文档 | 语义连贯、段落边界模糊的文档 |
 | 检索精度 | 依赖固定切分质量 | 语义块更完整，检索命中率更高 |
-
-**关键实现方法**（`KbDocumentServiceImpl`）：
-
-| 方法 | 职责 |
-| :--- | :--- |
-| `generalSmartSplit()` | 分块入口，根据 `semanticChunking` 选择语义分块或固定分块 |
-| `semanticSplit()` | 语义分块主流程：切单元 → 向量化 → 相似度计算 → 合并 → 细切分 |
-| `splitIntoSemanticUnits()` | 将文本切分为语义最小单元（段落优先，超长按句子） |
-| `splitBySentences()` | 按中英文标点切分句子，短句自动合并 |
-| `cosineSimilarity()` | 计算两个 Embedding 向量的余弦相似度 |
-| `tokenSplitFallback()` | 降级方案：Embedding 不可用时回退到 Token 分块 |
+| 阈值策略 | 无（固定 chunkSize） | 动态百分位阈值（自适应文档特征） |
 
 ### 2.7 SSE 流式推送
 
@@ -1010,7 +1064,11 @@ com.mall.chatmcp
 │   ├── SysDeptBo.java                  # 部门工具参数
 │   ├── SysRoleBo.java                  # 角色工具参数
 │   ├── SysPostBo.java                  # 岗位工具参数
-│   └── SysNoticeBo.java                # 公告工具参数
+│   ├── SysNoticeBo.java                # 公告工具参数
+│   ├── SysConfigBo.java                # 参数配置工具参数
+│   ├── SysDictTypeBo.java              # 字典类型工具参数
+│   ├── SysDictDataBo.java              # 字典数据工具参数
+│   └── SysJobBo.java                   # 定时任务工具参数
 │   # 关系型 BO（权限/关联绑定参数，均按名称传参，不含 ID）
 │   ├── UserRoleBo.java                 # 用户-角色绑定（userName + roleNames[]）
 │   ├── UserDeptBo.java                 # 用户-部门绑定（userName + deptName）
@@ -1022,12 +1080,16 @@ com.mall.chatmcp
     └── impl/
         ├── BaseToolServiceImpl.java    # 抽象基类（校验/异常/日志）
         ├── DeptToolServiceImpl.java    # 部门 CRUD
-        ├── UserToolServiceImpl.java    # 用户 CRUD + 状态管理
+        ├── UserToolServiceImpl.java    # 用户 CRUD + 状态管理 + 密码重置
         ├── RoleToolServiceImpl.java    # 角色 CRUD
         ├── NoticePostToolServiceImpl.java # 公告+岗位 CRUD
         ├── OpenMenuToolServiceImpl.java   # 菜单导航
         ├── DeptBizToolServiceImpl.java    # 部门业务聚合工具
-        └── Nl2SqlToolServiceImpl.java     # 自然语言转 SQL
+        ├── Nl2SqlToolServiceImpl.java     # 自然语言转 SQL
+        ├── ConfigToolServiceImpl.java     # 系统参数配置 CRUD + 查询
+        ├── DictToolServiceImpl.java       # 字典类型/字典数据 CRUD + 查询
+        ├── JobToolServiceImpl.java        # 定时任务 CRUD + 状态修改 + 立即执行 + 日志查询
+        └── LogToolServiceImpl.java        # 操作日志/登录日志查询 + 登录失败统计
 ```
 
 ### 3.2 工具基类设计（模板方法模式）
@@ -1046,11 +1108,20 @@ com.mall.chatmcp
 | :--- | :--- | :--- |
 | `DeptToolServiceImpl` | `deptCrud` | 部门增删改查，按名称查询而非 ID |
 | `UserToolServiceImpl` | `userCrud` | 用户增删改查 + 状态管理 |
+| `UserToolServiceImpl` | `resetUserPassword` | 重置用户密码（按用户名查找） |
+| `UserToolServiceImpl` | `changeUserStatus` | 修改用户状态（启用/停用） |
 | `RoleToolServiceImpl` | `roleCrud` | 角色增删改查 |
 | `NoticePostToolServiceImpl` | `noticeCrud` / `postCrud` | 公告/岗位增删改查 |
 | `OpenMenuToolServiceImpl` | `getMenuComponent` | 菜单导航 |
 | `DeptBizToolServiceImpl` | `createDeptWithAdmin` / `batchCreateDepts` | 业务聚合工具 |
 | `Nl2SqlToolServiceImpl` | `nl2SqlQuery` | 自然语言转 SQL 查询 |
+| `ConfigToolServiceImpl` | `configCrud` / `configQuery` | 系统参数配置增删改 + 查询 |
+| `DictToolServiceImpl` | `dictTypeCrud` / `dictTypeQuery` | 字典类型增删改 + 查询 |
+| `DictToolServiceImpl` | `dictDataCrud` / `dictDataQuery` | 字典数据增删改 + 查询 |
+| `JobToolServiceImpl` | `jobCrud` / `jobQuery` / `jobLogQuery` | 定时任务增删改 + 状态修改 + 立即执行 + 日志查询 |
+| `LogToolServiceImpl` | `operLogQuery` | 操作日志查询（按操作人/模块/状态） |
+| `LogToolServiceImpl` | `loginLogQuery` | 登录日志查询（按用户名/状态） |
+| `LogToolServiceImpl` | `loginFailStats` | 统计登录失败次数最多的用户 |
 
 ### 3.4 工具设计规范
 
@@ -1273,16 +1344,24 @@ spring:
 | `smallChatClient` | **概述小模型** ChatClient Bean | 记忆提取/合并、会话标题生成（替代原 titleChatClient / compressChatClient） |
 | `ToolDataCacheService` | 工具大数据 Redis 缓存 | dataId 机制，避免撑爆 LLM 上下文 |
 
-### 5.3 RAG 检索
+### 5.3 RAG 检索与文档解析
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
 | `RagContextQueryAdvisor` | **自定义**：知识库上下文查询 Advisor，在请求链路内执行三步检索并注入系统提示词 | 参考 VectorStoreChatMemoryAdvisor 模式，推送 rag_retrieve 事件 |
 | `RagRetrieveContextService` | 三步检索：先查 tag 再执行（前置检查→反向匹配→内存模糊匹配→全量降级）→ knowledgeId 单重过滤向量检索 → Reranker 重排序 | 供外部 API（KbRagRetrieveApi）和 NL2SQL 工具（kbType=20）调用 |
 | `RerankerService` | 调用外部 Reranker 模型重排序 | 降级机制 |
-| `KbDocumentServiceImpl` | 文档解析+切片+向量化 | md 直读 / 图片走本地 MinerU-OCR / PDF/Word 走远程 MinerU |
-| `MinerUService` | MinerU 远程接口调用 | PDF/Word 解析，vlm 模式，轮询获取结果 |
-| `minerUChatClient` | 本地 MinerU-OCR 视觉模型 Bean | 图片 OCR，opendatalab/MinerU2.5-Pro-2605-1.2B |
+| `KbDocumentServiceImpl` | 文档上传流程编排（调用 ExtractorFactory + ChunkerFactory） | 责任精简：仅负责上传/删除/向量化流程，解析和分块已独立 |
+| `ExtractorFactory` | 文档提取器工厂（按文件后缀自动路由） | Spring Bean 自动发现所有 Extractor |
+| `AbstractTikaExtractor` | Tika 抽象基类（结构化 Markdown + 纯文本 + 输出上限降级） | PdfExtractor/WordExtractor/ExcelExtractor 共用 |
+| `WordExtractor` | Word 文档提取（docx: POI 本地解析; doc: Tika 回退） | 958 行，标题/列表/表格/图片 OCR |
+| `ExcelExtractor` | Excel/CSV 提取（POI全量 + FastExcel流式 + CSV状态机） | 编码嗅探、合并单元格、Tika兆底 |
+| `PdfExtractor` | PDF 提取（Tika 结构化 Markdown） | 标题/表格/列表保留，输出上限防 OOM |
+| `ImageExtractor` | 图片 OCR（本地 MinerU-OCR 视觉模型） | opendatalab/MinerU2.5-Pro-2605-1.2B |
+| `AudioExtractor` | 音频元数据提取（Tika Metadata） | 支持 MP3/WAV/FLAC/OGG 等 |
+| `ChunkerFactory` | 分块策略工厂（按配置自动选择） | Spring Bean 自动发现所有 Chunker |
+| `SemanticChunker` | 语义分块（多尺度滑动窗口 + 动态阈值） | EmbeddingModel 不可用时自动降级 |
+| `TokenChunker` | Token 固定分块（TokenTextSplitter） | 默认分块策略 |
 
 ### 5.4 工具编排
 
@@ -1299,6 +1378,10 @@ spring:
 | `BaseToolServiceImpl` | 工具抽象基类 | 模板方法模式 |
 | `Nl2SqlToolServiceImpl` | 自然语言转 SQL | LLM 生成 + 自我修正 + 远程执行 |
 | `DeptBizToolServiceImpl` | 部门业务聚合工具 | 多步操作封装为单一工具 |
+| `ConfigToolServiceImpl` | 系统参数配置 CRUD + 查询 | 按 configKey/configName 查询，不暴露 ID |
+| `DictToolServiceImpl` | 字典类型/字典数据 CRUD + 查询 | 支持 dictType/dictName/dictLabel 多维度查询 |
+| `JobToolServiceImpl` | 定时任务 CRUD + 状态修改 + 立即执行 + 日志查询 | 支持 add/update/delete/changeStatus/run 5 种操作 |
+| `LogToolServiceImpl` | 操作日志/登录日志查询 + 登录失败统计 | 只读查询，最多返回 10 条摘要 |
 | `McpServerConfig` | MCP Server 配置 | 工具注册 + sqlChatClient Bean |
 
 ### 5.6 MCP 网关服务
@@ -1369,14 +1452,15 @@ reranker:
   top-n: 3
 
 mineru:
-  base-url: https://mineru.net               # 远程 MinerU 接口（PDF/Word 解析）
-  model-version: vlm                         # vlm(推荐) / pipeline / MinerU-HTML
-  poll-interval-ms: 2000                     # 轮询间隔
-  poll-max-attempts: 120                     # 最大轮询次数（约 4 分钟）
   vl:
     base-url: http://127.0.0.1:8890/v1       # 本地 MinerU-OCR 视觉模型（图片 OCR）
     api-key: 123456
     model: opendatalab/MinerU2.5-Pro-2605-1.2B
+
+extract:
+  tika-max-chars: 2097152                    # Tika 解析输出上限（2M 字符 ≈ 4MB 内存）
+  images: true                               # Word 图片提取总开关（批量灌库时可关闭提速）
+  page-break-mark: false                     # Word 分页标记开关
 
 ai:
   tool:

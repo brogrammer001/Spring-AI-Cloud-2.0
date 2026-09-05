@@ -11,12 +11,11 @@ import java.util.Date;
 
 /**
  * 【请填写功能名称】对象 sys_chat_history
- * 
+ *
  * @author mall
  * @date 2026-07-04
  */
-public class SysChatHistory extends BaseEntity
-{
+public class SysChatHistory extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -25,34 +24,60 @@ public class SysChatHistory extends BaseEntity
     @Excel(name = "id")
     private String id;
 
-    /** 会话ID */
+    /**
+     * 会话ID
+     */
     @Excel(name = "会话ID")
     private String conversationId;
 
-    /** 消息内容 */
+    /**
+     * 消息内容
+     */
     @Excel(name = "消息内容")
     private String content;
 
-    /** 消息类型：USER / ASSISTANT */
+    /**
+     * 消息类型：USER / ASSISTANT
+     */
     @Excel(name = "消息类型：USER / ASSISTANT")
     private String type;
 
-    /** 时间戳 */
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss" , timezone = "GMT+8")
+    /**
+     * 时间戳
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     @Excel(name = "时间戳", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     private Date timestamp;
 
-    /** 排序 */
+    /**
+     * 排序
+     */
     @Excel(name = "排序")
     private Long sequenceId;
 
-    /** 是否压缩 */
+    /**
+     * 是否压缩
+     */
     @Excel(name = "是否压缩")
     private String isCompression;
 
-    /** 工具调用参数JSON */
+    /**
+     * 工具调用参数JSON
+     */
     @Excel(name = "工具调用参数")
     private String toolCalls;
+
+    /**
+     * 工具名称
+     */
+    @Excel(name = "工具名称")
+    private String toolName;
+
+    /**
+     * 工具执行结果
+     */
+    @Excel(name = "工具执行结果")
+    private String toolResult;
 
     @TableField(exist = false)
     private String userName;
@@ -73,6 +98,22 @@ public class SysChatHistory extends BaseEntity
         this.toolCalls = toolCalls;
     }
 
+    public String getToolName() {
+        return toolName;
+    }
+
+    public void setToolName(String toolName) {
+        this.toolName = toolName;
+    }
+
+    public String getToolResult() {
+        return toolResult;
+    }
+
+    public void setToolResult(String toolResult) {
+        this.toolResult = toolResult;
+    }
+
     public String getUserName() {
         return userName;
     }
@@ -89,65 +130,57 @@ public class SysChatHistory extends BaseEntity
         this.id = id;
     }
 
-    public void setConversationId(String conversationId)
-    {
+    public void setConversationId(String conversationId) {
         this.conversationId = conversationId;
     }
 
-    public String getConversationId() 
-    {
+    public String getConversationId() {
         return conversationId;
     }
 
-    public void setContent(String content) 
-    {
+    public void setContent(String content) {
         this.content = content;
     }
 
-    public String getContent() 
-    {
+    public String getContent() {
         return content;
     }
 
-    public void setType(String type) 
-    {
+    public void setType(String type) {
         this.type = type;
     }
 
-    public String getType() 
-    {
+    public String getType() {
         return type;
     }
 
-    public void setTimestamp(Date timestamp) 
-    {
+    public void setTimestamp(Date timestamp) {
         this.timestamp = timestamp;
     }
 
-    public Date getTimestamp() 
-    {
+    public Date getTimestamp() {
         return timestamp;
     }
 
-    public void setSequenceId(Long sequenceId) 
-    {
+    public void setSequenceId(Long sequenceId) {
         this.sequenceId = sequenceId;
     }
 
-    public Long getSequenceId() 
-    {
+    public Long getSequenceId() {
         return sequenceId;
     }
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
+        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
             .append("conversationId", getConversationId())
             .append("content", getContent())
             .append("type", getType())
             .append("timestamp", getTimestamp())
             .append("sequenceId", getSequenceId())
             .append("toolCalls", getToolCalls())
+            .append("toolName", getToolName())
+            .append("toolResult", getToolResult())
             .toString();
     }
 }

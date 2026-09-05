@@ -205,7 +205,7 @@
               inactive-text="关闭"
               inline-prompt
             />
-            <div class="el-form-item__tip" style="font-size: 12px; color: #909399; line-height: 1.5; margin-top: 4px;">
+            <div class="el-form-item__tip" style="font-size: 12px; color: var(--text-secondary, #8b8899); line-height: 1.5; margin-top: 4px;">
               开启后使用 Embedding 模型按语义相似度分块，更精准但耗时更长
             </div>
           </el-form-item>

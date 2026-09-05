@@ -11,7 +11,7 @@
     <div class="lock-card">
       <div class="avatar-wrap">
         <img :src="userStore.avatar" class="lock-avatar" @error="onAvatarError" />
-        <div class="lock-icon">🔒</div>
+        <div class="lock-icon"><i class="fas fa-lock"></i></div>
       </div>
       <div class="lock-username">{{ userStore.nickName }}</div>
       <div class="lock-hint">系统已锁定，请输入密码解锁</div>
@@ -19,7 +19,7 @@
       <div class="input-wrap" :class="{ shake: isShaking }">
         <input ref="passwordInput" v-model="password" type="password" placeholder="请输入登录密码" class="lock-input" @keydown.enter="handleUnlock" autocomplete="off" />
         <button class="unlock-btn" @click="handleUnlock" :disabled="loading">
-          <span v-if="!loading">→</span>
+          <span v-if="!loading"><i class="fas fa-arrow-right"></i></span>
           <span v-else class="loading-dot">···</span>
         </button>
       </div>
@@ -119,13 +119,21 @@ const initParticles = () => {
   resize()
   window.addEventListener('resize', resize)
 
-  particles = Array.from({ length: 80 }, () => ({
+  // 马卡龙三色粒子（玫红 / 紫 / 蓝）
+  const palette = [
+    { dot: '240, 67, 110', line: '240, 67, 110' },
+    { dot: '139, 92, 246', line: '167, 139, 250' },
+    { dot: '96, 165, 250', line: '96, 165, 250' }
+  ]
+
+  particles = Array.from({ length: 70 }, () => ({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
-    r: Math.random() * 2 + 1,
-    dx: (Math.random() - 0.5) * 0.6,
-    dy: (Math.random() - 0.5) * 0.6,
-    alpha: Math.random() * 0.5 + 0.2
+    r: Math.random() * 2.5 + 1,
+    dx: (Math.random() - 0.5) * 0.5,
+    dy: (Math.random() - 0.5) * 0.5,
+    alpha: Math.random() * 0.35 + 0.12,
+    color: palette[Math.floor(Math.random() * palette.length)]
   }))
 
   const draw = () => {
@@ -133,7 +141,7 @@ const initParticles = () => {
     particles.forEach(p => {
       ctx.beginPath()
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-      ctx.fillStyle = `rgba(255,255,255,${p.alpha})`
+      ctx.fillStyle = `rgba(${p.color.dot},${p.alpha})`
       ctx.fill()
       p.x += p.dx
       p.y += p.dy
@@ -148,8 +156,8 @@ const initParticles = () => {
           ctx.beginPath()
           ctx.moveTo(a.x, a.y)
           ctx.lineTo(b.x, b.y)
-          ctx.strokeStyle = `rgba(255,255,255,${0.15 * (1 - dist / 120)})`
-          ctx.lineWidth = 0.5
+          ctx.strokeStyle = `rgba(${a.color.line},${0.10 * (1 - dist / 120)})`
+          ctx.lineWidth = 0.6
           ctx.stroke()
         }
       }
@@ -172,17 +180,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 样式与原文件完全一致，无需改动 */
+/* ===== 淡紫马卡龙风：浅色薰衣草底 + 毛玻璃白卡（禁止深色背景） ===== */
 .lock-container {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  background:
+    radial-gradient(at 12% 12%, rgba(250, 214, 226, 0.55) 0px, transparent 42%),
+    radial-gradient(at 88% 18%, rgba(221, 214, 246, 0.55) 0px, transparent 42%),
+    radial-gradient(at 80% 92%, rgba(214, 228, 250, 0.50) 0px, transparent 42%),
+    #f4f2f9;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   overflow: hidden;
 }
 
@@ -197,9 +209,8 @@ onBeforeUnmount(() => {
   z-index: 1;
   font-size: 72px;
   font-weight: 200;
-  color: #fff;
+  color: #262336;
   letter-spacing: 4px;
-  text-shadow: 0 0 40px rgba(255,255,255,0.3);
   margin-bottom: 8px;
   font-variant-numeric: tabular-nums;
 }
@@ -208,25 +219,34 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 1;
   font-size: 15px;
-  color: rgba(255,255,255,0.6);
-  margin-bottom: 48px;
+  color: #8b8899;
+  margin-bottom: 40px;
   letter-spacing: 2px;
 }
 
 .lock-card {
   position: relative;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
   padding: 40px 48px;
   width: 360px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+  box-shadow:
+    0 1px 2px rgba(17, 24, 39, 0.04),
+    0 16px 40px rgba(124, 116, 160, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  animation: cardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .avatar-wrap {
@@ -238,7 +258,8 @@ onBeforeUnmount(() => {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  border: 3px solid rgba(255,255,255,0.3);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.25), 0 6px 16px rgba(124, 116, 160, 0.18);
   object-fit: cover;
   display: block;
 }
@@ -247,19 +268,20 @@ onBeforeUnmount(() => {
   position: absolute;
   bottom: -4px;
   right: -4px;
-  background: rgba(255,255,255,0.15);
+  background: linear-gradient(135deg, #f0436e 0%, #ff7a9c 100%);
   border-radius: 50%;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  backdrop-filter: blur(8px);
+  font-size: 12px;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(240, 67, 110, 0.35);
 }
 
 .lock-username {
-  color: #fff;
+  color: #262336;
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 6px;
@@ -267,7 +289,7 @@ onBeforeUnmount(() => {
 }
 
 .lock-hint {
-  color: rgba(255,255,255,0.5);
+  color: #8b8899;
   font-size: 13px;
   margin-bottom: 28px;
 }
@@ -276,16 +298,17 @@ onBeforeUnmount(() => {
   width: 100%;
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 50px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #eceaf4;
+  border-radius: 999px;
   padding: 4px 4px 4px 20px;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
 }
 
 .input-wrap:focus-within {
-  border-color: rgba(255,255,255,0.6);
-  background: rgba(255,255,255,0.13);
+  border-color: #f0436e;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.12);
 }
 
 .input-wrap.shake {
@@ -305,33 +328,35 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   outline: none;
-  color: #fff;
+  color: #262336;
   font-size: 15px;
   padding: 10px 0;
 }
 
 .lock-input::placeholder {
-  color: rgba(255,255,255,0.35);
+  color: #b6b3c2;
 }
 
 .unlock-btn {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #f0436e 0%, #ff7a9c 100%);
   border: none;
   color: #fff;
-  font-size: 18px;
+  font-size: 15px;
   cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(240, 67, 110, 0.30);
 }
 
 .unlock-btn:hover:not(:disabled) {
-  transform: scale(1.08);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(240, 67, 110, 0.38);
 }
 
 .unlock-btn:disabled {
@@ -346,7 +371,7 @@ onBeforeUnmount(() => {
 
 .error-msg {
   margin-top: 14px;
-  color: #ff7675;
+  color: #d9305c;
   font-size: 13px;
   text-align: center;
   animation: fadeIn 0.3s ease;
@@ -362,13 +387,13 @@ onBeforeUnmount(() => {
 }
 
 .lock-footer a {
-  color: rgba(255,255,255,0.4);
+  color: #8b8899;
   font-size: 13px;
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .lock-footer a:hover {
-  color: rgba(255,255,255,0.8);
+  color: #f0436e;
 }
 </style>

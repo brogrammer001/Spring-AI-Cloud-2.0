@@ -134,16 +134,28 @@
     border-radius: var(--radius-xs) !important;
   }
 
-  &.el-button--primary:not(.is-disabled) {
-
+  /* design.md 4.3：主按钮玫红底 + 主色投影，hover 上浮加深 */
+  &.el-button--primary:not(.is-plain):not(.is-disabled) {
+    box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
 
     &:hover {
-
       transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(240, 67, 110, 0.28);
     }
 
     &:active {
       transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+    }
+  }
+
+  /* plain 次级按钮：白底浅边框，hover 主色轻染 */
+  &.el-button--primary.is-plain:not(.is-disabled) {
+    background: rgba(240, 67, 110, 0.06);
+
+    &:hover {
+      background: rgba(240, 67, 110, 0.12);
+      transform: translateY(-1px);
     }
   }
 
@@ -365,6 +377,18 @@ html.dark .el-table th.el-table__cell {
     margin-bottom: 16px;
   }
 
+  /* 搜索表单层次化：淡灰紫底面板，与白卡形成层次（design.md 次级数据卡 #f4f3f8） */
+  > .el-form--inline {
+    background: var(--table-header-bg, #f4f3f8);
+    border: 1px solid var(--border-color-soft, #eceaf4);
+    border-radius: var(--radius-md, 12px);
+    padding: 16px 16px 0;
+
+    .el-form-item {
+      margin-bottom: 16px;
+    }
+  }
+
   /* 按钮工具栏 mb8 间距统一 */
   .mb8 {
     margin-bottom: 16px;
@@ -397,4 +421,218 @@ html.dark .el-table th.el-table__cell {
   &.is-link:hover {
     color: var(--el-color-primary) !important;
   }
+}
+
+/* ===================================================================
+   补全：Element Plus 其余组件现代化（淡紫马卡龙风）
+   =================================================================== */
+
+/* ---------- 开关 ---------- */
+.el-switch {
+  --el-switch-on-color: var(--el-color-primary);
+}
+
+/* ---------- 复选框 / 单选框 ---------- */
+.el-checkbox__input.is-checked .el-checkbox__inner,
+.el-radio__input.is-checked .el-radio__inner {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+}
+
+.el-checkbox__input.is-checked + .el-checkbox__label,
+.el-radio__input.is-checked + .el-radio__label {
+  color: var(--el-color-primary);
+}
+
+.el-checkbox__inner:hover,
+.el-radio__inner:hover {
+  border-color: var(--el-color-primary);
+}
+
+/* ---------- 下拉菜单 / 弹出层 ---------- */
+.el-dropdown-menu,
+.el-popper.is-light {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.el-dropdown-menu__item:not(.is-disabled):hover,
+.el-dropdown-menu__item:not(.is-disabled):focus {
+  background-color: rgba(240, 67, 110, 0.06) !important;
+  color: var(--el-color-primary) !important;
+}
+
+/* ---------- 消息提示 / 通知 ---------- */
+.el-message {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-lg) !important;
+  background: var(--card-bg) !important;
+}
+
+.el-notification {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+.el-message-box {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+/* ---------- 选项卡 ---------- */
+.el-tabs__item {
+  transition: color 0.25s ease;
+
+  &.is-active {
+    color: var(--el-color-primary);
+    font-weight: 600;
+  }
+
+  &:hover {
+    color: var(--el-color-primary);
+  }
+}
+
+.el-tabs__active-bar {
+  background-color: var(--el-color-primary);
+  border-radius: var(--radius-full);
+}
+
+/* ---------- 描述列表 ---------- */
+.el-descriptions {
+  .el-descriptions__label {
+    color: var(--text-secondary);
+  }
+
+  .el-descriptions__content {
+    color: var(--text-regular);
+  }
+}
+
+/* ---------- 树 ---------- */
+.el-tree {
+  background: transparent;
+  color: var(--text-regular);
+
+  .el-tree-node__content {
+    border-radius: var(--radius-sm);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    height: 32px;
+
+    &:hover {
+      background-color: rgba(240, 67, 110, 0.05);
+    }
+  }
+
+  .el-tree-node.is-current > .el-tree-node__content {
+    background-color: rgba(240, 67, 110, 0.10);
+    color: var(--el-color-primary);
+    font-weight: 600;
+  }
+}
+
+/* ---------- 空状态 ---------- */
+.el-empty__description {
+  color: var(--text-secondary);
+}
+
+/* ---------- 加载 ---------- */
+.el-loading-mask {
+  background-color: var(--glass-bg) !important;
+  backdrop-filter: blur(4px);
+}
+
+/* ---------- 日期选择器 ---------- */
+.el-date-editor {
+  --el-input-border-radius: var(--radius-sm);
+}
+
+/* ---------- 数字输入 / 颜色选择 ---------- */
+.el-input-number,
+.el-color-picker__trigger {
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 步骤条 ---------- */
+.el-step__head.is-finish,
+.el-step__title.is-finish {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+.el-step__head.is-process,
+.el-step__title.is-process {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+/* ---------- 进度条 ---------- */
+.el-progress-bar__inner {
+  background-color: var(--el-color-primary);
+}
+
+/* ---------- 链接 ---------- */
+.el-link.el-link--primary {
+  --el-link-text-color: var(--el-color-primary);
+  --el-link-hover-text-color: #d9305c;
+}
+
+/* ---------- 分割线 ---------- */
+.el-divider {
+  border-top-color: var(--border-color-soft);
+}
+
+/* ---------- 输入框聚焦环统一（补充 select / date-picker 触发器） ---------- */
+.el-select .el-input.is-focus .el-input__wrapper,
+.el-date-editor.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.12) !important;
+}
+
+/* ---------- 表格行选中态 ---------- */
+.el-table__body tr.current-row > td.el-table__cell {
+  background-color: rgba(240, 67, 110, 0.06) !important;
+}
+
+/* ---------- 表格空态文字 ---------- */
+.el-table__empty-text {
+  color: var(--text-secondary);
+}
+
+/* ---------- 抽屉头部 ---------- */
+.el-drawer__header {
+  margin-bottom: 0 !important;
+  padding: 20px 24px 16px !important;
+  border-bottom: 1px solid var(--border-color-soft);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.el-drawer__body {
+  padding: 24px !important;
+}
+
+/* ---------- 弹出确认框按钮 ---------- */
+.el-message-box__btns .el-button--primary {
+  box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+}
+
+/* ---------- 表单错误提示 ---------- */
+.el-form-item__error {
+  font-size: 12px;
+}
+
+/* ---------- 输入框占位符颜色 ---------- */
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  color: var(--text-placeholder);
+}
+
+/* ---------- 标签页关闭按钮 ---------- */
+.el-tabs__nav .el-icon-close:hover {
+  background-color: rgba(240, 67, 110, 0.12);
+  color: var(--el-color-primary);
 }

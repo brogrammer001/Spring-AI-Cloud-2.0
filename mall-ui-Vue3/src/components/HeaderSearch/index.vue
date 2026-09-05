@@ -251,7 +251,7 @@ watch(searchPool, (list) => {
 }
 
 :deep(.highlight) {
-  color: red;
+  color: var(--el-color-primary, #f0436e);
   font-weight: 600;
 }
 
@@ -271,10 +271,10 @@ watch(searchPool, (list) => {
 .result-count {
   padding: 6px 16px 0;
   font-size: 12px;
-  color: #aaa;
+  color: var(--text-placeholder, #b6b3c2);
 
   strong {
-    color: red;
+    color: var(--el-color-primary, #f0436e);
     font-weight: 600;
   }
 }
@@ -288,7 +288,7 @@ watch(searchPool, (list) => {
     height: 48px;
     align-items: center;
     padding-right: 10px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm, 8px);
     transition: background 0.15s;
 
     .left {
@@ -321,7 +321,7 @@ watch(searchPool, (list) => {
       }
 
       .menu-path {
-        color: #ccc;
+        color: var(--text-placeholder, #b6b3c2);
         font-size: 10px;
       }
     }
@@ -340,23 +340,23 @@ watch(searchPool, (list) => {
 
     .empty-icon {
       font-size: 42px;
-      color: #e0e0e0;
+      color: var(--text-placeholder, #b6b3c2);
       margin-bottom: 14px;
     }
 
     .empty-text {
       font-size: 14px;
-      color: #999;
+      color: var(--text-secondary, #8b8899);
       margin: 0 0 6px;
 
       strong {
-        color: #666;
+        color: var(--text-regular, #4b4861);
       }
     }
 
     .empty-tip {
       font-size: 12px;
-      color: #bbb;
+      color: var(--text-placeholder, #b6b3c2);
       margin: 0;
     }
   }
@@ -367,8 +367,8 @@ watch(searchPool, (list) => {
   align-items: center;
   gap: 28px;
   padding: 10px 20px;
-  border-top: 1px solid #f0f0f0;
-  color: #999;
+  border-top: 1px solid var(--card-border, #eceaf4);
+  color: var(--text-secondary, #8b8899);
   font-size: 12px;
 
   .shortcut-item {
@@ -384,14 +384,14 @@ watch(searchPool, (list) => {
     min-width: 20px;
     height: 20px;
     padding: 0 5px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--card-border, #eceaf4);
     border-radius: 4px;
-    background: #f7f7f7;
-    color: #555;
+    background: var(--table-header-bg, #f4f3f8);
+    color: var(--text-regular, #4b4861);
     font-size: 11px;
     font-family: inherit;
     line-height: 1;
-    box-shadow: 0 1px 0 #ccc;
+    box-shadow: 0 1px 0 var(--card-border, #eceaf4);
   }
 }
 </style>

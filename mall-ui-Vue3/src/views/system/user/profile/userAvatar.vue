@@ -158,23 +158,34 @@ function closeDialog() {
   position: relative;
   display: inline-block;
   height: 120px;
+
+  img {
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.25), 0 6px 16px rgba(124, 116, 160, 0.18);
+    transition: box-shadow 0.3s ease;
+  }
+
+  &:hover img {
+    box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.45), 0 8px 20px rgba(124, 116, 160, 0.22);
+  }
 }
 
 .user-info-head:hover:after {
   content: "+";
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  color: #eee;
-  background: rgba(0, 0, 0, 0.5);
-  font-size: 24px;
+  left: 3px;
+  right: 3px;
+  top: 3px;
+  bottom: 3px;
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(240, 67, 110, 0.55), rgba(255, 122, 156, 0.55));
+  font-size: 26px;
+  font-weight: 300;
   font-style: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   cursor: pointer;
-  line-height: 110px;
+  line-height: 114px;
   border-radius: 50%;
 }
 </style>

@@ -3,7 +3,7 @@
     <!-- 自定义标题 -->
     <template #header>
       <div class="drawer-head">
-        <el-icon style="color:#5b9bd5;margin-right:8px;"><List /></el-icon>
+        <el-icon style="color:#f0436e;margin-right:8px;"><List /></el-icon>
         <span class="drawer-head-name">{{ row.dictName }}</span>
         <span class="drawer-head-type">{{ row.dictType }}</span>
       </div>
@@ -116,12 +116,12 @@ function loadData() {
 .drawer-head-name {
   font-size: 16px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-primary, #262336);
   margin-right: 8px;
 }
 .drawer-head-type {
   font-size: 14px;
-  color: #95a5a6;
+  color: var(--text-secondary, #8b8899);
   font-family: monospace;
 }
 .drawer-wrap {
@@ -132,13 +132,13 @@ function loadData() {
   align-items: center;
   justify-content: center;
   height: 120px;
-  color: #aaa;
+  color: var(--text-secondary, #8b8899);
   font-size: 13px;
   gap: 8px;
 }
 .drawer-empty {
   text-align: center;
-  color: #bbb;
+  color: var(--text-placeholder, #b6b3c2);
   padding: 60px 0;
   font-size: 13px;
 }
@@ -150,36 +150,36 @@ function loadData() {
   margin-bottom: 16px;
 }
 .stat-card {
-  background: #f7f9fb;
-  border: 1px solid #e8ecf0;
-  border-radius: 6px;
+  background: var(--table-header-bg, #f4f3f8);
+  border: 1px solid var(--card-border, #eceaf4);
+  border-radius: var(--radius-sm, 8px);
   padding: 10px 14px;
   text-align: center;
 }
 .stat-num {
   font-size: 22px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--text-primary, #262336);
 }
-.stat-num.success { color: #27ae60; }
-.stat-num.danger  { color: #e74c3c; }
+.stat-num.success { color: #22c55e; }
+.stat-num.danger  { color: #f0436e; }
 .stat-label {
   font-size: 11px;
-  color: #95a5a6;
+  color: var(--text-secondary, #8b8899);
   margin-top: 4px;
 }
 .dict-item {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  border: 1px solid #e8ecf0;
-  border-radius: 6px;
+  border: 1px solid var(--card-border, #eceaf4);
+  border-radius: var(--radius-sm, 8px);
   overflow: hidden;
   margin-bottom: 8px;
 }
 .dict-cell {
   display: grid;
   grid-template-columns: 70px 1fr;
-  border-right: 1px solid #f0f4f8;
+  border-right: 1px solid var(--card-border, #eceaf4);
 }
 .dict-cell:last-child {
   border-right: 0;
@@ -187,14 +187,14 @@ function loadData() {
 .dict-cell-key {
   padding: 9px 14px;
   font-size: 12px;
-  color: #888;
-  background: #f7f9fb;
-  border-right: 1px solid #f0f4f8;
+  color: var(--text-secondary, #8b8899);
+  background: var(--table-header-bg, #f4f3f8);
+  border-right: 1px solid var(--card-border, #eceaf4);
 }
 .dict-cell-val {
   padding: 9px 14px;
   font-size: 13px;
-  color: #2c3e50;
+  color: var(--text-primary, #262336);
   word-break: break-all;
   display: flex;
   align-items: center;

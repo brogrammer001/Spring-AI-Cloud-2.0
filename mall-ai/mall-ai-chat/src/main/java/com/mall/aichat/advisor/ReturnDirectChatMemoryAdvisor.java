@@ -8,12 +8,13 @@ import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.*;
-import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -68,25 +69,31 @@ public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         ChatGenerationMetadata generationMetadata = result.getMetadata();
         String finishReason = generationMetadata.getFinishReason();
 
-        if ("returnDirect".equals(finishReason)) {
-            List<Message> assistantMessages = chatClientResponse.chatResponse()
+        if (ToolExecutionResult.FINISH_REASON.equals(finishReason)) {
+            List<SysChatHistory> list = chatClientResponse.chatResponse()
                 .getResults()
                 .stream()
-                .map(g -> (Message) g.getOutput())
-                .toList();
-
-            List<SysChatHistory> list = assistantMessages.stream().map(message -> {
-                Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
-                SysChatHistory history = new SysChatHistory();
-                history.setId(IdUtils.fastUUID());
-                history.setConversationId(conversationId);
-                history.setContent(message.getText());
-                history.setTimestamp(new Date());
-                history.setIsCompression("N");
-                history.setType(message.getMessageType().getValue());
-                history.setSequenceId(sequenceId);
-                return history;
-            }).toList();
+                .map(g -> {
+                    Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
+                    SysChatHistory history = new SysChatHistory();
+                    history.setId(IdUtils.fastUUID());
+                    history.setConversationId(conversationId);
+                    history.setContent(g.getOutput().getText());
+                    // 提取 Spring AI 在 returnDirect 时注入的 toolId / toolName 元数据
+                    String toolName = g.getMetadata().get(ToolExecutionResult.METADATA_TOOL_NAME);
+                    String toolId = g.getMetadata().get(ToolExecutionResult.METADATA_TOOL_ID);
+                    if (StringUtils.hasText(toolName)) {
+                        history.setToolName(toolName);
+                    }
+                    if (StringUtils.hasText(toolId)) {
+                        history.setToolCalls(toolId);
+                    }
+                    history.setTimestamp(new Date());
+                    history.setIsCompression("N");
+                    history.setType(g.getOutput().getMessageType().getValue());
+                    history.setSequenceId(sequenceId);
+                    return history;
+                }).toList();
             if (list.isEmpty()) return chatClientResponse;
             sysChatHistoryService.saveBatch(list);
         }

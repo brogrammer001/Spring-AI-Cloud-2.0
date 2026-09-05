@@ -18,6 +18,7 @@ import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -73,10 +74,9 @@ public class FullHistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
                 // 1. 拦截大模型发起的工具调用指令
                 AssistantMessage am = generation.getOutput();
                 if (am.hasToolCalls()) {
-                    AssistantMessage.ToolCall toolCall = am.getToolCalls().getFirst();
-                    String toolName = toolCall.name();
-                    // 推送 calling 状态
-                    agentEventSinkManager.emitThought(conversationId, toolName);
+                    // 遍历推送所有工具调用的 calling 状态，避免并行工具只推送第一个
+                    am.getToolCalls().forEach(toolCall ->
+                        agentEventSinkManager.emitThought(conversationId, toolCall.name()));
                 }
                 return Flux.just(chatClientResponse);
             })
@@ -114,7 +114,8 @@ public class FullHistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         Message userMessage = processedChatClientRequest.prompt().getLastUserOrToolResponseMessage();
 
         this.saveHistory(conversationId, Collections.singletonList(userMessage));
-        return chatClientRequest;
+        // 返回处理后的请求，确保注入的内存消息真正生效（而非返回原始请求）
+        return processedChatClientRequest;
     }
 
     @Override
@@ -136,20 +137,22 @@ public class FullHistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
     private void saveHistory(String conversationId, List<Message> messageList) {
         List<SysChatHistory> list = messageList.stream().flatMap(message -> {
             if (message instanceof ToolResponseMessage trm) {
+                // 工具执行结果：使用 toolName / toolResult 字段语义化存储
                 return trm.getResponses().stream().map(r -> {
                     Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
                     SysChatHistory history = new SysChatHistory();
                     history.setId(IdUtils.fastUUID());
                     history.setConversationId(conversationId);
-                    history.setContent(r.name());
-                    history.setToolCalls(r.responseData());
+                    history.setContent(r.responseData());
+                    history.setToolName(r.name());
+                    history.setToolResult(r.responseData());
                     history.setTimestamp(new Date());
                     history.setIsCompression("N");
                     history.setType(message.getMessageType().getValue());
                     history.setSequenceId(sequenceId);
                     return history;
                 });
-            }else {
+            } else {
                 Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
                 SysChatHistory history = new SysChatHistory();
                 history.setId(IdUtils.fastUUID());
@@ -158,11 +161,14 @@ public class FullHistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
                 // 如果是包含工具调用的 AssistantMessage，必须把 ToolCalls 序列化存入
                 if (message instanceof AssistantMessage am && am.hasToolCalls()) {
-                    // 注意：你需要把 toolCalls 转换成 JSON 字符串存下来
+                    // toolCalls 保存工具调用参数 JSON（模型发起调用的输入）
                     history.setToolCalls(JSON.toJSONString(am.getToolCalls()));
+                    // content 优先保留 reasoningContent（思考过程），为空时回退到 am.getText()
                     Map<String, Object> metadata = am.getMetadata();
-
-                    history.setContent((String) metadata.get("reasoningContent"));
+                    String reasoningContent = (String) metadata.get("reasoningContent");
+                    if (StringUtils.hasText(reasoningContent)) {
+                        history.setContent(reasoningContent);
+                    }
                 }
                 history.setTimestamp(new Date());
                 history.setIsCompression("N");
