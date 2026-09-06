@@ -29,6 +29,9 @@ public class ChatConstants
     /** 记忆归属用户 ID，长期记忆跨会话检索的基础过滤字段（conversationId 仅随 metadata 落库用于追踪） */
     public static final String CHAT_MEMORY_USER_ID = "userId";
 
+    /** 记忆类型元数据键：profile（用户画像）/ fact（对话事实） */
+    public static final String CHAT_MEMORY_TYPE = "memory_type";
+
     // =====================================================================
     // ② 知识库—— RAG 写入方 / 检索方读写
     // =====================================================================
@@ -59,6 +62,15 @@ public class ChatConstants
 
     /** 请求级用户标识 context key，VectorStoreChatMemoryAdvisor 据此圈定长期记忆作用域（跨会话生效） */
     public static final String CTX_USER_ID = "chat_memory_user_id";
+
+    /** 请求级租户/部门隔离 context key，多租户场景下 Advisor 和工具审计据此做硬隔离 */
+    public static final String CTX_TENANT_ID = "agent_tenant_id";
+
+    /** 请求级部门 ID context key，数据权限过滤 */
+    public static final String CTX_DEPT_ID = "agent_dept_id";
+
+    /** 请求级追踪 ID context key，贯穿单次请求的所有工具调用日志 */
+    public static final String CTX_TRACE_ID = "agent_trace_id";
 
     /** 请求级指定知识库类型（kbType）的 context key，RagContextQueryAdvisor 据此检索知识库 */
     public static final String CTX_KB_TYPE = "rag_kb_type";

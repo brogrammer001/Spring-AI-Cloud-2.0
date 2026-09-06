@@ -10,12 +10,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="description"    column="description"    />
         <result property="status"    column="status"    />
         <result property="kbType"    column="kb_type"    />
+        <result property="createBy"    column="create_by"    />
         <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
     </resultMap>
 
     <sql id="selectKbKnowledgeBaseVo">
-        select id, name, description, status, kb_type, create_time, update_time from kb_knowledge_base
+        select id, name, description, status, kb_type, create_by, create_time, update_by, update_time from kb_knowledge_base
     </sql>
 
     <select id="selectKbKnowledgeBaseList" parameterType="KbKnowledgeBase" resultMap="KbKnowledgeBaseResult">
@@ -41,7 +43,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="description != null">description,</if>
             <if test="status != null">status,</if>
             <if test="kbType != null and kbType != ''">kb_type,</if>
+            <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -50,7 +54,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="description != null">#{description},</if>
             <if test="status != null">#{status},</if>
             <if test="kbType != null and kbType != ''">#{kbType},</if>
+            <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
          </trim>
     </insert>
@@ -62,7 +68,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="description != null">description = #{description},</if>
             <if test="status != null">status = #{status},</if>
             <if test="kbType != null and kbType != ''">kb_type = #{kbType},</if>
-            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
         where id = #{id}

@@ -140,6 +140,8 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 dbChunk.setDocumentId(kbDocument.getId());
                 dbChunk.setKnowledgeId(kbDocument.getKnowledgeId());
                 dbChunk.setContent(chunk.getText());
+                // 切片继承文档的创建人，保证审计字段一致
+                dbChunk.setCreateBy(kbDocument.getCreateBy());
                 return dbChunk;
             }).toList();
 

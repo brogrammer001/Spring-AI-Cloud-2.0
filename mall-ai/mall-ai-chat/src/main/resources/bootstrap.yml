@@ -10,7 +10,7 @@ spring:
   ai:
     mcp:
       client:
-        enabled: false
+        enabled: true
         name: ${spring.application.name}
         version: 1.0.0
         request-timeout: 600s
@@ -19,9 +19,9 @@ spring:
           connections:
             gateway:
               url: http://localhost:9999  # 替换为实际 Gateway 地址
-            mcp-echarts: # 这个 key 会作为工具名前缀
-              url: http://114.132.102.8:2001
-              endpoint: /mcp
+#            mcp-echarts: # 这个 key 会作为工具名前缀
+#              url: http://114.132.102.8:2001
+#              endpoint: /mcp
     model:
       chat: openai
       embedding: openai
@@ -30,22 +30,27 @@ spring:
         speech: none
         transcription: none
       moderation: none
+    session:
+      repository:
+        jdbc:
+          # PostgreSQL / MySQL 必须显式开启建表；H2 嵌入式默认自动建
+          initialize-schema: always
+      time-to-live: 30d      # 会话有效期，默认 60d，支持 ISO-8601
     chat:
       client:
         tool-search-advisor:
           enabled: true
           tool-index-type: vector #vector
           max-results: 3               # 每次搜索最多返回几个工具
-      memory:
-        repository:
-          jdbc:
-            initialize-schema: always   # 首次启动自动建表
-            platform: mysql
     openai:
-      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-      api-key: ${aliQwen-api}
+#      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+#      api-key: ${aliQwen-api}
+#      chat:
+#        model: qwen3.7-flash-2026-07-15
+      base-url: https://api-inference.modelscope.cn/v1
+      api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
       chat:
-        model: qwen3.7-flash-2026-07-15
+        model: deepseek-ai/DeepSeek-V4-Pro-0813
       embedding:
         model: Qwen3-Embedding-4B-Q8_0
         base-url: http://127.0.0.1:8889/v1 # 2.0版本需要带上 /v1 后缀
@@ -99,15 +104,15 @@ reranker:
   top-n: 3
 
 smallmodel:
-#  base-url: http://114.132.102.8:8888/v1
-#  api-key: 123456
-#  model: MiniCPM5-1B-Q8_0
+  base-url: http://114.132.102.8:8888/v1
+  api-key: 123456
+  model: MiniCPM5-1B-Q8_0
 #  base-url: https://apihub.agnes-ai.com/v1
 #  api-key: sk-8liWySJNPd8Znk0Z7Fk3iOl7MfjE9MIgdLLRME3fp8HYdBKV
 #  model: agnes-2.5-flash
-  base-url: https://api-inference.modelscope.cn/v1
-  api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
-  model: deepseek-ai/DeepSeek-V4-Pro-0813
+#  base-url: https://api-inference.modelscope.cn/v1
+#  api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
+#  model: deepseek-ai/DeepSeek-V4-Pro-0813
 
 vectorstore:
   enabled: true #开启全局向量功能
@@ -117,9 +122,7 @@ vectorstore:
     knowledge-object-class: KnowledgeBase
     chat-memory-object-class: ConversationHistory
     tool-index-object-class: ToolIndex
-
-chat-memory:
-  max-messages: 4
+    user-memory-object-class: AiUserMemory
 
 ai:
   chat:

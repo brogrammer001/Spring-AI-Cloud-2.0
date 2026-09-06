@@ -9,6 +9,7 @@ import com.mall.common.core.web.page.TableDataInfo;
 import com.mall.common.log.annotation.Log;
 import com.mall.common.log.enums.BusinessType;
 import com.mall.common.security.annotation.RequiresPermissions;
+import com.mall.common.security.utils.SecurityUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -71,6 +72,7 @@ public class KbDocumentController extends BaseController
     @PostMapping
     public AjaxResult add(@RequestBody KbDocument kbDocument)
     {
+        kbDocument.setCreateBy(SecurityUtils.getUsername());
         return toAjax(kbDocumentService.insertKbDocument(kbDocument));
     }
 
@@ -82,6 +84,7 @@ public class KbDocumentController extends BaseController
     @PutMapping
     public AjaxResult edit(@RequestBody KbDocument kbDocument)
     {
+        kbDocument.setUpdateBy(SecurityUtils.getUsername());
         return toAjax(kbDocumentService.updateKbDocument(kbDocument));
     }
 

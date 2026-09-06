@@ -9,6 +9,7 @@ import com.mall.common.core.web.page.TableDataInfo;
 import com.mall.common.log.annotation.Log;
 import com.mall.common.log.enums.BusinessType;
 import com.mall.common.security.annotation.RequiresPermissions;
+import com.mall.common.security.utils.SecurityUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -71,6 +72,7 @@ public class KbDocumentChunkController extends BaseController
     @PostMapping
     public AjaxResult add(@RequestBody KbDocumentChunk kbDocumentChunk)
     {
+        kbDocumentChunk.setCreateBy(SecurityUtils.getUsername());
         return toAjax(kbDocumentChunkService.insertKbDocumentChunk(kbDocumentChunk));
     }
 
@@ -82,6 +84,7 @@ public class KbDocumentChunkController extends BaseController
     @PutMapping
     public AjaxResult edit(@RequestBody KbDocumentChunk kbDocumentChunk)
     {
+        kbDocumentChunk.setUpdateBy(SecurityUtils.getUsername());
         return toAjax(kbDocumentChunkService.updateKbDocumentChunk(kbDocumentChunk));
     }
 

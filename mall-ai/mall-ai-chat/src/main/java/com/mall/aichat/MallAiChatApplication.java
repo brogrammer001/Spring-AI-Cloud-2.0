@@ -5,12 +5,14 @@ import com.mall.common.security.annotation.EnableRyFeignClients;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 
 @SpringBootApplication
 @EnableRyFeignClients
 @EnableCustomConfig
 @EnableAsync
+@EnableScheduling
 public class MallAiChatApplication {
     public static void main(String[] args) {
         SpringApplication.run(MallAiChatApplication.class, args);

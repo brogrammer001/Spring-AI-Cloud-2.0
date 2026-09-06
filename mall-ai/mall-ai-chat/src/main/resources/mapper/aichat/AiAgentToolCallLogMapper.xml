@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.aichat.mapper.AiAgentToolCallLogMapper">
+    
+    <resultMap type="AiAgentToolCallLog" id="AiAgentToolCallLogResult">
+        <result property="callId"    column="call_id"    />
+        <result property="traceId"    column="trace_id"    />
+        <result property="conversationId"    column="conversation_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="tenantId"    column="tenant_id"    />
+        <result property="toolName"    column="tool_name"    />
+        <result property="toolParams"    column="tool_params"    />
+        <result property="resultDigest"    column="result_digest"    />
+        <result property="resultRef"    column="result_ref"    />
+        <result property="status"    column="status"    />
+        <result property="errorMsg"    column="error_msg"    />
+        <result property="costMs"    column="cost_ms"    />
+        <result property="bizModule"    column="biz_module"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectAiAgentToolCallLogVo">
+        select call_id, trace_id, conversation_id, user_id, tenant_id, tool_name, tool_params, result_digest, result_ref, status, error_msg, cost_ms, biz_module, create_by, create_time, update_by, update_time from ai_agent_tool_call_log
+    </sql>
+
+    <select id="selectAiAgentToolCallLogList" parameterType="AiAgentToolCallLog" resultMap="AiAgentToolCallLogResult">
+        <include refid="selectAiAgentToolCallLogVo"/>
+        <where>  
+            <if test="traceId != null  and traceId != ''"> and trace_id = #{traceId}</if>
+            <if test="conversationId != null  and conversationId != ''"> and conversation_id = #{conversationId}</if>
+            <if test="userId != null "> and user_id = #{userId}</if>
+            <if test="tenantId != null  and tenantId != ''"> and tenant_id = #{tenantId}</if>
+            <if test="toolName != null  and toolName != ''"> and tool_name like concat('%', #{toolName}, '%')</if>
+            <if test="toolParams != null  and toolParams != ''"> and tool_params = #{toolParams}</if>
+            <if test="resultDigest != null  and resultDigest != ''"> and result_digest = #{resultDigest}</if>
+            <if test="resultRef != null  and resultRef != ''"> and result_ref = #{resultRef}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="errorMsg != null  and errorMsg != ''"> and error_msg = #{errorMsg}</if>
+            <if test="costMs != null "> and cost_ms = #{costMs}</if>
+            <if test="bizModule != null  and bizModule != ''"> and biz_module = #{bizModule}</if>
+        </where>
+    </select>
+    
+    <select id="selectAiAgentToolCallLogByCallId" parameterType="String" resultMap="AiAgentToolCallLogResult">
+        <include refid="selectAiAgentToolCallLogVo"/>
+        where call_id = #{callId}
+    </select>
+
+    <insert id="insertAiAgentToolCallLog" parameterType="AiAgentToolCallLog">
+        insert into ai_agent_tool_call_log
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="callId != null">call_id,</if>
+            <if test="traceId != null and traceId != ''">trace_id,</if>
+            <if test="conversationId != null and conversationId != ''">conversation_id,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="tenantId != null">tenant_id,</if>
+            <if test="toolName != null and toolName != ''">tool_name,</if>
+            <if test="toolParams != null">tool_params,</if>
+            <if test="resultDigest != null">result_digest,</if>
+            <if test="resultRef != null">result_ref,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="errorMsg != null">error_msg,</if>
+            <if test="costMs != null">cost_ms,</if>
+            <if test="bizModule != null">biz_module,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="callId != null">#{callId},</if>
+            <if test="traceId != null and traceId != ''">#{traceId},</if>
+            <if test="conversationId != null and conversationId != ''">#{conversationId},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="tenantId != null">#{tenantId},</if>
+            <if test="toolName != null and toolName != ''">#{toolName},</if>
+            <if test="toolParams != null">#{toolParams},</if>
+            <if test="resultDigest != null">#{resultDigest},</if>
+            <if test="resultRef != null">#{resultRef},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="errorMsg != null">#{errorMsg},</if>
+            <if test="costMs != null">#{costMs},</if>
+            <if test="bizModule != null">#{bizModule},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateAiAgentToolCallLog" parameterType="AiAgentToolCallLog">
+        update ai_agent_tool_call_log
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="traceId != null and traceId != ''">trace_id = #{traceId},</if>
+            <if test="conversationId != null and conversationId != ''">conversation_id = #{conversationId},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="tenantId != null">tenant_id = #{tenantId},</if>
+            <if test="toolName != null and toolName != ''">tool_name = #{toolName},</if>
+            <if test="toolParams != null">tool_params = #{toolParams},</if>
+            <if test="resultDigest != null">result_digest = #{resultDigest},</if>
+            <if test="resultRef != null">result_ref = #{resultRef},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="errorMsg != null">error_msg = #{errorMsg},</if>
+            <if test="costMs != null">cost_ms = #{costMs},</if>
+            <if test="bizModule != null">biz_module = #{bizModule},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where call_id = #{callId}
+    </update>
+
+    <delete id="deleteAiAgentToolCallLogByCallId" parameterType="String">
+        delete from ai_agent_tool_call_log where call_id = #{callId}
+    </delete>
+
+    <delete id="deleteAiAgentToolCallLogByCallIds" parameterType="String">
+        delete from ai_agent_tool_call_log where call_id in 
+        <foreach item="callId" collection="array" open="(" separator="," close=")">
+            #{callId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteAiAgentToolCallLogByConversationIds" parameterType="String">
+        delete from ai_agent_tool_call_log where conversation_id in
+        <foreach item="conversationId" collection="array" open="(" separator="," close=")">
+            #{conversationId}
+        </foreach>
+    </delete>
+
+    <!-- 记忆提炼 Worker：查询状态为 SUCCESS 且未被提炼的日志（biz_module 为空表示未处理） -->
+    <select id="selectUnprocessedBatch" resultMap="AiAgentToolCallLogResult">
+        <include refid="selectAiAgentToolCallLogVo"/>
+        where status = 'SUCCESS' and (biz_module is null or biz_module = '')
+        order by create_time asc
+        limit #{limit}
+    </select>
+
+    <!-- 记忆提炼完成后回写 biz_module 标记已处理 -->
+    <update id="markProcessed">
+        update ai_agent_tool_call_log set biz_module = 'MEMORY_EXTRACTED'
+        where call_id in
+        <foreach item="callId" collection="callIds" open="(" separator="," close=")">
+            #{callId}
+        </foreach>
+    </update>
+</mapper>

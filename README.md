@@ -217,7 +217,7 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 - **流式拦截**：检测 LLM 发起的工具调用，通过 `AgentEventSinkManager` 推送 `tool_call` 事件给前端
 - **after 阶段**：流式聚合完成后，将 Assistant 回复存入 MySQL
 - **序列号机制**：通过 Redis `INCR` 生成全局递增 `sequenceId`，保证消息顺序
-- **工具调用存储**：`AssistantMessage` 中的 `ToolCalls` 序列化为 JSON 存入 `tool_calls` 字段；`ToolResponseMessage` 的响应数据同样存入
+- **工具调用存储**：`AssistantMessage` 中的思考过程（`reasoningContent`）优先作为 `content` 落库；`ToolResponseMessage` 的响应数据按条展开写入 `content` 字段（每条工具响应一条历史记录）
 
 #### 2.3.2 ReturnDirectChatMemoryAdvisor
 
@@ -354,7 +354,7 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 #### 2.5.4 全量聊天记录（业务展示）
 
 *   **作用**：供前端展示"历史会话列表"和"聊天详情"，支持分页、关键词搜索。
-*   **存储**：MySQL 业务表 `sys_chat_history`，包含 `conversation_id`、`content`、`tool_calls`、`sequence_id`、`is_compression`、`type` 等字段。
+*   **存储**：MySQL 业务表 `sys_chat_history`，包含 `conversation_id`、`content`、`sequence_id`、`type`、`timestamp`、`create_by`、`create_time`、`update_by`、`update_time` 等字段。
 *   **特点**：**全量永久存储**（除非用户主动删除），不进行滑动窗口截断。
 *   **重点类**：`FullHistoryChatMemoryAdvisor`。
 

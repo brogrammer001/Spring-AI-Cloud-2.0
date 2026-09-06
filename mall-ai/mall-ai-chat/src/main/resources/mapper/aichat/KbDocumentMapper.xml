@@ -16,11 +16,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="chunkSeparator"    column="chunk_separator"    />
         <result property="semanticChunking"    column="semantic_chunking"    />
         <result property="tags"    column="tags"    />
+        <result property="createBy"    column="create_by"    />
         <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
     </resultMap>
 
     <sql id="selectKbDocumentVo">
-        select id, knowledge_id, file_name, file_path, file_type, status, chunk_count, chunk_size, chunk_separator, semantic_chunking, tags, create_time from kb_document
+        select id, knowledge_id, file_name, file_path, file_type, status, chunk_count, chunk_size, chunk_separator, semantic_chunking, tags, create_by, create_time, update_by, update_time from kb_document
     </sql>
 
     <select id="selectKbDocumentList" parameterType="KbDocument" resultMap="KbDocumentResult">
@@ -57,7 +60,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="chunkSeparator != null">chunk_separator,</if>
             <if test="semanticChunking != null">semantic_chunking,</if>
             <if test="tags != null and tags != ''">tags,</if>
+            <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="id != null">#{id},</if>
@@ -71,7 +77,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="chunkSeparator != null">#{chunkSeparator},</if>
             <if test="semanticChunking != null">#{semanticChunking},</if>
             <if test="tags != null and tags != ''">#{tags},</if>
+            <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
          </trim>
     </insert>
 
@@ -88,7 +97,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="chunkSeparator != null">chunk_separator = #{chunkSeparator},</if>
             <if test="semanticChunking != null">semantic_chunking = #{semanticChunking},</if>
             <if test="tags != null and tags != ''">tags = #{tags},</if>
-            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
         where id = #{id}
     </update>
@@ -132,7 +142,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectDocumentsByKbType" resultMap="KbDocumentResult">
         SELECT DISTINCT d.id, d.knowledge_id, d.file_name, d.file_path, d.file_type, d.status,
-               d.chunk_count, d.chunk_size, d.chunk_separator, d.semantic_chunking, d.tags, d.create_time
+               d.chunk_count, d.chunk_size, d.chunk_separator, d.semantic_chunking, d.tags,
+               d.create_by, d.create_time, d.update_by, d.update_time
         FROM kb_document d
         INNER JOIN kb_knowledge_base kb ON d.knowledge_id = kb.id
         WHERE kb.kb_type = #{kbType} AND kb.status = #{status}

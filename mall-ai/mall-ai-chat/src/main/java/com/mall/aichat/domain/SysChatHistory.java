@@ -55,64 +55,8 @@ public class SysChatHistory extends BaseEntity {
     @Excel(name = "排序")
     private Long sequenceId;
 
-    /**
-     * 是否压缩
-     */
-    @Excel(name = "是否压缩")
-    private String isCompression;
-
-    /**
-     * 工具调用参数JSON
-     */
-    @Excel(name = "工具调用参数")
-    private String toolCalls;
-
-    /**
-     * 工具名称
-     */
-    @Excel(name = "工具名称")
-    private String toolName;
-
-    /**
-     * 工具执行结果
-     */
-    @Excel(name = "工具执行结果")
-    private String toolResult;
-
     @TableField(exist = false)
     private String userName;
-
-    public String getIsCompression() {
-        return isCompression;
-    }
-
-    public void setIsCompression(String isCompression) {
-        this.isCompression = isCompression;
-    }
-
-    public String getToolCalls() {
-        return toolCalls;
-    }
-
-    public void setToolCalls(String toolCalls) {
-        this.toolCalls = toolCalls;
-    }
-
-    public String getToolName() {
-        return toolName;
-    }
-
-    public void setToolName(String toolName) {
-        this.toolName = toolName;
-    }
-
-    public String getToolResult() {
-        return toolResult;
-    }
-
-    public void setToolResult(String toolResult) {
-        this.toolResult = toolResult;
-    }
 
     public String getUserName() {
         return userName;
@@ -173,14 +117,16 @@ public class SysChatHistory extends BaseEntity {
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
+            .append("id", getId())
             .append("conversationId", getConversationId())
             .append("content", getContent())
             .append("type", getType())
             .append("timestamp", getTimestamp())
             .append("sequenceId", getSequenceId())
-            .append("toolCalls", getToolCalls())
-            .append("toolName", getToolName())
-            .append("toolResult", getToolResult())
+            .append("createBy", getCreateBy())
+            .append("createTime", getCreateTime())
+            .append("updateBy", getUpdateBy())
+            .append("updateTime", getUpdateTime())
             .toString();
     }
 }

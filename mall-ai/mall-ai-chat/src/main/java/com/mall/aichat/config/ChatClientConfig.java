@@ -1,20 +1,23 @@
 package com.mall.aichat.config;
 
 import com.mall.aichat.advisor.*;
+import com.mall.aichat.service.IAiAgentToolCallLogService;
 import com.mall.aichat.service.IKbDocumentService;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.aichat.service.impl.RerankerService;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.mcp.AsyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.session.SessionService;
+import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
+import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
+import org.springframework.ai.session.compaction.TurnCountTrigger;
 import org.springframework.ai.tool.toolsearch.ToolIndex;
 import org.springframework.ai.tool.toolsearch.index.lucene.LuceneToolIndex;
 import org.springframework.ai.tool.toolsearch.index.vectorstore.VectorToolIndex;
@@ -25,7 +28,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.Duration;
@@ -93,6 +95,19 @@ public class ChatClientConfig {
     public ToolSearchToolCallingAdvisor toolSearchAdvisor(@Qualifier("toolIndex") ToolIndex toolIndex) {
         return ToolSearchToolCallingAdvisor.builder()
             .toolIndex(toolIndex)
+            .advisorOrder(100)
+            .build();
+    }
+
+    @Bean
+    public SessionMemoryAdvisor sessionMemoryAdvisor(SessionService sessionService) {
+        return SessionMemoryAdvisor.builder(sessionService)
+            .compactionTrigger(new TurnCountTrigger(4))
+            .order(101)
+            .compactionStrategy(
+                SlidingWindowCompactionStrategy.builder()
+                    .maxEvents(8)
+                    .build())
             .build();
     }
 
@@ -100,12 +115,11 @@ public class ChatClientConfig {
      * 总聊天会话
      *
      * @param model
-     * @param chatMemory
      * @param conversationVectorStore
      * @return
      */
     @Bean(name = "qwenChatClient")
-    public ChatClient qwenChatClient(OpenAiChatModel model, ChatMemory chatMemory,
+    public ChatClient qwenChatClient(OpenAiChatModel model, SessionMemoryAdvisor sessionMemoryAdvisor,
                                      @Qualifier("conversationVectorStore") @Autowired(required = false) VectorStore conversationVectorStore,
                                      @Qualifier("knowledgeVectorStore") @Autowired(required = false) VectorStore knowledgeVectorStore,
                                      ToolSearchToolCallingAdvisor toolSearchAdvisor,
@@ -114,48 +128,51 @@ public class ChatClientConfig {
                                      RerankerService rerankerService,
                                      StringRedisTemplate mallRedisTemplate,
                                      AgentEventSinkManager agentEventSinkManager,
+                                     SessionService sessionService,
                                      ChatClient smallChatClient,
+                                     IAiAgentToolCallLogService toolCallLogService,
                                      @Qualifier("mcpAsyncToolCallbacks") @Autowired(required = false) AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
 
-        // 1. 基础内存（Redis/MySQL）
-        advisors.add(MessageChatMemoryAdvisor.builder(chatMemory).order(Ordered.HIGHEST_PRECEDENCE + 200).build());
-
-        // 2. 向量内存 - 根据 vectorEnabled 和 conversationVectorStore 是否存在来决定
+        // 1. 向量会话记忆 - 根据 vectorEnabled 和 conversationVectorStore 是否存在来决定
         if (vectorStoreEnabled && conversationVectorStore != null) {
             advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore, smallChatClient)
-                .order(Ordered.HIGHEST_PRECEDENCE + 201)
+                .order(98)
                 .defaultTopK(vectorStoreChatMemoryDefaultTopK)
                 .build());
         }
 
-        // 2.1 知识库上下文查询 - 根据 vectorEnabled 和 knowledgeVectorStore 是否存在来决定
+        // 2. 在 toolSearchAdvisor 之前执行，保存标记了 returnDirect=true 的工具结果
+        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, sessionService).order(99).build());
+
+        // 3.工具搜索顾问
+        advisors.add(toolSearchAdvisor); //100
+
+        // 4.基础会话记忆（MySQL）
+        advisors.add(sessionMemoryAdvisor); // 101
+
+        // 5. 知识库上下文查询 - 根据 vectorEnabled 和 knowledgeVectorStore 是否存在来决定
         if (vectorStoreEnabled && knowledgeVectorStore != null) {
             advisors.add(RagContextQueryAdvisor.builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager)
-                .order(Ordered.HIGHEST_PRECEDENCE + 201)
+                .order(102)
                 .build());
         }
 
-        //3在toolSearchAdvisor之前执行，保存标记了returnDirect=true的工具结果
-        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate).order(Ordered.HIGHEST_PRECEDENCE + 202).build());
+        // 6. 保存全量消息，必须在 toolSearchAdvisor 之后，要拿到工具调用信息
+        advisors.add(HistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, agentEventSinkManager, toolCallLogService).order(103).build());
 
-        // 4工具搜索顾问
-        advisors.add(toolSearchAdvisor); //Ordered.HIGHEST_PRECEDENCE + 300
-
-        //5保存全量消息,必须在toolSearchAdvisor之后直接，要拿到工具调用信息
-        advisors.add(FullHistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, chatMemory, agentEventSinkManager).order(1).build());
-
-        // 6. 日志
-        advisors.add(new SimpleLoggerAdvisor(2));
+        // 7. 观测日志
+        advisors.add(new SimpleLoggerAdvisor(104));
 
         ChatClient.Builder builder = ChatClient.builder(model)
             .defaultSystem(systemSimplifyPromptResource)
             .defaultAdvisors(advisors);
 
         if (mcpEnabled) {
-            WrappedMcpToolCallbackProvider wrappedMcpToolCallbackProvider = new WrappedMcpToolCallbackProvider(tools);
-            builder.defaultTools(wrappedMcpToolCallbackProvider);
+            // ★ 双层装饰器链：ReturnDirect 包装 → 审计日志包装
+            WrappedMcpToolCallbackProvider wrappedProvider = new WrappedMcpToolCallbackProvider(tools);
+            builder.defaultTools(wrappedProvider);
         }
         return builder.build();
     }

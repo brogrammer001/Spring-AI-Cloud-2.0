@@ -13,6 +13,9 @@ public class ReturnDirectToolCallbackWrapper implements ToolCallback {
     private final ToolCallback delegate;
     private final ToolMetadata wrappedMetadata;
 
+    /** 结果摘要最大长度，超出截断（避免大结果撑爆审计表） */
+    private static final int MAX_RESULT_DIGEST_LENGTH = 1024;
+
     public ReturnDirectToolCallbackWrapper(ToolCallback delegate) {
         this.delegate = delegate;
 

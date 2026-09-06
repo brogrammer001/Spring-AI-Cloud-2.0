@@ -5,30 +5,35 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.mall.aichat.mapper.SysChatHistoryMapper">
     
     <resultMap type="SysChatHistory" id="SysChatHistoryResult">
+        <result property="id"    column="id"    />
         <result property="conversationId"    column="conversation_id"    />
         <result property="content"    column="content"    />
         <result property="type"    column="type"    />
         <result property="timestamp"    column="timestamp"    />
         <result property="sequenceId"    column="sequence_id"    />
         <result property="userName"    column="user_name"    />
-        <result property="isCompression"    column="is_compression"    />
-        <result property="toolCalls"    column="tool_calls"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
     </resultMap>
 
     <sql id="selectSysChatHistoryVo">
-        select id, conversation_id, content, type, timestamp, sequence_id, is_compression, tool_calls from sys_chat_history t1
+        select id, conversation_id, content, type, timestamp, sequence_id, create_by, create_time, update_by, update_time from sys_chat_history t1
     </sql>
 
     <select id="selectSysChatHistoryList" parameterType="SysChatHistory" resultMap="SysChatHistoryResult">
         SELECT
         t1.id,
         t1.conversation_id,
-        content,
-        type,
-        TIMESTAMP,
-        sequence_id,
-        is_compression,
-        tool_calls,
+        t1.content,
+        t1.type,
+        t1.timestamp,
+        t1.sequence_id,
+        t1.create_by,
+        t1.create_time,
+        t1.update_by,
+        t1.update_time,
         u.user_name
         FROM
         sys_chat_history t1
@@ -41,8 +46,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="type != null  and type != ''"> and t1.type = #{type}</if>
             <if test="timestamp != null "> and STR_TO_DATE(t1.timestamp, '%Y-%m-%d') = STR_TO_DATE(#{timestamp}, '%Y-%m-%d')</if>
             <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
-            <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
-            <if test="toolCalls != null  and toolCalls != ''"> and t1.tool_calls = #{toolCalls}</if>
         </where>
         order by t1.sequence_id asc
     </select>
@@ -51,25 +54,27 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         SELECT
         t1.id,
         t1.conversation_id,
-        content,
-        type,
-        TIMESTAMP,
-        sequence_id,
-        is_compression,
-        tool_calls,
+        t1.content,
+        t1.type,
+        t1.timestamp,
+        t1.sequence_id,
+        t1.create_by,
+        t1.create_time,
+        t1.update_by,
+        t1.update_time,
         u.user_name
         FROM
         sys_chat_history t1
         LEFT JOIN ai_conversation t2 ON t1.conversation_id = t2.conversation_id
         LEFT JOIN `mall-system`.sys_user u ON t2.user_id = u.user_id
         where t1.id = #{id}
-        order by sequence_id asc
+        order by t1.sequence_id asc
     </select>
 
     <select id="selectSysChatHistoryByConversationId" parameterType="String" resultMap="SysChatHistoryResult">
         <include refid="selectSysChatHistoryVo"/>
         where conversation_id = #{conversationId}
-        AND t1.type NOT IN ('COMPRESS', 'TOOL') AND t1.tool_calls IS NULL
+        AND t1.type NOT IN ('COMPRESS', 'TOOL')
         order by sequence_id asc
     </select>
 
@@ -81,32 +86,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="type != null  and type != ''"> and t1.type = #{type}</if>
             <if test="timestamp != null "> and STR_TO_DATE(t1.timestamp, '%Y-%m-%d') = STR_TO_DATE(#{timestamp}, '%Y-%m-%d')</if>
             <if test="sequenceId != null "> and t1.sequence_id = #{sequenceId}</if>
-            <if test="isCompression != null "> and t1.is_compression = #{isCompression}</if>
-            <if test="toolCalls != null  and toolCalls != ''"> and t1.tool_calls = #{toolCalls}</if>
         </where>
     </select>
 
     <insert id="insertSysChatHistory" parameterType="SysChatHistory">
         insert into sys_chat_history
         <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
             <if test="conversationId != null and conversationId != ''">conversation_id,</if>
             <if test="content != null and content != ''">content,</if>
             <if test="type != null and type != ''">type,</if>
             <if test="timestamp != null">timestamp,</if>
             <if test="sequenceId != null">sequence_id,</if>
-            <if test="isCompression != null">is_compression,</if>
-            <if test="toolCalls != null and toolCalls != ''">tool_calls,</if>
-            <if test="id != null">id,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
             <if test="conversationId != null and conversationId != ''">#{conversationId},</if>
             <if test="content != null and content != ''">#{content},</if>
             <if test="type != null and type != ''">#{type},</if>
             <if test="timestamp != null">#{timestamp},</if>
             <if test="sequenceId != null">#{sequenceId},</if>
-            <if test="isCompression != null">#{isCompression},</if>
-            <if test="toolCalls != null and toolCalls != ''">#{toolCalls},</if>
-            <if test="id != null">#{id},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
          </trim>
     </insert>
 
@@ -117,8 +124,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="type != null and type != ''">type = #{type},</if>
             <if test="timestamp != null">timestamp = #{timestamp},</if>
             <if test="sequenceId != null">sequence_id = #{sequenceId},</if>
-            <if test="isCompression != null">is_compression = #{isCompression},</if>
-            <if test="toolCalls != null">tool_calls = #{toolCalls},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
         where id = #{id}
     </update>

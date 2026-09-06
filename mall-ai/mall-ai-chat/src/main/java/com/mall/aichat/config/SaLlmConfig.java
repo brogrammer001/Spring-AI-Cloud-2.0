@@ -1,14 +1,8 @@
 package com.mall.aichat.config;
 
-import com.mall.aichat.advisor.RedisCachedAndMysqlMemoryRepository;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.ChatMemoryRepository;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -24,9 +18,6 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 @Configuration
 public class SaLlmConfig {
-
-    @Value("${chat-memory.max-messages}")
-    private int chatMemoryMaxMessages;
 
     @Value("${mineru.base-url}")
     private String baseUrl;
@@ -50,22 +41,6 @@ public class SaLlmConfig {
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .defaultHeader(HttpHeaders.ACCEPT, MediaType.ALL_VALUE)
             .requestFactory(factory)
-            .build();
-    }
-
-    /**
-     * 会话记忆存储
-     *
-     * @param jdbcChatMemoryRepository
-     * @param mallRedisTemplate
-     * @return
-     */
-    @Bean
-    public ChatMemory chatMemory(JdbcChatMemoryRepository jdbcChatMemoryRepository, StringRedisTemplate mallRedisTemplate) {
-        ChatMemoryRepository chatMemoryRepository = new RedisCachedAndMysqlMemoryRepository(jdbcChatMemoryRepository, mallRedisTemplate);
-        return MessageWindowChatMemory.builder()
-            .maxMessages(chatMemoryMaxMessages) //达到4条时，会直接删除最老的2条对话，偶数 ，向下取整
-            .chatMemoryRepository(chatMemoryRepository)
             .build();
     }
 

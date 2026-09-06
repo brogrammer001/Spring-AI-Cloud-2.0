@@ -1,0 +1,136 @@
+{
+    "deprecations": [],
+    "objects": [
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "04341842-a6b5-4c63-a9d6-09854a0b0a85",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "为用户分配角色。 ",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_userRoleAuth",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"04341842-a6b5-4c63-a9d6-09854a0b0a85\",\"toolDescription\":\"为用户分配角色。 \",\"toolName\":\"mall_ai_mcp_server_tools_userRoleAuth\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "1007a13f-6d48-4e9c-8f7a-1036f19013d1",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "定时任务的新增、修改、删除、状态修改、立即执行。参数包含 operationType(add/update/delete/changeStatus/run)和任务实体。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_jobCrud",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"1007a13f-6d48-4e9c-8f7a-1036f19013d1\",\"toolDescription\":\"定时任务的新增、修改、删除、状态修改、立即执行。参数包含 operationType(add/update/delete/changeStatus/run)和任务实体。\",\"toolName\":\"mall_ai_mcp_server_tools_jobCrud\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "13c236c4-0484-4c4a-9135-909ae23f4813",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "查询系统参数配置。参数：参数名称(configName)或参数键名(configKey)，可选。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_configQuery",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"13c236c4-0484-4c4a-9135-909ae23f4813\",\"toolDescription\":\"查询系统参数配置。参数：参数名称(configName)或参数键名(configKey)，可选。\",\"toolName\":\"mall_ai_mcp_server_tools_configQuery\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "1b33cabe-54ee-4203-b153-283cddd4425f",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "重置用户密码。参数：用户名(userName)和新密码(password)。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_resetUserPassword",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"1b33cabe-54ee-4203-b153-283cddd4425f\",\"toolDescription\":\"重置用户密码。参数：用户名(userName)和新密码(password)。\",\"toolName\":\"mall_ai_mcp_server_tools_resetUserPassword\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "32759d5b-5f9c-4ed2-af69-41a8697374fb",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "查询定时任务列表。参数：任务名称(jobName)或任务组名(jobGroup)，可选。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_jobQuery",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"32759d5b-5f9c-4ed2-af69-41a8697374fb\",\"toolDescription\":\"查询定时任务列表。参数：任务名称(jobName)或任务组名(jobGroup)，可选。\",\"toolName\":\"mall_ai_mcp_server_tools_jobQuery\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "37933e97-e80e-4b29-9075-d31551e7029b",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "查询字典数据列表。参数：字典类型编码(dictType)必填，字典标签(dictLabel)可选。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_dictDataQuery",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"37933e97-e80e-4b29-9075-d31551e7029b\",\"toolDescription\":\"查询字典数据列表。参数：字典类型编码(dictType)必填，字典标签(dictLabel)可选。\",\"toolName\":\"mall_ai_mcp_server_tools_dictDataQuery\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "3c513b22-3474-4eaa-9b03-a85baeb14295",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "查询字典类型列表。参数：字典名称(dictName)或字典类型编码(dictType)，可选。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_dictTypeQuery",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"3c513b22-3474-4eaa-9b03-a85baeb14295\",\"toolDescription\":\"查询字典类型列表。参数：字典名称(dictName)或字典类型编码(dictType)，可选。\",\"toolName\":\"mall_ai_mcp_server_tools_dictTypeQuery\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "568f91a4-8907-4abf-9fba-29ac3465118d",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "修改用户状态（启用/停用）。参数：用户名(userName)和状态(status: 有效/启用 或 无效/停用)。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_changeUserStatus",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"568f91a4-8907-4abf-9fba-29ac3465118d\",\"toolDescription\":\"修改用户状态（启用/停用）。参数：用户名(userName)和状态(status: 有效/启用 或 无效/停用)。\",\"toolName\":\"mall_ai_mcp_server_tools_changeUserStatus\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "6980dd78-e782-4620-9d27-155a27efa581",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "菜单导航工具。输入：菜单名称。功能：获取菜单组件路径以供前端跳转。 [JSON]",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_getMenu",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"6980dd78-e782-4620-9d27-155a27efa581\",\"toolDescription\":\"菜单导航工具。输入：菜单名称。功能：获取菜单组件路径以供前端跳转。 [JSON]\",\"toolName\":\"mall_ai_mcp_server_tools_getMenu\"}"
+            },
+            "vectorWeights": null
+        },
+        {
+            "class": "ToolIndex",
+            "creationTimeUnix": 1788664738489,
+            "id": "6b614479-eb18-4a54-ab0c-71c6d2ebdf67",
+            "lastUpdateTimeUnix": 1788664738489,
+            "properties": {
+                "content": "字典类型的新增、修改、删除。参数包含 operationType(add/update/delete)和字典类型实体。",
+                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
+                "meta_toolName": "mall_ai_mcp_server_tools_dictTypeCrud",
+                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"6b614479-eb18-4a54-ab0c-71c6d2ebdf67\",\"toolDescription\":\"字典类型的新增、修改、删除。参数包含 operationType(add/update/delete)和字典类型实体。\",\"toolName\":\"mall_ai_mcp_server_tools_dictTypeCrud\"}"
+            },
+            "vectorWeights": null
+        }
+    ],
+    "totalResults": 10
+}

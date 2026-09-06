@@ -14,7 +14,6 @@ public class WrappedMcpToolCallbackProvider implements ToolCallbackProvider {
     public WrappedMcpToolCallbackProvider(AsyncMcpToolCallbackProvider delegate) {
         this.delegate = delegate;
     }
-
     @Override
     public ToolCallback[] getToolCallbacks() {
         // 1. 获取原始工具列表（此时 Filter 和 Prefix 已经生效了）

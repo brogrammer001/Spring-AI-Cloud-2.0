@@ -3,6 +3,7 @@ package com.mall.aichat.advisor;
 import com.mall.aichat.domain.SysChatHistory;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
+import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -12,9 +13,11 @@ import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.model.tool.ToolExecutionResult;
+import org.springframework.ai.session.SessionEvent;
+import org.springframework.ai.session.SessionService;
+import org.springframework.ai.session.advisor.SessionEventResponseIdGenerator;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -29,10 +32,13 @@ public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
     private ISysChatHistoryService sysChatHistoryService;
 
-    public ReturnDirectChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService) {
+    private SessionService sessionService;
+
+    public ReturnDirectChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService, SessionService sessionService) {
         this.order = order;
         this.stringRedisTemplate = stringRedisTemplate;
         this.sysChatHistoryService = sysChatHistoryService;
+        this.sessionService = sessionService;
     }
 
     @Override
@@ -74,24 +80,21 @@ public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
                 .getResults()
                 .stream()
                 .map(g -> {
-                    Long sequenceId = stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId);
                     SysChatHistory history = new SysChatHistory();
                     history.setId(IdUtils.fastUUID());
                     history.setConversationId(conversationId);
                     history.setContent(g.getOutput().getText());
-                    // 提取 Spring AI 在 returnDirect 时注入的 toolId / toolName 元数据
-                    String toolName = g.getMetadata().get(ToolExecutionResult.METADATA_TOOL_NAME);
-                    String toolId = g.getMetadata().get(ToolExecutionResult.METADATA_TOOL_ID);
-                    if (StringUtils.hasText(toolName)) {
-                        history.setToolName(toolName);
-                    }
-                    if (StringUtils.hasText(toolId)) {
-                        history.setToolCalls(toolId);
-                    }
                     history.setTimestamp(new Date());
-                    history.setIsCompression("N");
                     history.setType(g.getOutput().getMessageType().getValue());
-                    history.setSequenceId(sequenceId);
+                    history.setSequenceId(stringRedisTemplate.opsForValue().increment(Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId));
+                    history.setCreateTime(DateUtils.getNowDate());
+
+                    this.sessionService.appendEvent(SessionEvent.builder()
+                        .id(SessionEventResponseIdGenerator.random().generate(chatClientResponse, g.getOutput()))
+                        .sessionId(conversationId)
+                        .message(g.getOutput())
+                        .build());
+
                     return history;
                 }).toList();
             if (list.isEmpty()) return chatClientResponse;
@@ -100,8 +103,8 @@ public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         return chatClientResponse;
     }
 
-    public static ReturnDirectChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate) {
-        return new ReturnDirectChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate);
+    public static ReturnDirectChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate, SessionService sessionService) {
+        return new ReturnDirectChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate, sessionService);
     }
 
     public static final class Builder {
@@ -112,10 +115,13 @@ public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
         private ISysChatHistoryService sysChatHistoryService;
 
+        private SessionService sessionService;
 
-        private Builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate) {
+
+        private Builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate, SessionService sessionService) {
             Assert.notNull(sysChatHistoryService, "chatMemory cannot be null");
             this.sysChatHistoryService = sysChatHistoryService;
+            this.sessionService = sessionService;
             this.stringRedisTemplate = stringRedisTemplate;
         }
 
@@ -136,7 +142,7 @@ public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
          * @return the advisor
          */
         public ReturnDirectChatMemoryAdvisor build() {
-            return new ReturnDirectChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService);
+            return new ReturnDirectChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService, this.sessionService);
         }
 
     }

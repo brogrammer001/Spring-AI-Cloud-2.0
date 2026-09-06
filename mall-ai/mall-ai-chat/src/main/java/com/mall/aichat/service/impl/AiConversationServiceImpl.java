@@ -2,8 +2,8 @@ package com.mall.aichat.service.impl;
 
 import com.mall.aichat.domain.AiConversation;
 import com.mall.aichat.mapper.AiConversationMapper;
+import com.mall.aichat.service.IAiAgentToolCallLogService;
 import com.mall.aichat.service.IAiConversationService;
-import com.mall.aichat.service.ISpringAiChatMemoryService;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
 import com.mall.common.core.exception.ServiceException;
@@ -15,6 +15,9 @@ import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.session.CreateSessionRequest;
+import org.springframework.ai.session.Session;
+import org.springframework.ai.session.SessionService;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,10 +50,13 @@ public class AiConversationServiceImpl implements IAiConversationService {
     private StringRedisTemplate mallRedisTemplate;
 
     @Autowired
-    private ISpringAiChatMemoryService springAiChatMemoryService;
+    private ISysChatHistoryService sysChatHistoryService;
 
     @Autowired
-    private ISysChatHistoryService sysChatHistoryService;
+    private IAiAgentToolCallLogService aiAgentToolCallLogService;
+
+    @Autowired
+    private SessionService sessionService;
 
     @Autowired(required = false)
     @Qualifier("conversationVectorStore")
@@ -139,13 +145,20 @@ public class AiConversationServiceImpl implements IAiConversationService {
 
     @Override
     public AiConversation createAiConversation(String question) {
-        // 保存到数据库
         Long userId = SecurityUtils.getUserId();
+        Session session = sessionService.create(
+            CreateSessionRequest.builder()
+                .userId(String.valueOf(userId))
+                .build());
+        String sessionId = session.id();
+
+        // 保存到数据库
+
         AiConversation entity = new AiConversation();
         entity.setId(IdUtils.fastUUID());
         entity.setUserId(userId);
         entity.setTitle(question);
-        entity.setConversationId(IdUtils.fastUUID());
+        entity.setConversationId(sessionId);
         this.insertAiConversation(entity);
 
         String redisKey = Constants.CHAT_CONVERSATION_KEY + entity.getConversationId();
@@ -166,7 +179,6 @@ public class AiConversationServiceImpl implements IAiConversationService {
                         .system("""
                             你是对话标题生成器。根据用户消息生成一个简短的对话标题。
                             要求：不超过15个字；概括消息主题；不要标点结尾；不要解释；只输出标题本身。
-
                             示例：
                             消息：帮我看看这段Java代码为什么在多线程环境下会出现死锁
                             标题：Java多线程死锁分析
@@ -207,6 +219,9 @@ public class AiConversationServiceImpl implements IAiConversationService {
     public int deleteByConversationId(String[] conversationIds) {
         //根据会话id获取关联表id
         String[] ids = Arrays.stream(conversationIds).flatMap(conversationId -> {
+            // 删除模型记忆
+            sessionService.delete(conversationId);
+
             AiConversation aiConversation = new AiConversation();
             aiConversation.setConversationId(conversationId);
             return this.selectAiConversationList(aiConversation).stream();
@@ -215,19 +230,16 @@ public class AiConversationServiceImpl implements IAiConversationService {
         //删除用户与会话id关联
         int i = aiConversationMapper.deleteAiConversationByIds(ids);
 
-        //删除上下文会话
-        int j = springAiChatMemoryService.deleteSpringAiChatMemoryByConversationIds(conversationIds);
-
         //删除全量会话历史
         int z = sysChatHistoryService.deleteSysChatHistoryByConversationIds(conversationIds);
 
+        //删除工具调用信息
+        int a = aiAgentToolCallLogService.deleteAiAgentToolCallLogByConversationIds(conversationIds);
+
         //用户与会话id关联缓存
         List<String> chatConversationKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_CONVERSATION_KEY + conversationId).collect(Collectors.toList());
-        //会话内容缓存
-        List<String> chatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_MEMORY_KEY + conversationId).toList();
         //保存全量会话新增顺序号缓存
         List<String> seqChatMemoryKey = Arrays.stream(conversationIds).map(conversationId -> Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId).toList();
-        chatConversationKey.addAll(chatMemoryKey);
         chatConversationKey.addAll(seqChatMemoryKey);
         //删除redis缓存
         mallRedisTemplate.delete(chatConversationKey);
@@ -241,7 +253,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
             toolVectorStore.delete(b.in("sessionId", conversationIds).build());
         }
 
-        if (i == 0 || j == 0 || z == 0) {
+        if (i == 0 || z == 0 || a == 0) {
             throw new ServiceException("删除会话失败");
         }
         return i;

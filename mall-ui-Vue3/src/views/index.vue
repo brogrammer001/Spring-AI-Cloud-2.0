@@ -167,12 +167,25 @@
         </footer>
       </div>
     </div>
+
+    <!-- 路由弹窗：直接渲染目标页面组件，不离开当前聊天窗口 -->
+    <el-dialog
+      v-model="routeDialogVisible"
+      :title="routeDialogTitle"
+      width="90%"
+      top="5vh"
+      destroy-on-close
+      class="route-dialog">
+      <div style="height: 75vh; overflow: auto;">
+        <component :is="routeDialogComponent" v-if="routeDialogComponent" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import {computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
-import {ElMessageBox} from 'element-plus';
+import {computed, defineAsyncComponent, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch} from 'vue';
+import {ElMessage, ElMessageBox} from 'element-plus';
 import {sendChatMessage} from '@/api/ai/aichat/chat';
 import {
   create as createConversationApi,
@@ -180,7 +193,6 @@ import {
   getConversationListByUserId as fetchConversationListApi
 } from '@/api/ai/aichat/conversation';
 import {getChatMemoryListByConversationId} from '@/api/ai/aichat/history';
-import {handleRouteJump} from '@/api/ai/aichat/execute';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import useUserStore from '@/store/modules/user';
@@ -204,6 +216,14 @@ const isLoading = ref(false);
 const chatContainer = ref(null);
 const textarea = ref(null);
 let controller = null;
+
+// 路由弹窗状态
+const routeDialogVisible = ref(false);
+const routeDialogComponent = shallowRef(null);
+const routeDialogTitle = ref('');
+
+// 动态加载视图组件映射（Vite 构建时解析，运行时按需懒加载）
+const viewModules = import.meta.glob('./**/*.vue');
 
 const conversations = ref([]);
 const activeId = ref(null);
@@ -337,7 +357,7 @@ const renderMessage = (message) => {
                 class="route-link font-medium"
                 style="color: #f0436e;"
                 data-url="${message.routeUrl}">
-                <i class="fas fa-external-link-alt mr-1"></i>点击跳转
+                <i class="fas fa-external-link-alt mr-1"></i>点击查看
              </a>
            </div>`;
     }
@@ -355,9 +375,55 @@ const handleRouteClick = (event) => {
     const url = target.getAttribute('data-url');
     if (url && typeof url === 'string' && url.trim()) {
       event.preventDefault();
-      handleRouteJump(url.trim(), { proxy, router });
+      openRouteDialog(url.trim());
     }
   }
+};
+
+/**
+ * 打开路由弹窗：根据组件路径动态加载对应 Vue 组件，直接在弹窗内渲染
+ */
+const openRouteDialog = (componentPath) => {
+  // 去掉前缀斜杠，统一为相对路径格式（如 system/user/index）
+  const normalizedPath = componentPath.replace(/^\//, '');
+
+  // 尝试多种路径格式匹配视图文件
+  const candidates = [
+    `./${normalizedPath}.vue`,
+    `./${normalizedPath}/index.vue`,
+    `./${normalizedPath.replace(/\/index$/, '')}.vue`
+  ];
+
+  let loader = null;
+  for (const key of candidates) {
+    if (viewModules[key]) {
+      loader = viewModules[key];
+      break;
+    }
+  }
+
+  if (!loader) {
+    // 回退：从路由表中查找标题，再报错
+    const allRoutes = router.getRoutes();
+    const possiblePath = '/' + normalizedPath.replace(/\/index$/, '');
+    const targetRoute = allRoutes.find(r => r.path === possiblePath);
+    if (targetRoute) {
+      ElMessage.error('页面组件加载失败: ' + normalizedPath);
+    } else {
+      ElMessage.error('AI 找到了路径，但当前账号可能没有该页面的访问权限');
+    }
+    return;
+  }
+
+  // 从路由表获取页面标题
+  const allRoutes = router.getRoutes();
+  const possiblePath = '/' + normalizedPath.replace(/\/index$/, '');
+  const targetRoute = allRoutes.find(r => r.path === possiblePath);
+  routeDialogTitle.value = targetRoute?.meta?.title || 'AI 推荐页面';
+
+  // 动态加载组件并渲染
+  routeDialogComponent.value = defineAsyncComponent(loader);
+  routeDialogVisible.value = true;
 };
 
 const currentConversationTitle = computed(() => {
@@ -590,12 +656,12 @@ const handleAction = (chunk, messageIndex) => {
   switch (actionType) {
     case 'OPEN_MENU':
       if (actionData && typeof actionData === 'string' && actionData.trim()) {
-        messages.value[messageIndex].content += '\n\n【导航】正在跳转到: ' + actionData;
+        messages.value[messageIndex].content += '\n\n【导航】正在打开: ' + actionData;
         messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
         messages.value[messageIndex].isLoading = false;
         scrollToBottom();
         setTimeout(() => {
-          router.push(actionData);
+          openRouteDialog(actionData.trim());
         }, 500);
       }
       break;
@@ -748,7 +814,29 @@ const sendMessage = async () => {
       const json = e.json;
       // 新协议：分片文本在 content 字段（仅追加字符串，忽略 messageId/index 等其他字段）
       if (json && typeof json.content === 'string') {
-        appendText(json.content);
+        // 尝试解析嵌套 JSON（工具返回 code 8001/9999 等结构化数据）
+        const nested = parseNestedJson(json.content);
+        if (nested && nested.code !== undefined) {
+          // 结构化协议：展示 msg 文本 + 处理业务码
+          appendText(nested.msg || '');
+          if (nested.code === 8001 && nested.data && typeof nested.data === 'string' && nested.data.trim()) {
+            messages.value[messageIndex].routeUrl = nested.data;
+            setTimeout(() => {
+              openRouteDialog(nested.data.trim());
+            }, 500);
+          } else if (nested.code === 9999 && nested.data && typeof nested.data === 'object') {
+            messages.value[messageIndex].dataTable = Array.isArray(nested.data.result) ? nested.data.result : [];
+            messages.value[messageIndex].dataRowCount = nested.data.rowCount;
+            if (nested.data.summary) {
+              appendText('\n\n' + nested.data.summary);
+            }
+          }
+          messages.value[messageIndex].isLoading = false;
+          scrollToBottom();
+        } else {
+          // 普通文本分片，直接追加
+          appendText(json.content);
+        }
         if (json.conversationId) {
           messages.value[messageIndex].conversationId = json.conversationId;
         }
@@ -764,7 +852,7 @@ const sendMessage = async () => {
         if (json.code === 8001 && json.data && typeof json.data === 'string' && json.data.trim()) {
           messages.value[messageIndex].routeUrl = json.data;
           setTimeout(() => {
-            handleRouteJump(json.data.trim(), { proxy, router });
+            openRouteDialog(json.data.trim());
           }, 500);
         } else if (json.code === 9999 && json.data && typeof json.data === 'object') {
           // 数据查询结果：data 为对象，含 result(数组)/summary/generatedSql/rowCount
@@ -1564,5 +1652,22 @@ textarea {
     background-color: #d97706;
 
   }
+}
+</style>
+
+<!-- 路由弹窗样式（el-dialog teleport 到 body，scoped 不生效，需单独非 scoped 块） -->
+<style>
+.route-dialog .el-dialog__body {
+  padding: 0;
+  overflow: hidden;
+}
+.route-dialog .el-dialog__header {
+  border-bottom: 1px solid #eceaf4;
+  margin-right: 0;
+  padding: 16px 20px;
+}
+.route-dialog .el-dialog {
+  border-radius: 12px;
+  overflow: hidden;
 }
 </style>

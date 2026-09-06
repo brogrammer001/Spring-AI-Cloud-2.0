@@ -8,9 +8,9 @@ import com.mall.common.core.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -69,9 +69,10 @@ public class ChatAgentService {
 
         return qwenChatClient.prompt()
             .user(request.getQuestion())
-            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId)
-                // ★ 长期记忆作用域：VectorStoreChatMemoryAdvisor 据此按 userId 跨会话检索/写入
-                .param(ChatConstants.CTX_USER_ID, request.getUserId()))
+            .advisors(a ->
+                a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, conversationId)
+                    .param(SessionMemoryAdvisor.USER_ID_CONTEXT_KEY, request.getUserId())
+            )
             .stream()
             .chatResponse()
             // 过滤掉大模型返回的空数据包 (无 result 或无 output)
