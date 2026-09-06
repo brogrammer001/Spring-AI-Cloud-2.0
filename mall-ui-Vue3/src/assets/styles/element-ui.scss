@@ -134,21 +134,6 @@
     border-radius: var(--radius-xs) !important;
   }
 
-  /* design.md 4.3：主按钮玫红底 + 主色投影，hover 上浮加深 */
-  &.el-button--primary:not(.is-plain):not(.is-disabled) {
-    box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
-
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(240, 67, 110, 0.28);
-    }
-
-    &:active {
-      transform: translateY(0);
-      box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
-    }
-  }
-
   /* plain 次级按钮：白底浅边框，hover 主色轻染 */
   &.el-button--primary.is-plain:not(.is-disabled) {
     background: rgba(240, 67, 110, 0.06);

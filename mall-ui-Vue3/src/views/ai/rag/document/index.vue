@@ -239,12 +239,16 @@
 
       <!-- Toast 容器 -->
       <div class="toast-container" id="toastContainer"></div>
+
+      <!-- 切片管理弹窗 -->
+      <chunk-dialog ref="chunkDialogRef" />
     </div>
   </div>
 </template>
 
 <script setup name="Document">
 import {addDocument, delDocument, listDocument, uploadFile, downloadDocument} from "@/api/ai/chatrag/document"
+import ChunkDialog from "@/views/ai/rag/chunk/ChunkDialog.vue"
 import "@/utils/css/document.css";
 
 const { proxy } = getCurrentInstance()
@@ -262,6 +266,7 @@ const isListView = ref(false)
 const isDragover = ref(false)
 const pageTitle = ref("全部文档")
 const fileInput = ref(null)
+const chunkDialogRef = ref(null)
 
 // 标签建议（可自定义扩展）
 const tagSuggestions = ref([
@@ -541,10 +546,7 @@ function submitForm() {
 // --- 修改的核心逻辑结束 ---
 
 function handleChunks(row) {
-  router.push({
-    path: '/ai/rag/chunk/index',
-    query: { documentId: row.id, documentName: row.fileName, knowledgeId: row.knowledgeId }
-  })
+  chunkDialogRef.value.open(row)
 }
 
 function handleDownload(doc) {

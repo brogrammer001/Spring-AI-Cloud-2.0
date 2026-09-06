@@ -4,7 +4,6 @@ import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
 import org.apache.xmlbeans.XmlObject;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTP;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -462,7 +461,11 @@ public class WordExtractor extends AbstractTikaExtractor {
                 String name = localNameAt(cursor);
                 switch (name) {
                     case "t" -> {
-                        String v = ((CTText) cursor.getObject()).getStringValue();
+                        // 不强转 CTText：WPS/LibreOffice 等生成器可能在扩展命名空间或
+                        // Fallback 分支下产出 <t>，Schema 未命中时 getObject() 返回
+                        // XmlAnyTypeImpl，强转 CTText 会抛 ClassCastException。
+                        // getTextValue() 对元素 START_TOKEN 直接返回字符数据内容，与 Schema 无关。
+                        String v = cursor.getTextValue();
                         if (v != null) {
                             sb.append(v);
                         }

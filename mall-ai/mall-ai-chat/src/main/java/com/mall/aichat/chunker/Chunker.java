@@ -18,16 +18,18 @@ public interface Chunker {
      *
      * @param semanticEnabled 是否启用语义分块
      * @param chunkSize       分块大小（token 数）
+     * @param chunkSeparator  自定义分隔符（可为空，正则或字面量）
      * @return 是否支持
      */
-    boolean supports(boolean semanticEnabled, int chunkSize);
+    boolean supports(boolean semanticEnabled, int chunkSize, String chunkSeparator);
 
     /**
      * 执行分块操作
      *
-     * @param document 输入文档
-     * @param chunkSize 分块大小（token 数）
+     * @param document       输入文档
+     * @param chunkSize      分块大小（token 数）
+     * @param chunkSeparator 自定义分隔符（可为空，正则或字面量）
      * @return 分块后的文档列表
      */
-    List<Document> chunk(Document document, int chunkSize);
+    List<Document> chunk(Document document, int chunkSize, String chunkSeparator);
 }

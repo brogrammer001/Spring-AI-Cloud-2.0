@@ -2,132 +2,172 @@
     "deprecations": [],
     "objects": [
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "04341842-a6b5-4c63-a9d6-09854a0b0a85",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788678984619,
+            "id": "0035fa41-a498-47cb-b667-cc79af601f2b",
+            "lastUpdateTimeUnix": 1788678984619,
             "properties": {
-                "content": "为用户分配角色。 ",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_userRoleAuth",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"04341842-a6b5-4c63-a9d6-09854a0b0a85\",\"toolDescription\":\"为用户分配角色。 \",\"toolName\":\"mall_ai_mcp_server_tools_userRoleAuth\"}"
+                "content": "用户打开聊天历史菜单",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791270995157,
+                "meta_ingestedAt": 1788678995157,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788678995157,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791270995157,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "1007a13f-6d48-4e9c-8f7a-1036f19013d1",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788678974408,
+            "id": "09ac11ac-32d6-49b2-96d3-bae84844c518",
+            "lastUpdateTimeUnix": 1788678974408,
             "properties": {
-                "content": "定时任务的新增、修改、删除、状态修改、立即执行。参数包含 operationType(add/update/delete/changeStatus/run)和任务实体。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_jobCrud",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"1007a13f-6d48-4e9c-8f7a-1036f19013d1\",\"toolDescription\":\"定时任务的新增、修改、删除、状态修改、立即执行。参数包含 operationType(add/update/delete/changeStatus/run)和任务实体。\",\"toolName\":\"mall_ai_mcp_server_tools_jobCrud\"}"
+                "content": "用户打开岗位菜单",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791270984793,
+                "meta_ingestedAt": 1788678984793,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788678984793,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791270984793,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "13c236c4-0484-4c4a-9135-909ae23f4813",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788679451862,
+            "id": "129a9007-be74-4483-a7fe-f96e4f0791a1",
+            "lastUpdateTimeUnix": 1788679451862,
             "properties": {
-                "content": "查询系统参数配置。参数：参数名称(configName)或参数键名(configKey)，可选。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_configQuery",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"13c236c4-0484-4c4a-9135-909ae23f4813\",\"toolDescription\":\"查询系统参数配置。参数：参数名称(configName)或参数键名(configKey)，可选。\",\"toolName\":\"mall_ai_mcp_server_tools_configQuery\"}"
+                "content": "用户叫张三",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791271462231,
+                "meta_ingestedAt": 1788679462231,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788679462231,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271462231,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "1b33cabe-54ee-4203-b153-283cddd4425f",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788678909606,
+            "id": "4ef609e6-75cb-4e29-a552-5caa089b1b12",
+            "lastUpdateTimeUnix": 1788678909606,
             "properties": {
-                "content": "重置用户密码。参数：用户名(userName)和新密码(password)。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_resetUserPassword",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"1b33cabe-54ee-4203-b153-283cddd4425f\",\"toolDescription\":\"重置用户密码。参数：用户名(userName)和新密码(password)。\",\"toolName\":\"mall_ai_mcp_server_tools_resetUserPassword\"}"
+                "content": "用户打开用户管理菜单",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791270920075,
+                "meta_ingestedAt": 1788678920075,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788678920075,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791270920075,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "32759d5b-5f9c-4ed2-af69-41a8697374fb",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788679373889,
+            "id": "4f653ab1-f910-4685-9889-b38aca9a91dd",
+            "lastUpdateTimeUnix": 1788679373889,
             "properties": {
-                "content": "查询定时任务列表。参数：任务名称(jobName)或任务组名(jobGroup)，可选。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_jobQuery",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"32759d5b-5f9c-4ed2-af69-41a8697374fb\",\"toolDescription\":\"查询定时任务列表。参数：任务名称(jobName)或任务组名(jobGroup)，可选。\",\"toolName\":\"mall_ai_mcp_server_tools_jobQuery\"}"
+                "content": "用户提到财务部门",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791271384175,
+                "meta_ingestedAt": 1788679384175,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788679384175,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271384175,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "37933e97-e80e-4b29-9075-d31551e7029b",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788679593310,
+            "id": "5abbabc6-4bce-4474-8cf5-d7a7060f0c6f",
+            "lastUpdateTimeUnix": 1788679593310,
             "properties": {
-                "content": "查询字典数据列表。参数：字典类型编码(dictType)必填，字典标签(dictLabel)可选。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_dictDataQuery",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"37933e97-e80e-4b29-9075-d31551e7029b\",\"toolDescription\":\"查询字典数据列表。参数：字典类型编码(dictType)必填，字典标签(dictLabel)可选。\",\"toolName\":\"mall_ai_mcp_server_tools_dictDataQuery\"}"
+                "content": "用户查询所有部门下的用户信息",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791271603575,
+                "meta_ingestedAt": 1788679603575,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788679603575,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791271603575,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "3c513b22-3474-4eaa-9b03-a85baeb14295",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788679247540,
+            "id": "5e10ea1d-a2d8-4af7-84aa-a4fa0b1b2932",
+            "lastUpdateTimeUnix": 1788679247540,
             "properties": {
-                "content": "查询字典类型列表。参数：字典名称(dictName)或字典类型编码(dictType)，可选。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_dictTypeQuery",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"3c513b22-3474-4eaa-9b03-a85baeb14295\",\"toolDescription\":\"查询字典类型列表。参数：字典名称(dictName)或字典类型编码(dictType)，可选。\",\"toolName\":\"mall_ai_mcp_server_tools_dictTypeQuery\"}"
+                "content": "用户号码是***",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791271257792,
+                "meta_ingestedAt": 1788679257792,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788679257792,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271257792,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "568f91a4-8907-4abf-9fba-29ac3465118d",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788679460633,
+            "id": "6528ad0f-a7fb-45af-b61c-09b55e0477c2",
+            "lastUpdateTimeUnix": 1788679460633,
             "properties": {
-                "content": "修改用户状态（启用/停用）。参数：用户名(userName)和状态(status: 有效/启用 或 无效/停用)。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_changeUserStatus",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"568f91a4-8907-4abf-9fba-29ac3465118d\",\"toolDescription\":\"修改用户状态（启用/停用）。参数：用户名(userName)和状态(status: 有效/启用 或 无效/停用)。\",\"toolName\":\"mall_ai_mcp_server_tools_changeUserStatus\"}"
+                "content": "用户下周要去北京出差",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791271471097,
+                "meta_ingestedAt": 1788679471097,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788679471097,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791271471097,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "6980dd78-e782-4620-9d27-155a27efa581",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788679252750,
+            "id": "aff15776-447a-4132-9ef9-8c266958a2a2",
+            "lastUpdateTimeUnix": 1788679252750,
             "properties": {
-                "content": "菜单导航工具。输入：菜单名称。功能：获取菜单组件路径以供前端跳转。 [JSON]",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_getMenu",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"6980dd78-e782-4620-9d27-155a27efa581\",\"toolDescription\":\"菜单导航工具。输入：菜单名称。功能：获取菜单组件路径以供前端跳转。 [JSON]\",\"toolName\":\"mall_ai_mcp_server_tools_getMenu\"}"
+                "content": "用户性别是男",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791271263099,
+                "meta_ingestedAt": 1788679263099,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788679263099,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271263099,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
-            "class": "ToolIndex",
-            "creationTimeUnix": 1788664738489,
-            "id": "6b614479-eb18-4a54-ab0c-71c6d2ebdf67",
-            "lastUpdateTimeUnix": 1788664738489,
+            "class": "ConversationHistory",
+            "creationTimeUnix": 1788679342246,
+            "id": "b113b6d8-8dd7-4b09-b737-d199c15e51cb",
+            "lastUpdateTimeUnix": 1788679342246,
             "properties": {
-                "content": "字典类型的新增、修改、删除。参数包含 operationType(add/update/delete)和字典类型实体。",
-                "meta_sessionId": "ae5a1e32-1fbf-4862-a124-eccb62c00ec8",
-                "meta_toolName": "mall_ai_mcp_server_tools_dictTypeCrud",
-                "metadata": "{\"sessionId\":\"ae5a1e32-1fbf-4862-a124-eccb62c00ec8\",\"id\":\"6b614479-eb18-4a54-ab0c-71c6d2ebdf67\",\"toolDescription\":\"字典类型的新增、修改、删除。参数包含 operationType(add/update/delete)和字典类型实体。\",\"toolName\":\"mall_ai_mcp_server_tools_dictTypeCrud\"}"
+                "content": "用户新增了小明，18岁",
+                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
+                "meta_expireAt": 1791271352576,
+                "meta_ingestedAt": 1788679352576,
+                "meta_messageType": "user",
+                "meta_status": "active",
+                "meta_userId": "1",
+                "metadata": "{\"ingestedAt\":1788679352576,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271352576,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         }

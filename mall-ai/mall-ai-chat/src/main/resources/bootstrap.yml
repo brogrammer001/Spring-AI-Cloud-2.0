@@ -10,7 +10,7 @@ spring:
   ai:
     mcp:
       client:
-        enabled: true
+        enabled: false
         name: ${spring.application.name}
         version: 1.0.0
         request-timeout: 600s
@@ -19,9 +19,9 @@ spring:
           connections:
             gateway:
               url: http://localhost:9999  # 替换为实际 Gateway 地址
-#            mcp-echarts: # 这个 key 会作为工具名前缀
-#              url: http://114.132.102.8:2001
-#              endpoint: /mcp
+            mcp-echarts: # 这个 key 会作为工具名前缀
+              url: http://114.132.102.8:2001
+              endpoint: /mcp
     model:
       chat: openai
       embedding: openai
@@ -117,12 +117,10 @@ smallmodel:
 vectorstore:
   enabled: true #开启全局向量功能
   chat-memory-default-topk: 1
-  compression-threshold: 4
   weaviate:
     knowledge-object-class: KnowledgeBase
     chat-memory-object-class: ConversationHistory
     tool-index-object-class: ToolIndex
-    user-memory-object-class: AiUserMemory
 
 ai:
   chat:

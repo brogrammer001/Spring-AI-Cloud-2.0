@@ -13,10 +13,7 @@ import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.*;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -48,6 +45,8 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
     private static final int MAX_MEMORY_TEXT_LENGTH = 100;
     private static final int MAX_MEMORIES_PER_TURN = 5;
     private static final String MEMORY_TEXT_PREFIX = "用户";
+    private static final int MAX_ASSISTANT_TEXT_LENGTH = 300;
+    private static final String CTX_CURRENT_USER_TEXT = "_vector_memory_current_user_text";
 
     private static final Pattern PATTERN_PHONE = Pattern.compile("(?<!\\d)1[3-9]\\d{9}(?!\\d)");
     private static final Pattern PATTERN_ID_CARD = Pattern.compile("(?<!\\d)\\d{17}[0-9Xx](?!\\d)");
@@ -65,11 +64,11 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         """);
 
     private static final String EXTRACT_INSTRUCTION = """
-        你是一个长期记忆提取器。分析对话，提取出需要永久保存的信息。
+        你是一个长期记忆提取器。分析一轮完整对话（用户消息 + AI回复），提取出需要永久保存的信息。
         
         输入说明：
-        - 【对话上下文】：上一轮 AI 的回复，仅用于理解指代，不要作为记忆来源。
         - 【用户消息】：本轮用户说的话，是主要提取来源。
+        - 【AI回复】：本轮 AI 的回复，用于补全用户意图的执行结果或消歧，不可独立作为记忆来源。
         
         提取规则：
         1. 每条记忆必须是独立的原子事实，不要把多件事合并成一句。
@@ -78,7 +77,10 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
            错误示例：[{"content":"用户叫张三，住上海，下周去北京出差"}]
         2. type 判断："profile" 是画像类（身份、姓名、长期偏好、工作、城市等稳定属性）；"fact" 是事实类（本次对话的事件、决定、临时意图、任务等）。
         3. 如果用户消息是寒暄、问候、感谢、纯闲聊，或没有实质信息，返回空数组 []。
-        4. 不要提取 AI 回复中的内容，只提取用户视角的信息。
+        4. 记忆以用户视角为主。AI回复仅在以下情况可用于补全记忆：
+           - 用户请求执行某操作，AI确认了执行结果（如预约成功、查询结果等）
+           - 用户的指代或省略需要AI回复来消歧
+           禁止将AI的推理、建议、解释性内容作为记忆。
         5. 每条记忆必须以"用户"开头，每条不超过30个字。
         6. 时间词（今天/明天/下个月）保留原样，不要改写成具体日期。
         
@@ -86,24 +88,29 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         [{"content":"用户叫张三","type":"profile"},{"content":"用户下周要去北京出差","type":"fact"}]
         
         示例一：
-        【对话上下文】好的，请问您需要查哪个城市的？
         【用户消息】那上海的呢？
+        【AI回复】上海明天晴，气温25-30度。
         输出：[]
         
         示例二：
-        【对话上下文】（无）
         【用户消息】我不喜欢吃香菜，但是喜欢香菜味的薯片。
+        【AI回复】了解了，您不喜欢吃香菜但喜欢香菜味薯片。
         输出：[{"content":"用户不喜欢吃香菜","type":"profile"},{"content":"用户喜欢香菜味的薯片","type":"fact"}]
         
         示例三：
-        【对话上下文】好的，已为您预约明天上午10点。
-        【用户消息】帮我确认一下。
-        输出：[{"content":"用户确认了明天上午10点的预约","type":"fact"}]
+        【用户消息】帮我预约明天上午10点的会议室。
+        【AI回复】已成功为您预约明天上午10点的A3会议室。
+        输出：[{"content":"用户预约了明天上午10点A3会议室","type":"fact"}]
         
         示例四：
-        【对话上下文】（无）
         【用户消息】你好。
+        【AI回复】您好！有什么可以帮您的？
         输出：[]
+        
+        示例五：
+        【用户消息】帮我查一下北京到上海的高铁票。
+        【AI回复】明天北京到上海共有15趟高铁，最早一班是G1次，6:36发车。
+        输出：[{"content":"用户查询了北京到上海的高铁票","type":"fact"}]
         """;
 
     private static final String DECIDE_INSTRUCTION = """
@@ -191,6 +198,9 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         String query = Objects.requireNonNullElse(request.prompt().getUserMessage().getText(), "");
         int topK = getChatMemoryTopK(request.context());
 
+        // 将用户消息存入 context，供 after() 阶段做完整轮次记忆提取
+        request.context().put(CTX_CURRENT_USER_TEXT, query);
+
         Filter.Expression expression = activeMemoryFilter(new FilterExpressionBuilder(),
             userId, System.currentTimeMillis());
         SearchRequest searchRequest = SearchRequest.builder()
@@ -212,55 +222,61 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
             .map(doc -> "[" + escapeXml(doc.getText()) + "]")
             .collect(Collectors.joining(System.lineSeparator()));
 
-        ChatClientRequest processed = request;
         if (StringUtils.hasText(longTermMemory)) {
             SystemMessage systemMessage = request.prompt().getSystemMessage();
             String augmentedSystemText = this.systemPromptTemplate.render(
                 Map.of("instructions", systemMessage.getText(), "long_term_memory", longTermMemory));
-            processed = request.mutate()
+            return request.mutate()
                 .prompt(request.prompt().augmentSystemMessage(augmentedSystemText))
                 .build();
         }
-
-        UserMessage userMessage = processed.prompt().getUserMessage();
-        AssistantMessage lastAssistantMessage = findLastAssistantMessage(request.prompt().getInstructions());
-        storeMemoryAsync(userMessage, lastAssistantMessage, userId, conversationId);
-        return processed;
+        return request;
     }
 
     @Override
     public ChatClientResponse after(ChatClientResponse chatClientResponse, AdvisorChain advisorChain) {
+        Map<String, @Nullable Object> context = chatClientResponse.context();
+        String conversationId = getConversationId(context);
+        String userId = getUserId(context);
+
+        Object userTextObj = context.get(CTX_CURRENT_USER_TEXT);
+        String userText = userTextObj != null ? userTextObj.toString() : null;
+        if (!StringUtils.hasText(userText)) {
+            return chatClientResponse;
+        }
+
+        String assistantText = null;
+        if (chatClientResponse.chatResponse() != null
+            && chatClientResponse.chatResponse().getResult() != null) {
+            assistantText = chatClientResponse.chatResponse().getResult().getOutput().getText();
+        }
+
+        storeMemoryAsync(userText, assistantText, userId, conversationId);
         return chatClientResponse;
     }
 
-    private void storeMemoryAsync(UserMessage userMessage, @Nullable AssistantMessage lastAssistantMessage,
+    private void storeMemoryAsync(String userText, @Nullable String assistantText,
                                   String userId, String conversationId) {
-        Mono.fromRunnable(() -> storeMemory(userMessage, lastAssistantMessage, userId, conversationId))
+        Mono.fromRunnable(() -> storeMemory(userText, assistantText, userId, conversationId))
             .subscribeOn(this.scheduler)
             .subscribe(_ -> {
             }, e -> log.error("会话[{}] 记忆异步存储失败", conversationId, e));
     }
 
-    private void storeMemory(UserMessage userMessage, @Nullable AssistantMessage lastAssistantMessage,
+    private void storeMemory(String userText, @Nullable String assistantText,
                              String userId, String conversationId) {
-        if (userMessage == null) {
-            return;
-        }
-        String rawText = userMessage.getText();
-        if (!StringUtils.hasText(rawText)) {
+        if (!StringUtils.hasText(userText)) {
             return;
         }
         try {
-            List<ExtractedMemory> extracted = extractMemories(rawText,
-                lastAssistantMessage != null ? lastAssistantMessage.getText() : null,
-                conversationId);
+            List<ExtractedMemory> extracted = extractMemories(userText, assistantText, conversationId);
             if (extracted.isEmpty()) {
                 log.debug("会话[{}] 本轮无实质记忆", conversationId);
                 return;
             }
             for (ExtractedMemory memory : extracted) {
                 try {
-                    decideAndApply(memory, userMessage, userId, conversationId);
+                    decideAndApply(memory, userId, conversationId);
                 } catch (Exception e) {
                     log.warn("会话[{}] 记忆[{}]处理失败，跳过", conversationId, memory.content(), e);
                 }
@@ -270,15 +286,15 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         }
     }
 
-    private List<ExtractedMemory> extractMemories(String userText, @Nullable String lastAssistantText,
+    private List<ExtractedMemory> extractMemories(String userText, @Nullable String assistantText,
                                                   String conversationId) {
         StringBuilder input = new StringBuilder();
-        if (StringUtils.hasText(lastAssistantText)) {
-            input.append("【对话上下文】")
-                .append(truncate(lastAssistantText, MAX_EXTRACT_INPUT_LENGTH))
-                .append(System.lineSeparator());
-        }
         input.append("【用户消息】").append(truncate(userText, MAX_EXTRACT_INPUT_LENGTH));
+        if (StringUtils.hasText(assistantText)) {
+            input.append(System.lineSeparator())
+                .append("【AI回复】")
+                .append(truncate(assistantText, MAX_ASSISTANT_TEXT_LENGTH));
+        }
 
         String output;
         try {
@@ -323,18 +339,18 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         }
     }
 
-    private void decideAndApply(ExtractedMemory memory, Message message,
+    private void decideAndApply(ExtractedMemory memory,
                                 String userId, String conversationId) {
         List<Document> candidates = searchDecisionCandidates(memory.content(), userId, conversationId);
 
         if (candidates.isEmpty()) {
-            writeMemory(memory.content(), memory.type(), message, userId, conversationId);
+            writeMemory(memory.content(), memory.type(), userId, conversationId);
             return;
         }
 
         for (Document candidate : candidates) {
             if (candidate.getText().strip().equals(memory.content())) {
-                writeMemory(memory.content(), memory.type(), message, userId, conversationId);
+                writeMemory(memory.content(), memory.type(), userId, conversationId);
                 try {
                     this.vectorStore.delete(List.of(candidate.getId()));
                     log.debug("会话[{}] 记忆完全相同，续期: {}", conversationId, memory.content());
@@ -348,14 +364,14 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
         MemoryDecision decision = decide(memory, candidates, conversationId);
         if (decision == null) {
-            writeMemory(memory.content(), memory.type(), message, userId, conversationId);
+            writeMemory(memory.content(), memory.type(), userId, conversationId);
             return;
         }
 
         switch (decision.op()) {
-            case ADD -> writeMemory(memory.content(), memory.type(), message, userId, conversationId);
+            case ADD -> writeMemory(memory.content(), memory.type(), userId, conversationId);
             case UPDATE -> {
-                writeMemory(decision.content(), memory.type(), message, userId, conversationId);
+                writeMemory(decision.content(), memory.type(), userId, conversationId);
                 deleteMemory(decision.targetId(), conversationId);
             }
             case DELETE -> deleteMemory(decision.targetId(), conversationId);
@@ -447,9 +463,9 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         }
     }
 
-    private void writeMemory(String text, MemoryType type, Message message,
+    private void writeMemory(String text, MemoryType type,
                              String userId, String conversationId) {
-        Document doc = toMemoryDocument(text, type, message, userId, conversationId);
+        Document doc = toMemoryDocument(text, type, userId, conversationId);
         this.vectorStore.write(List.of(doc));
         log.debug("会话[{}] 记忆写入 [{}]: {}", conversationId, type.lower(), text);
     }
@@ -466,7 +482,7 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         }
     }
 
-    private Document toMemoryDocument(String text, MemoryType type, Message message,
+    private Document toMemoryDocument(String text, MemoryType type,
                                       String userId, String conversationId) {
         long now = System.currentTimeMillis();
         long expireAt = this.memoryTtlMs > 0
@@ -476,7 +492,7 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
         metadata.put(CHAT_MEMORY_USER_ID, userId);
         metadata.put(CHAT_MEMORY_CONVERSATION_ID, conversationId);
         metadata.put(CHAT_MEMORY_TYPE, type.lower());
-        metadata.put(CHAT_MEMORY_MESSAGE_TYPE, message.getMessageType().getValue());
+        metadata.put(CHAT_MEMORY_MESSAGE_TYPE, "user");
         metadata.put(CHAT_MEMORY_STATUS, STATUS_ACTIVE);
         metadata.put(CHAT_MEMORY_INGESTED_AT, now);
         metadata.put(CHAT_MEMORY_EXPIRE_AT, expireAt);
@@ -593,18 +609,6 @@ public class VectorStoreChatMemoryAdvisor implements BaseChatMemoryAdvisor {
     private int getChatMemoryTopK(Map<String, @Nullable Object> context) {
         Object fromCtx = context.get(CTX_CHAT_MEMORY_TOP_K);
         return fromCtx != null ? Integer.parseInt(fromCtx.toString()) : this.defaultTopK;
-    }
-
-    private @Nullable AssistantMessage findLastAssistantMessage(List<Message> messages) {
-        if (messages == null) {
-            return null;
-        }
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            if (messages.get(i) instanceof AssistantMessage assistantMessage) {
-                return assistantMessage;
-            }
-        }
-        return null;
     }
 
     @Override

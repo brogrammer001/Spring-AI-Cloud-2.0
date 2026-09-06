@@ -10,7 +10,6 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
 import org.springframework.ai.mcp.AsyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -92,8 +91,8 @@ public class ChatClientConfig {
     }
 
     @Bean
-    public ToolSearchToolCallingAdvisor toolSearchAdvisor(@Qualifier("toolIndex") ToolIndex toolIndex) {
-        return ToolSearchToolCallingAdvisor.builder()
+    public HistoryAwareToolSearchAdvisor toolSearchAdvisor(@Qualifier("toolIndex") ToolIndex toolIndex) {
+        return HistoryAwareToolSearchAdvisor.newBuilder()
             .toolIndex(toolIndex)
             .advisorOrder(100)
             .build();
@@ -122,7 +121,7 @@ public class ChatClientConfig {
     public ChatClient qwenChatClient(OpenAiChatModel model, SessionMemoryAdvisor sessionMemoryAdvisor,
                                      @Qualifier("conversationVectorStore") @Autowired(required = false) VectorStore conversationVectorStore,
                                      @Qualifier("knowledgeVectorStore") @Autowired(required = false) VectorStore knowledgeVectorStore,
-                                     ToolSearchToolCallingAdvisor toolSearchAdvisor,
+                                     HistoryAwareToolSearchAdvisor toolSearchAdvisor,
                                      ISysChatHistoryService sysChatHistoryService,
                                      IKbDocumentService kbDocumentService,
                                      RerankerService rerankerService,

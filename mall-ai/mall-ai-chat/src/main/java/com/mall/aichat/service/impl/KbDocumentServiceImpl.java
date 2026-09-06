@@ -121,10 +121,12 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 ))
                 .build();
 
-            // 通用智能切分 (使用分块策略工厂)
+            // 通用智能切分 (使用分块策略工厂：语义分块 / 分隔符分块 / Token 固定分块)
             int chunkSize = kbDocument.getChunkSize() != null ? kbDocument.getChunkSize().intValue() : 500;
-            List<Document> chunks = chunkerFactory.chunk(document, 
-                Boolean.TRUE.equals(kbDocument.getSemanticChunking()), chunkSize);
+            List<Document> chunks = chunkerFactory.chunk(document,
+                Boolean.TRUE.equals(kbDocument.getSemanticChunking()),
+                chunkSize,
+                kbDocument.getChunkSeparator());
 
             // 存入向量库
             if (knowledgeVectorStore != null) {

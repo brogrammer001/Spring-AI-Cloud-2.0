@@ -565,14 +565,23 @@ extract:
 
 | 组件 | 职责 |
 | :--- | :--- |
-| `Chunker` 接口 | 定义 `supports(semanticEnabled, chunkSize)` + `chunk(document, chunkSize)` |
-| `ChunkerFactory` 工厂 | Spring Bean 自动发现所有 Chunker，按 `supports()` 优先级选择；无匹配时默认回退 TokenChunker |
-| `SemanticChunker` | 语义分块（多尺度滑动窗口 + 动态阈值） |
-| `TokenChunker` | Token 固定分块（TokenTextSplitter） |
+| `Chunker` 接口 | 定义 `supports(semanticEnabled, chunkSize, chunkSeparator)` + `chunk(document, chunkSize, chunkSeparator)` |
+| `ChunkerFactory` 工厂 | Spring Bean 自动发现所有 Chunker，按 `@Order` 优先级选择；无匹配时默认回退 TokenChunker |
+| `SemanticChunker` `@Order(10)` | 语义分块（多尺度滑动窗口 + 动态阈值），分隔符作为最小单元切分依据 |
+| `SeparatorChunker` `@Order(20)` | 自定义分隔符分块（正则/字面量），超长块用 TokenTextSplitter 兜底细切 |
+| `TokenChunker` `@Order(30)` | Token 固定分块（TokenTextSplitter），兜底策略 |
 
-**调用方式**：`KbDocumentServiceImpl` 通过 `ChunkerFactory.chunk(document, semanticEnabled, chunkSize)` 一行代码完成分块，无需感知内部策略。
+**调用方式**：`KbDocumentServiceImpl` 通过 `ChunkerFactory.chunk(document, semanticEnabled, chunkSize, chunkSeparator)` 一行代码完成分块，无需感知内部策略。
 
-**策略 A：TokenChunker（固定分块）**
+**策略选择决策表**：
+
+| semanticEnabled | chunkSeparator | 命中策略 |
+| :---: | :---: | :--- |
+| `true` | 任意 | `SemanticChunker`（分隔符作为最小单元切分依据；EmbeddingModel 缺失时降级 Token） |
+| `false` | 非空 | `SeparatorChunker`（按分隔符切分 + Token 兜底细切） |
+| `false` | 空 | `TokenChunker`（固定 Token 分块） |
+
+**策略 A：TokenChunker（固定分块，兜底）**
 
 使用 Spring AI 的 `TokenTextSplitter`，关键参数：
 
@@ -586,20 +595,47 @@ extract:
 | `punctuationMarks` | `. ? ! 。？ ！ \n ; ；` | 标点切分支持（中英文） |
 | `encodingType` | `CL100K_BASE` | Token 编码方式（GPT 系列） |
 
-**策略 B：SemanticChunker（语义分块 —— 多尺度滑动窗口 + 动态阈值）**
+**策略 B：SeparatorChunker（自定义分隔符分块）**
 
-通过 `kb_document` 表的 `semantic_chunking` 字段控制启用。
+通过 `kb_document.chunk_separator` 字段配置分隔符（正则或字面量），适用于结构规整的文档：Markdown 标题（`(?m)^#{1,3}\s`）、代码函数（`\n\s*(public|private|def)\s`）、FAQ（`\n\s*Q[:：]`）、章节标记（`\n---+\n`）等。
+
+**算法流程**：
+
+```
+文档内容 + chunkSeparator（正则）
+  │
+  ├─ 1. Pattern.compile(separator).split(text) 按分隔符切分为原始块
+  │   └─ trim 后过滤空串；若切分结果为空，降级 Token 分块
+  │
+  ├─ 2. 过小的块（< MIN_UNIT_CHARS=250 字符）向前合并
+  │   └─ 合并后 Token 数不超过 chunkSize 才允许合并，避免超限
+  │
+  └─ 3. 超长块（Token 数 > chunkSize）用 TokenTextSplitter 兜底细切
+      └─ 保留原始 metadata，输出 Document 列表
+```
+
+**关键参数**：
+
+| 参数 | 值 | 说明 |
+| :--- | :--- | :--- |
+| `MIN_UNIT_CHARS` | `250` | 块最小字符数，低于此值向前合并 |
+| `MERGE_JOINER` | `\n\n` | 合并块时的连接符 |
+| Token 细切分参数 | 同 TokenChunker | 超长块兜底 |
+
+**策略 C：SemanticChunker（语义分块 —— 多尺度滑动窗口 + 动态阈值）**
+
+通过 `kb_document.semantic_chunking` 字段控制启用；若同时配置了 `chunk_separator`，则作为**最小语义单元**的切分依据（未配置时默认按 `\n\n` 段落切分）。
 
 **核心思想**：基于 Embedding 向量计算段落间的语义相似度，采用**多尺度滑动窗口算法**检测语义边界，将语义相近的段落合并为同一块。
 
 **算法流程**（`SemanticChunker.chunk()`）：
 
 ```
-文档内容
+文档内容 + chunkSeparator（可选）
   │
   ├─ 1. 切分为语义最小单元（splitIntoSemanticUnits）
-  │   ├─ 优先按段落（空行）切分
-  │   └─ 段落超过 chunkSize 时，按句子进一步切分
+  │   ├─ 优先按 chunkSeparator 切分（未配置则按空行 \n\n）
+  │   └─ 单元超过 chunkSize*2 时，按句子进一步切分
   │       └─ 支持中英文标点（。！？!?；;）
   │
   ├─ 2. 计算每个单元的 Embedding 向量
@@ -633,21 +669,23 @@ extract:
 
 | 场景 | 降级策略 |
 | :--- | :--- |
-| 未配置 `EmbeddingModel` | `supports()` 返回 false，ChunkerFactory 自动选择 TokenChunker |
+| 未配置 `EmbeddingModel` | `supports()` 返回 false，ChunkerFactory 自动选择 SeparatorChunker/TokenChunker |
 | 语义单元数不足（≤ 2*MAX_WINDOW+1） | 降级为 Token 分块 |
 | Embedding 计算异常 | 捕获异常，降级为 Token 分块 |
 | 语义断点样本数 < MIN_GAP_SAMPLES | 降级为 Token 分块 |
+| SeparatorChunker 分隔符未匹配任何切分点 | 降级为 Token 分块 |
 
-**与固定分块的对比**：
+**三种策略对比**：
 
-| 维度 | TokenChunker（固定分块） | SemanticChunker（语义分块） |
-| :--- | :--- | :--- |
-| 切分依据 | Token 数量 + 标点 | Embedding 向量语义相似度 |
-| 语义完整性 | 可能切断语义边界 | 语义相近段落自动合并 |
-| 计算开销 | 低（纯文本处理） | 高（需调用 Embedding 模型） |
-| 适用场景 | 结构规整、段落分明的文档 | 语义连贯、段落边界模糊的文档 |
-| 检索精度 | 依赖固定切分质量 | 语义块更完整，检索命中率更高 |
-| 阈值策略 | 无（固定 chunkSize） | 动态百分位阈值（自适应文档特征） |
+| 维度 | TokenChunker | SeparatorChunker | SemanticChunker |
+| :--- | :--- | :--- | :--- |
+| 切分依据 | Token 数量 + 标点 | 用户自定义正则 | Embedding 语义相似度 |
+| 结构感知 | 无 | 强（依赖分隔符设计） | 中（依赖段落切分） |
+| 语义完整性 | 可能切断语义边界 | 依赖分隔符合理性 | 语义相近段落自动合并 |
+| 计算开销 | 低（纯文本处理） | 低（正则 + Token 估算） | 高（需调用 Embedding 模型） |
+| 适用场景 | 结构不明的通用文档 | Markdown / 代码 / FAQ / 日志 | 语义连贯、段落边界模糊的文档 |
+| 检索精度 | 依赖固定切分质量 | 高（结构对齐业务语义） | 语义块更完整，检索命中率更高 |
+| 阈值策略 | 无（固定 chunkSize） | 无（依赖分隔符） | 动态百分位阈值（自适应文档特征） |
 
 ### 2.7 SSE 流式推送
 

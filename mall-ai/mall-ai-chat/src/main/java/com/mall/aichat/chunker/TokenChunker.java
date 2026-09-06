@@ -1,42 +1,39 @@
 package com.mall.aichat.chunker;
 
-import com.knuddels.jtokkit.Encodings;
-import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.EncodingType;
 import com.mall.common.core.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Token 分块策略（固定分块）
+ * Token 分块策略（固定分块，兜底策略）
  * <p>
- * 使用 Spring AI 的 TokenTextSplitter 进行基于 token 数量的分块
- * 适用于不支持语义分块或文档较短的场景
+ * 使用 Spring AI 的 {@link TokenTextSplitter} 进行基于 token 数量的分块，
+ * 当未启用语义分块且未配置自定义分隔符时命中。
  *
  * @author mall
  */
 @Component
+@Order(30)
 public class TokenChunker implements Chunker {
 
     private static final Logger log = LoggerFactory.getLogger(TokenChunker.class);
 
-    /** Token 编码器：与 TokenTextSplitter 的 CL100K_BASE 保持一致 */
-    private static final EncodingRegistry ENCODING_REGISTRY = Encodings.newLazyEncodingRegistry();
-
     @Override
-    public boolean supports(boolean semanticEnabled, int chunkSize) {
-        // 仅当未启用语义分块时支持
-        return !semanticEnabled && chunkSize > 0;
+    public boolean supports(boolean semanticEnabled, int chunkSize, String chunkSeparator) {
+        // 兜底策略：未启用语义分块且未配置自定义分隔符时命中
+        return !semanticEnabled && chunkSize > 0 && StringUtils.isEmpty(chunkSeparator);
     }
 
     @Override
-    public List<Document> chunk(Document document, int chunkSize) {
+    public List<Document> chunk(Document document, int chunkSize, String chunkSeparator) {
+        log.debug("使用 Token 固定分块，chunkSize={}", chunkSize);
         TokenTextSplitter splitter = buildTokenSplitter(chunkSize);
         return splitter.apply(List.of(document));
     }
