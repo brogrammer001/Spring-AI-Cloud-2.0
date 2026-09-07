@@ -1,6 +1,6 @@
 package com.mall.aichat.service.impl;
 
-import com.mall.aichat.chunker.ChunkerFactory;
+import com.mall.aichat.chunker.DocumentChunkPipeline;
 import com.mall.aichat.domain.KbDocument;
 import com.mall.aichat.domain.KbDocumentChunk;
 import com.mall.aichat.extractor.ExtractorFactory;
@@ -20,12 +20,12 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 知识库文档 Service 业务层处理
@@ -53,8 +53,15 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
     @Autowired
     private ExtractorFactory extractorFactory;
 
-    @Autowired(required = false)
-    private ChunkerFactory chunkerFactory;
+    @Autowired
+    private DocumentChunkPipeline documentChunkPipeline;
+
+    /**
+     * 是否压缩中文字符间的多余空格（OCR 噪声清理）。
+     * 该规则会破坏 markdown 表格 / 行内代码的空格语义，结构化入库场景可关闭。
+     */
+    @Value("${clean.compress-chinese-space:true}")
+    private boolean compressChineseSpace;
 
     /**
      * 查询知识库文档
@@ -109,24 +116,23 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
                 throw new RuntimeException("文档内容提取失败，内容为空");
             }
 
+            // 占位文案契约校验：PdfExtractor 失败/超限时返回占位串，非空会绕过 isEmpty 判断
+            if (rawContent.startsWith("[文档解析失败]")) {
+                throw new RuntimeException("文档解析失败：" + rawContent);
+            }
+
             // 内容清洗 (移除冗余标签)
             String cleanedContent = this.cleanContent(rawContent);
+            if (StringUtils.isEmpty(cleanedContent)) {
+                throw new RuntimeException("文档内容清洗后为空");
+            }
 
-            Document document = Document.builder()
-                .text(cleanedContent)
-                .metadata(Map.of(
-                    "filename", kbDocument.getFileName(),
-                    "knowledgeId", kbDocument.getKnowledgeId(),
-                    "source", kbDocument.getFilePath()
-                ))
-                .build();
-
-            // 通用智能切分 (使用分块策略工厂：语义分块 / 分隔符分块 / Token 固定分块)
-            int chunkSize = kbDocument.getChunkSize() != null ? kbDocument.getChunkSize().intValue() : 500;
-            List<Document> chunks = chunkerFactory.chunk(document,
-                Boolean.TRUE.equals(kbDocument.getSemanticChunking()),
-                chunkSize,
-                kbDocument.getChunkSeparator());
+            // 切分：结构化分块优先（标题/水平线/代码块/表格），无结构时智能切分兜底。
+            // metadata（knowledgeId/filename/source/category/title）已随 Document 带上
+            List<Document> chunks = documentChunkPipeline.toChunks(cleanedContent, kbDocument);
+            if (chunks.isEmpty()) {
+                throw new RuntimeException("文档切分结果为空");
+            }
 
             // 存入向量库
             if (knowledgeVectorStore != null) {
@@ -182,10 +188,16 @@ public class KbDocumentServiceImpl implements IKbDocumentService {
         // 3. 【新增】移除常见的 OCR 噪声字符，如连续的乱码符号
         cleanedText = cleanedText.replaceAll("[■□▲△○●⊛※]{2,}", "");
 
-        // 4. 【新增】处理 OCR 常见的多余空格，特别是中文字符之间的空格
-        cleanedText = cleanedText.replaceAll("([\\u4e00-\\u9fa5])\\s+([\\u4e00-\\u9fa5])", "$1$2");
+        // 4. 处理 OCR 常见的多余空格，特别是中文字符之间的空格（可配置，避免破坏表格/行内代码空格语义）
+        if (compressChineseSpace) {
+            cleanedText = cleanedText.replaceAll("([\\u4e00-\\u9fa5])\\s+([\\u4e00-\\u9fa5])", "$1$2");
+        }
 
-        // 5. 规范化空行
+        // 5. Word 物理分页标记转 markdown 水平线：配合 extract.page-break-mark=true 使用，
+        //    --- 会被 MarkdownDocumentReader 的 withHorizontalRuleCreateDocument(true) 识别为切块边界
+        cleanedText = cleanedText.replace("\n[分页]\n\n", "\n\n---\n\n");
+
+        // 6. 规范化空行
         cleanedText = cleanedText.replaceAll("\\n{3,}", "\n\n");
 
         return cleanedText.trim();

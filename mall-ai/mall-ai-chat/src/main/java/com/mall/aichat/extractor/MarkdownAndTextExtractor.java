@@ -1,23 +1,27 @@
 package com.mall.aichat.extractor;
 
+
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 
 /**
- * Markdown 文档提取器
+ * Markdown / 纯文本文档提取器
  * <p>
- * Markdown 文件直接读取文本内容。
- *
- * @author mall
+ * .md   -> 按标题/代码块等结构边界切分为多个 Document（含元数据）
+ * .txt  -> 复用同一解析器，按段落切分（Markdown 语法对其是宽松兼容的）
  */
 @Component
 public class MarkdownAndTextExtractor implements Extractor {
 
     @Override
     public boolean supports(String filename) {
-        return filename != null && (filename.toLowerCase().endsWith(".md") || filename.toLowerCase().endsWith(".txt"));
+        if (filename == null) {
+            return false;
+        }
+        String name = filename.toLowerCase();
+        return name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".txt");
     }
 
     @Override

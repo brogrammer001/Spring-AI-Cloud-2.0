@@ -40,7 +40,7 @@
 │                                                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
 │  │ChatAgent │→ │ChatClient│→ │Advisor链 │→ │  LLM    │ │
-│  │ (SSE流式) │  │ (Builder) │  │ (6层拦截) │  │(Qwen3.7)│ │
+│  │ (SSE流式) │  │ (Builder) │  │ (7层拦截) │  │(Qwen3.7)│ │
 │  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │
 │       │              │             │                     │
 │       │     ┌────────┴───────┐    │                     │
@@ -51,7 +51,7 @@
 │       │                                      │
 │  ┌────┴────┐                          MCP   │
 │  │记忆系统  │                    ┌──────────┴──────────┐
-│  │Redis+MySQL│                   │  MCP Client (Async)  │
+│  │Session+MySQL│                 │  MCP Client (Async)  │
 │  │+VectorStore│                   └──────────┬──────────┘
 │  └─────────┘                                │ HTTP
 └──────────────────────────────────────────────┼───────────┘
@@ -116,11 +116,13 @@ LLM 决定调用工具
 ```
 com.mall.aichat
 ├── MallAiChatApplication.java          # 启动类
+├── agent/
+│   └── ChatAgent.java                  # 聊天入口（SSE 流式，支持 userId / tenantId / deptId / traceId）
 ├── config/
-│   ├── ChatClientConfig.java           # ChatClient Bean 配置（核心，含 smallChatClient 概述小模型）
+│   ├── ChatClientConfig.java           # ChatClient Bean 配置（核心，装配 7 层 Advisor 链 + smallChatClient 概述小模型）
 │   ├── VectorStoreConfig.java          # 三个 VectorStore Bean（字段常量收敛到 ChatConstants）
 │   ├── AgentEventSinkManager.java      # SSE 旁路推送管理（tool_call / rag_retrieve 事件）
-│   └── SaLlmConfig.java                # 会话记忆配置（ChatMemory + MinerU RestClient + 线程池）
+│   └── SaLlmConfig.java                # MinerU RestClient + 异步线程池（窗口记忆改由 SessionMemoryAdvisor 承载）
 ├── constant/
 │   └── ChatConstants.java              # 向量库字段常量 + Advisor context key 统一契约
 ├── extractor/                           # 文档内容提取器（策略模式）
@@ -135,38 +137,44 @@ com.mall.aichat
 │   └── MarkdownAndTextExtractor.java   # Markdown/TXT 直接读取
 ├── chunker/                             # 文档分块策略（策略模式）
 │   ├── Chunker.java                    # 分块器接口（supports + chunk）
-│   ├── ChunkerFactory.java             # 工厂类（Spring Bean 自动发现，按配置选择策略）
-│   ├── SemanticChunker.java            # 语义分块（多尺度滑动窗口 + 动态阈值）
-│   └── TokenChunker.java               # Token 分块（固定分块，TokenTextSplitter）
+│   ├── ChunkerFactory.java             # 工厂类（Spring Bean 自动发现，按 @Order 选择策略）
+│   ├── SemanticChunker.java            # 语义分块 @Order(10)（多尺度滑动窗口 + 多策略动态阈值 + 父子分块）
+│   ├── SeparatorChunker.java           # 分隔符分块 @Order(20)（正则/字面量 + Token 兜底细切）
+│   └── TokenChunker.java               # Token 分块 @Order(30)（固定分块，兜底策略）
 ├── advisor/
-│   ├── VectorStoreChatMemoryAdvisor.java       # 长期语义记忆 Advisor（userId 跨会话 + 异步写入 + upsert 合并）
+│   ├── VectorStoreChatMemoryAdvisor.java       # 长期语义记忆 Advisor（Mem0 两阶段：提取→决策→应用；userId 跨会话 + 异步写入）
 │   ├── RagContextQueryAdvisor.java             # 知识库上下文查询 Advisor（RAG 检索 + 注入系统提示词 + rag_retrieve 事件）
-│   ├── FullHistoryChatMemoryAdvisor.java       # 全量历史记录 Advisor
+│   ├── HistoryChatMemoryAdvisor.java           # 全量历史记录 Advisor（sys_chat_history 入库 + 工具调用审计日志 + tool_call 事件推送）
+│   ├── HistoryAwareToolSearchAdvisor.java      # 工具动态检索 Advisor（继承 ToolSearchToolCallingAdvisor，修复跨轮/压缩丢失工具回调）
+│   ├── HistoryAwareToolCallingManager.java     # 执行期兜底装饰器（按 sessionId 从全量注册表补回工具回调）
 │   ├── ReturnDirectChatMemoryAdvisor.java      # returnDirect 工具结果 Advisor
-│   ├── RedisCachedAndMysqlMemoryRepository.java # Redis+MySQL 双层存储
-│   ├── WrappedMcpToolCallbackProvider.java     # MCP 工具包装器
-│   └── ReturnDirectToolCallbackWrapper.java    # 工具调用拦截器（dataId 缓存）
+│   ├── WrappedMcpToolCallbackProvider.java     # MCP 工具包装器（为每个工具注入 returnDirect）
+│   └── ReturnDirectToolCallbackWrapper.java    # 工具回调包装器（description 以 [JSON] 结尾 → returnDirect=true）
 ├── controller/
-│   ├── ChatAgent.java                  # 聊天入口（SSE 流式，支持 userId 参数）
 │   ├── AiConversationController.java   # 会话管理（创建/删除/列表）
-│   ├── SpringAiChatMemoryController.java # 窗口记忆管理（JDBC表CRUD）
 │   ├── KbDocumentController.java       # 知识库文档管理
+│   ├── KbDocumentChunkController.java  # 文档切片管理
 │   ├── KbKnowledgeBaseController.java  # 知识库管理
 │   └── SysChatHistoryController.java   # 聊天历史
-├── service/impl/
-│   ├── AiConversationServiceImpl.java  # 会话管理（创建+异步标题生成+级联删除）
-│   ├── ChatAgentService.java           # LLM 流式阶段（RAG 已下沉到 Advisor）
-│   ├── RagRetrieveContextService.java  # RAG 检索（供外部 API / NL2SQL 工具调用）
-│   ├── RerankerService.java            # Reranker 重排序服务
-│   ├── ToolDataCacheService.java       # 工具大数据 Redis 缓存
-│   ├── KbDocumentServiceImpl.java      # 文档上传流程编排（调用 ExtractorFactory + ChunkerFactory）
-│   └── ...
+├── service/
+│   ├── IAiAgentToolCallLogService.java # 工具调用审计日志服务接口
+│   └── impl/
+│       ├── AiConversationServiceImpl.java      # 会话管理（创建+异步标题生成+级联删除）
+│       ├── AiAgentToolCallLogServiceImpl.java  # 工具调用审计日志批量入库
+│       ├── ChatAgentService.java               # LLM 流式阶段（RAG 已下沉到 Advisor）
+│       ├── RagRetrieveContextService.java      # RAG 检索（供外部 API / NL2SQL 工具调用）
+│       ├── RerankerService.java                # Reranker 重排序服务
+│       ├── KbDocumentServiceImpl.java          # 文档上传流程编排（ExtractorFactory + ChunkerFactory）
+│       └── ...
 └── domain/
     ├── ChatStreamEvent.java            # SSE 事件结构
-    ├── ChatRequest.java                # 聊天请求（question + conversationId + userId）
+    ├── ChatRequest.java                # 聊天请求（question + conversationId + userId + tenantId + deptId + traceId）
     ├── SysChatHistory.java             # 聊天历史实体（全量记录）
     ├── AiConversation.java             # 会话实体（userId+conversationId+title）
-    ├── SpringAiChatMemory.java         # 窗口记忆实体（JDBC表）
+    ├── AiAgentToolCallLog.java         # 工具调用审计日志实体（ai_agent_tool_call_log）
+    ├── MemoryType.java                 # 记忆类型枚举（PROFILE 画像 / FACT 事实，对齐 Mem0）
+    ├── MemoryOperation.java            # 记忆操作枚举（ADD / UPDATE / DELETE / NOOP）
+    ├── ExtractedMemory.java            # 记忆提取阶段结构化产物（content + type）
     ├── KbDocument.java                 # 知识库文档实体
     └── ...
 ```
@@ -196,58 +204,123 @@ com.mall.aichat
 
 ### 2.3 Advisor 链（核心拦截层）
 
-Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执行：
+Advisor 链是 Agent 编排的核心，7 个 Advisor 按 `order` 升序（值越小越先执行 before 阶段）依次装配（见 `ChatClientConfig.qwenChatClient()`）：
 
 | 顺序 | Advisor | Order | 职责 |
 | :--- | :--- | :--- | :--- |
-| 1 | `MessageChatMemoryAdvisor` | HIGHEST+200 | 近期上下文读写（Redis+MySQL 双层） |
-| 2 | `VectorStoreChatMemoryAdvisor` | HIGHEST+201 | 长期语义记忆检索（Weaviate） |
-| 3 | `RagContextQueryAdvisor` | HIGHEST+201 | 知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件） |
-| 4 | `ReturnDirectChatMemoryAdvisor` | HIGHEST+202 | 拦截 `returnDirect=true` 的工具结果，单独入库 |
-| 5 | `ToolSearchToolCallingAdvisor` | HIGHEST+300 | 工具动态检索（每次仅注入相关工具，详见 2.8.2） |
-| 6 | `FullHistoryChatMemoryAdvisor` | 1 | 全量聊天记录入库 MySQL + 工具调用事件推送 |
-| 7 | `SimpleLoggerAdvisor` | 2 | 请求/响应日志 |
+| 1 | `VectorStoreChatMemoryAdvisor` | 98 | 长期语义记忆检索/写入（Weaviate，Mem0 两阶段）；仅 `vectorstore.enabled=true` 且 `conversationVectorStore` 存在时装配 |
+| 2 | `ReturnDirectChatMemoryAdvisor` | 99 | 拦截 `returnDirect=true` 的工具结果，单独入库（在工具搜索之前执行） |
+| 3 | `HistoryAwareToolSearchAdvisor` | 100 | 工具动态检索（渐进式披露，每次仅注入相关工具，详见 2.8.2） |
+| 4 | `SessionMemoryAdvisor` | 101 | 近期上下文窗口记忆（Spring AI 2.0 `SessionService` + JDBC 存储 + 滑动窗口压缩） |
+| 5 | `RagContextQueryAdvisor` | 102 | 知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件）；仅向量库开启时装配 |
+| 6 | `HistoryChatMemoryAdvisor` | 103 | 全量聊天记录入库 MySQL + 工具调用审计日志 + tool_call 事件推送（在工具搜索之后，才能拿到工具调用信息） |
+| 7 | `SimpleLoggerAdvisor` | 104 | 请求/响应观测日志 |
 
-#### 2.3.1 FullHistoryChatMemoryAdvisor
+> **架构演进（2026-09）**：原 `MessageChatMemoryAdvisor` + `RedisCachedAndMysqlMemoryRepository` + `SpringAiChatMemory`（Redis+MySQL 双层窗口记忆）整体下线，改由 Spring AI 2.0 原生 **`SessionMemoryAdvisor` + `SessionService`（JDBC 仓储）** 承载近期上下文，并内置压缩策略；`FullHistoryChatMemoryAdvisor` 重命名为 `HistoryChatMemoryAdvisor` 并新增工具调用审计；`ToolSearchToolCallingAdvisor` 替换为增强子类 `HistoryAwareToolSearchAdvisor`。
 
-**核心职责**：将每条消息（User/Assistant/Tool）全量存入 MySQL `sys_chat_history` 表。
+#### 2.3.1 HistoryChatMemoryAdvisor（全量消息存储 + 工具审计）
+
+**核心职责**：将每条有文本的消息（User/Assistant）全量存入 MySQL `sys_chat_history` 表，并将工具调用相关消息写入审计表 `ai_agent_tool_call_log`（`getName()` = “全量消息存储”）。
 
 **关键逻辑**：
-- **before 阶段**：从 ChatMemory 加载历史消息，注入到 Prompt 中；同时将用户消息存入 MySQL
-- **流式拦截**：检测 LLM 发起的工具调用，通过 `AgentEventSinkManager` 推送 `tool_call` 事件给前端
-- **after 阶段**：流式聚合完成后，将 Assistant 回复存入 MySQL
-- **序列号机制**：通过 Redis `INCR` 生成全局递增 `sequenceId`，保证消息顺序
-- **工具调用存储**：`AssistantMessage` 中的思考过程（`reasoningContent`）优先作为 `content` 落库；`ToolResponseMessage` 的响应数据按条展开写入 `content` 字段（每条工具响应一条历史记录）
+- **before 阶段**：将用户消息落库（`saveHistory`），同时写入工具调用审计（`saveToolCallLog`）
+- **流式拦截**：检测 LLM 发起的工具调用，**遍历推送所有工具调用的 `tool_call` 事件**（`forEach`，避免并行工具只推送第一个）
+- **after 阶段**：流式聚合完成后，将 Assistant 回复落库 + 写入审计日志
+- **双轨落库（关注点分离）**：
+  - **有文本的消息**（`StringUtils.hasText`）→ `sys_chat_history`（供前端展示）；`sequenceId` 由 Redis `INCR`（`Constants.SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId`）生成全局递增序号
+  - **工具调用消息**（`AssistantMessage.hasToolCalls()` 或 `ToolResponseMessage`，且无正文文本）→ `ai_agent_tool_call_log`（供审计/追踪），每个工具调用展开为一条日志
+- **审计日志字段**：`callId`（UUID）、`conversationId`、`userId`、`toolName`、`toolParams`（入参）、`resultDigest`（结果摘要）、`resultRef`（工具调用/响应的 JSON 序列化）、`status`（SUCCESS）；通过 `IAiAgentToolCallLogService.saveBatch()` 批量入库
+
+#### 2.3.1.1 工具调用审计日志（AiAgentToolCallLog）
+
+新增的 `ai_agent_tool_call_log` 表专门记录 Agent 每一次工具调用，与业务聊天记录（`sys_chat_history`）解耦：
+
+| 字段 | 说明 |
+| :--- | :--- |
+| `callId` | 单次调用 ID（UUID） |
+| `traceId` | 本轮请求的追踪 ID（贯穿单次请求的所有工具调用，来自 `ChatRequest.traceId`） |
+| `conversationId` | 关联 `ai_conversation.conversation_id` |
+| `userId` / `tenantId` | 触发调用的用户 / 租户隔离 |
+| `toolName` | 工具名（如 `createSupplier`） |
+| `toolParams` | 完整入参 |
+| `resultDigest` | 结果摘要（`ReturnDirectToolCallbackWrapper` 侧最大 1024 字符截断） |
+| `resultRef` | 大结果外置存储 key / 工具调用与响应的 JSON |
+| `status` / `errorMsg` | 执行状态 / 错误信息 |
+| `costMs` / `bizModule` | 执行耗时(ms) / 业务模块 |
+
+**写入时机**：`HistoryChatMemoryAdvisor.saveToolCallLog()` 在 before（用户消息携带的工具调用）与 after（Assistant 发起的工具调用 + ToolResponseMessage）两阶段分别提取，按消息类型展开后批量入库。
 
 #### 2.3.2 ReturnDirectChatMemoryAdvisor
 
-**核心职责**：当工具标记了 `returnDirect=true`（description 以 `[JSON]` 结尾）时，工具结果不经过 LLM 处理，直接返回给前端。此 Advisor 拦截这类结果并单独入库。
+**核心职责**：当工具标记了 `returnDirect=true`（`@Tool(returnDirect=true)`，description 以 `[JSON]` 结尾）时，工具结果不经过 LLM 处理直接返回前端；这类结果不走常规 `HistoryChatMemoryAdvisor` 的文本落库路径，需由本 Advisor（order=99，在工具搜索之前执行）单独拦截并**双写**入库。
 
-**判断逻辑**：检查 `ChatGenerationMetadata.finishReason == "returnDirect"`。
+**判断逻辑**：`before()` 为空操作，仅在 `after()` 检查 `ChatGenerationMetadata.finishReason == ToolExecutionResult.FINISH_REASON`（值为 `"returnDirect"`）时命中。
+
+**双写落库**（对齐 0138f09 会话记忆重构）：
+
+| 目标 | 写入方式 | 用途 |
+| :--- | :--- | :--- |
+| MySQL `sys_chat_history` | `saveBatch`；`sequenceId` 由 Redis `INCR`（`SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId`）生成 | 前端历史展示 |
+| `SessionService`（JDBC 会话存储） | `appendEvent(SessionEvent)`，`sessionId = conversationId` | 使 returnDirect 结果进入模型滑动窗口记忆，后续轮次可感知 |
 
 #### 2.3.3 VectorStoreChatMemoryAdvisor（长期语义记忆）
 
-**核心职责**：将用户消息异步提取为"记忆事实"写入 Weaviate，并在进入模型前按 **userId** 检索生效中的长期记忆注入系统提示词。**作用域从 conversationId 改为 userId，长期记忆跨会话生效**。
+**核心职责**：将每一轮对话异步提取为“记忆事实”写入 Weaviate，并在进入模型前按 **userId** 检索生效中的长期记忆注入系统提示词。**作用域为 userId，长期记忆跨会话生效**。
+
+**记忆模型（对齐 Mem0）**：记忆按 `MemoryType` 二分，写入按 `MemoryOperation` 四种操作决策：
+
+| 记忆类型 | 含义 | 更新策略 |
+| :--- | :--- | :--- |
+| `PROFILE` | 用户画像：身份、姓名、长期偏好、工作、城市等稳定属性 | **覆盖**（UPDATE） |
+| `FACT` | 对话事实：事件、决定、临时意图、任务 | **追加**（ADD，保留历史） |
+
+| 操作 | 含义 |
+| :--- | :--- |
+| `ADD` | 新增一条记忆 |
+| `UPDATE` | 用新内容替换某条旧记忆（需 `targetId`） |
+| `DELETE` | 删除某条旧记忆（需 `targetId`） |
+| `NOOP` | 无需操作（重复/无意义） |
+
+**两阶段处理流水线（提取 → 决策 → 应用）**：
+
+```
+after() 阶段拿到本轮完整对话（用户消息 + AI 回复）
+  │
+  ├─ Phase 1 提取（extractMemories）
+  │   ├─ 输入：【用户消息】(≤400字) + 【AI回复】(≤300字)，上下文感知
+  │   ├─ 调用 smallChatClient + EXTRACT_INSTRUCTION，输出严格 JSON 数组
+  │   │   [{"content":"用户叫张三","type":"profile"}, ...]
+  │   ├─ 原子事实拆分（一句一事），每条以“用户”开头、≤字数限制
+  │   ├─ 寒暄/闲聊/无实质信息 → 返回空数组，本轮不写
+  │   └─ 单轮最多 MAX_MEMORIES_PER_TURN=5 条
+  │
+  └─ Phase 2 逐条决策应用（decideAndApply）
+      ├─ 检索决策候选（searchDecisionCandidates）：top-3 + 相似度阈值 0.75
+      ├─ 无候选 → ADD（直接写入）
+      ├─ 候选中存在文本完全相同 → 续期（写新 + 删旧，刷新 TTL）
+      └─ 否则调用 smallChatClient + DECIDE_INSTRUCTION 得到 {op, target_id, content}：
+          ├─ ADD    → writeMemory
+          ├─ UPDATE → writeMemory(新内容) + deleteMemory(targetId)   # profile 覆盖
+          ├─ DELETE → deleteMemory(targetId)                        # 新记忆否定/撤销旧记忆
+          └─ NOOP   → 跳过（重复）
+```
 
 **关键设计**：
 
 | 设计点 | 说明 |
 | :--- | :--- |
 | 作用域 | `userId`（跨会话检索主过滤字段），`conversationId` 仅随 metadata 落库用于追踪 |
-| 异步写入 | `storeMemoryAsync()` 运行在 advisor 自身 scheduler 上，不阻塞请求链路，首 token 延迟不受摘要/查重/写入影响 |
-| 记忆提取 | `summarizeMessage()` 调用 `smallChatClient`（概述小模型）将用户消息总结为一句以“用户”开头的短句；无实质信息（输出“无”）跳过写入 |
-| 上下文感知提取 | 输入从“裸单条消息”升级为“上一轮 AI 回复 + 当前用户消息”，解决“那上海的呢？”这类依赖上下文的指代消息无法提取的问题（对齐 Mem0/LangMem 的 context-aware extraction） |
-| 记忆合并 | `upsertMemoryItem()` 采用 Dify op 模型：无相近 → ADD；精确相同 → NOOP（纯代码续期 TTL）；语义相近 → `mergeMemory()` 单对判定合并（相同/冲突存新替换旧，不同则 ADD） |
-| 多候选合并 | 合并候选从 top-1 扩大到 top-N（默认 2），新事实可能同时关联多条旧记忆，只对比一条会漏合并 |
+| 异步写入 | `storeMemoryAsync()` 运行在 advisor 自身 scheduler 上，不阻塞请求链路，首 token 延迟不受提取/决策/写入影响 |
+| 上下文感知提取 | 输入为“本轮用户消息 + AI 回复”，解决“那上海的呢？”这类依赖上下文的指代消息；AI 回复仅用于消歧/补全执行结果，禁止将 AI 推理/建议作为记忆 |
+| 提取/决策分离 | Phase1 只负责“提取什么”，Phase2 只负责“如何入库”，两个专用 prompt（EXTRACT_INSTRUCTION / DECIDE_INSTRUCTION）职责单一 |
+| 类型驱动更新 | profile 冲突走 UPDATE 覆盖；fact 冲突走 ADD 追加，保留历史轨迹 |
 | 记忆有效期 | 默认 30 天（`DEFAULT_MEMORY_TTL_MS`），写入时推导 `expireAt`；检索时过滤 `expireAt > now`，过期记忆不注入模型 |
-| 永不过期修复 | TTL=0 的“永不过期”改用远期时间戳落地，避免被 `gt(expireAt, now)` 过滤直接排除 |
-| 语义查重阈值 | Builder 可配置（默认 0.9），控制“精确相同”与“语义相近”的边界 |
-| 敏感信息脱敏 | 长期记忆库会持久化用户事实，身份证/手机号/银行卡等敏感信息自动脱敏为 `***` 后再入库 |
-| 输出格式约束 | 摘要/合并指令补充输出前缀/引号禁止与长度约束，利用小模型 recency 效应提升遵从率 |
-| 降级 | 向量库不可用时降级为无记忆继续对话，不中断请求 |
-| 摘要输入上限 | 超长消息（>200 字符）先截断，避免塞爆摘要 prompt |
-| 记忆文本长度上限 | 小模型输出超过 100 字符视为异常，按失败处理 |
-| AI 回复不入库 | 只存用户消息；AI 回复是通用知识/任务结果，写入会污染记忆库 |
+| 永不过期 | TTL=0 的“永不过期”用远期时间戳（`NEVER_EXPIRE_EXPIRE_AT_MS`，100 年）落地，避免被 `gt(expireAt, now)` 过滤排除 |
+| 敏感信息脱敏 | 身份证/手机号/银行卡等敏感信息自动脱敏为 `***` 后再入库 |
+| 输出格式约束 | 提取/决策指令均强制严格 JSON、禁止代码块标记与转义引号，`sanitizeJsonOutput()` 容错解析 |
+| 降级 | 向量库不可用/LLM 调用失败/JSON 解析失败时降级为无记忆继续对话，不中断请求 |
+| 记忆文本长度上限 | 小模型输出超过 `MAX_MEMORY_TEXT_LENGTH=100` 字符视为异常，按失败处理 |
+| 时序排序 | 检索命中后 `rankByRecency()` 按时间排序再注入，提升近期记忆权重 |
 
 **记忆 Schema 字段**（与 `VectorStoreConfig` 会话记忆库对齐，常量收敛到 `ChatConstants`）：
 
@@ -256,21 +329,30 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 | `userId` | 记忆归属用户 ID，长期记忆跨会话检索的基础过滤字段 |
 | `conversationId` | 归属会话 ID，仅随 metadata 落库用于追踪 |
 | `messageType` | 消息角色（USER / ASSISTANT / SYSTEM） |
+| `memory_type` | 记忆类型（profile / fact），决策阶段据此选择覆盖或追加 |
 | `status` | 记忆状态（active / archived / superseded / expired，用字符串而非 boolean） |
 | `ingestedAt` | 记忆写入时间戳（毫秒） |
 | `expireAt` | 记忆过期时间戳（毫秒），0 表示不过期 |
 
 **检索过滤表达式**：`userId = {userId} AND status = active AND expireAt > now`
 
-#### 2.3.4 RedisCachedAndMysqlMemoryRepository
+#### 2.3.4 SessionMemoryAdvisor（近期上下文窗口记忆）
 
-**核心职责**：实现 `ChatMemoryRepository` 接口，提供 Redis + MySQL 双层存储。
+**核心职责**：基于 Spring AI 2.0 原生会话 API（`SessionService` + `SessionMemoryAdvisor`）管理近期上下文窗口，**取代原自定义的 `RedisCachedAndMysqlMemoryRepository` + `SpringAiChatMemory` 双层存储方案**。
 
-**读写策略**：
-- **读取**：先查 Redis（TTL 7天），未命中查 MySQL 并回填 Redis
-- **写入**：先落 MySQL，再更新 Redis
-- **降级**：Redis 异常时直接查 MySQL，不影响主流程
-- **序列化**：使用 fastjson2 `WriteClassName` 特性，在 JSON 中写入 `@type` 字段保留消息类型信息
+**装配参数**（`ChatClientConfig.sessionMemoryAdvisor()`）：
+
+| 参数 | 值 | 说明 |
+| :--- | :--- | :--- |
+| `SessionService` | JDBC 仓储 | 会话持久化（`spring.ai.session.repository.jdbc.initialize-schema=always` 自动建表） |
+| `compactionTrigger` | `TurnCountTrigger(4)` | 每 4 轮对话触发一次压缩 |
+| `compactionStrategy` | `SlidingWindowCompactionStrategy(maxEvents=8)` | 滑动窗口压缩，保留最近 8 个事件 |
+| `order` | 101 | 在工具搜索之后、RAG 之前执行 |
+| `time-to-live` | 30d | 会话有效期（`spring.ai.session.time-to-live`，支持 ISO-8601） |
+
+**与旧方案的区别**：
+- 旧：`MessageChatMemoryAdvisor` + 自实现 `ChatMemoryRepository`（Redis 缓存 + MySQL 回填 + fastjson2 `@type` 序列化），窗口大小由 `chat-memory.max-messages` 控制
+- 新：框架原生 `SessionService` 接管存储与生命周期，内置**轮次触发 + 滑动窗口压缩**，无需自建双层仓储；`chat-memory.max-messages` 配置已移除
 
 ### 2.4 会话管理与级联操作
 
@@ -278,13 +360,13 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 
 `AiConversationServiceImpl.createAiConversation()` 流程：
 
-1. 生成 UUID 作为 conversationId，建立 userId 与 conversationId 的关联
+1. 调用 `sessionService.create(CreateSessionRequest{userId})` 创建会话，以返回的 `session.id()` 作为 conversationId，建立 userId 与 conversationId 的关联
 2. **直接将用户第一条消息 `question` 作为会话标题**写入 `ai_conversation.title`
 3. 写入 Redis（`chat:conversation:{conversationId}` → userId，TTL 7天）
 4. 前端在已有有效标题（非空、非"未命名对话"）时不再覆盖标题，仅对空标题或占位符生成新标题
 
 **标题生成（smallChatClient）**：
-- 使用 `smallChatClient`（概述小模型，替代原 `titleChatClient`）异步生成标题
+- **仅当 `question.length() > 20` 时**才使用 `smallChatClient`（概述小模型，替代原 `titleChatClient`）异步生成标题（短问题直接用原文，避免浪费 LLM 资源）；生成前二次检查会话是否已有标题，避免重复调用
 - 内置标题生成 System Prompt：不超过 15 字、概括主题、不要标点结尾、只输出标题本身
 - **后处理**：取首行、去空白、截断到 30 字，防止模型输出多余内容污染标题
 
@@ -292,29 +374,30 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 
 #### 2.4.2 会话级联删除
 
-`deleteByConversationId()` 执行 4 层级联清理：
+`deleteByConversationId()` 执行 5 层级联清理：
 
 | 层级 | 操作 | 存储位置 |
 | :--- | :--- | :--- |
-| 1. 关联表 | 删除 userId ↔ conversationId 关联 | MySQL `ai_conversation` |
-| 2. 窗口记忆 | 删除滑动窗口数据 | MySQL `spring_ai_chat_memory` + Redis |
-| 3. 全量历史 | 删除所有聊天记录 | MySQL `sys_chat_history` + Redis 序列号 |
-| 4. 向量数据 | 删除会话向量 + 工具索引向量 | Weaviate（conversationId + sessionId 过滤） |
+| 1. 会话记忆 | `sessionService.delete(conversationId)` 删除近期上下文会话 | SessionService（JDBC） |
+| 2. 关联表 | 删除 userId ↔ conversationId 关联 | MySQL `ai_conversation` |
+| 3. 全量历史 | 删除所有聊天记录 | MySQL `sys_chat_history` |
+| 4. 工具审计 | 删除工具调用审计日志 | MySQL `ai_agent_tool_call_log` |
+| 5. 向量数据 | 删除会话向量 + 工具索引向量 | Weaviate（conversationId + sessionId 过滤） |
 
 **Redis Key 清理**：
 - `chat:conversation:{conversationId}` — 会话关联
-- `chat:memory:{conversationId}` — 窗口记忆缓存
 - `seq:chat:memory:{conversationId}` — 消息序列号
+
+> **架构演进**：原“窗口记忆”层（`spring_ai_chat_memory` + `chat:memory:{conversationId}` 缓存）已随 `SpringAiChatMemory` 体系下线，改由 `sessionService.delete()` 统一清理；新增工具审计日志（`ai_agent_tool_call_log`）的级联删除。
 
 #### 2.4.3 SaLlmConfig 配置
 
-`SaLlmConfig` 定义了三个核心 Bean：
+`SaLlmConfig` 定义了两个核心 Bean（原 `chatMemory` Bean 已移除，窗口记忆改由 `SessionMemoryAdvisor` + `SessionService` 承载）：
 
 | Bean | 类型 | 说明 |
 | :--- | :--- | :--- |
-| `chatMemory` | `MessageWindowChatMemory` | 窗口记忆，基于 `RedisCachedAndMysqlMemoryRepository` |
 | `mineruRestClient` | `RestClient` | MinerU API 客户端（连接超时10s，读取超时60s） |
-| `taskExecutor` | `Executor` | 异步线程池（核心5/最大10/队列100），用于标题生成和向量压缩 |
+| `taskExecutor` | `Executor` | 异步线程池（核心5/最大10/队列100，`CallerRunsPolicy`），用于标题生成等异步任务 |
 
 ### 2.5 会话记忆与上下文管理
 
@@ -323,19 +406,16 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 *   **隔离维度**：`userId`（用户维度的数据权限） + `conversationId`（单次会话维度的上下文连续性）。
 *   **实现机制**：
     *   当用户第一次输入内容进行请求，创建 conversationId 并与用户 id 建立关联关系
-    *   通过 `ChatMemory.CONVERSATION_ID` 上下文传递会话 ID
-    *   在所有存储层（Redis, MySQL, VectorStore）的数据写入时，必须带上 CONVERSATION_ID
+    *   通过 `ChatMemory.CONVERSATION_ID` 上下文传递会话 ID（作为 `SessionMemoryAdvisor` / `HistoryAwareToolSearchAdvisor` 的 sessionId），通过 `SessionMemoryAdvisor.USER_ID_CONTEXT_KEY` 传递用户 ID
+    *   在所有存储层（SessionService JDBC 会话、MySQL `sys_chat_history` / `ai_agent_tool_call_log`、VectorStore）的数据写入时，必须带上 CONVERSATION_ID 与 userId
 
 #### 2.5.2 上下文窗口（近期记忆 - Window Memory）
 
 这是 AI "正在看"的内容，决定了对话的连续性。
 
-*   **窗口策略**：基于 `maxMessages` 滑动窗口（配置：`chat-memory.max-messages: 4`）。
-    *   **逻辑**：仅保留最近的 N 条消息。达到上限时，自动移除最早的一轮对话。
-    *   **奇偶校验**：为了保证"一问一答"的完整性，底层会自动将奇数 `maxMessages` 向下取整为偶数。
-*   **存储实现（双写策略）**：
-    1.  **Redis 缓存层**：提供毫秒级读写，Key 设置 TTL 7天，过期自动清理。
-    2.  **MySQL 持久化层**：作为 Redis 的持久化备份，Redis 数据过期后可通过查询回填缓存。
+*   **实现**：由 Spring AI 2.0 原生 `SessionMemoryAdvisor` + `SessionService`（JDBC 仓储）承载，取代原 `MessageChatMemoryAdvisor` + `RedisCachedAndMysqlMemoryRepository` 自建双层存储。
+*   **压缩策略**：`TurnCountTrigger(4)` 每 4 轮触发一次压缩，`SlidingWindowCompactionStrategy(maxEvents=8)` 保留最近 8 个事件，超出部分自动压缩。
+*   **存储与生命周期**：会话持久化到 JDBC（`initialize-schema=always` 自动建表），有效期 `time-to-live=30d`，过期自动清理。
 
 #### 2.5.3 向量库全量上下文（长期记忆 - Vector Memory）
 
@@ -345,18 +425,18 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 order 排序依次执�
 *   **技术栈**：本地 Embedding 模型（Qwen3-Embedding-4B） + Weaviate 向量数据库。
 *   **检索逻辑**：基于 `VectorStoreChatMemoryAdvisor`，按 **userId** 检索生效中的长期记忆（`status=active AND expireAt > now`）。
     *   **参数**：`defaultTopK`（配置：`vectorstore.chat-memory-default-topk: 1`）。
-*   **记忆写入（异步）**：用户消息经 `smallChatClient` 提取为"记忆事实"短句后异步写入向量库，不阻塞请求链路。
-*   **记忆合并（upsert）**：写入时按相似度查重——无相近 → 新增；精确相同 → 纯代码续期 TTL；语义相近 → 调用小模型合并（冲突以新记忆为准，不同话题合并为一句）。
+*   **记忆写入（异步）**：本轮完整对话（用户消息 + AI 回复）经 `smallChatClient` 提取为以“用户”开头的原子事实短句后异步写入向量库，不阻塞请求链路。
+*   **记忆决策（Mem0 模型）**：写入时按相似度检索候选（top-3 + 阈值 0.75），由小模型判定 `ADD/UPDATE/DELETE/NOOP`：profile 冲突覆盖、fact 冲突追加、文本完全相同则续期 TTL。
 *   **记忆有效期**：默认 30 天（`expireAt` 字段），过期记忆不注入模型。
-*   **AI 回复不入库**：只存用户消息，避免通用知识/任务结果污染记忆库。
-*   **架构演进**：原 `VectorCompressionService`（批量压缩）已移除，由上述"单条 upsert 合并"机制取代。
+*   **只存用户视角记忆**：提取以用户消息为主，AI 回复仅用于消歧/补全执行结果，避免通用知识/任务结果污染记忆库。
+*   **架构演进**：原 `VectorCompressionService`（批量压缩）已移除，由上述“提取→决策→应用”的 Mem0 两阶段机制取代。
 
 #### 2.5.4 全量聊天记录（业务展示）
 
 *   **作用**：供前端展示"历史会话列表"和"聊天详情"，支持分页、关键词搜索。
 *   **存储**：MySQL 业务表 `sys_chat_history`，包含 `conversation_id`、`content`、`sequence_id`、`type`、`timestamp`、`create_by`、`create_time`、`update_by`、`update_time` 等字段。
 *   **特点**：**全量永久存储**（除非用户主动删除），不进行滑动窗口截断。
-*   **重点类**：`FullHistoryChatMemoryAdvisor`。
+*   **重点类**：`HistoryChatMemoryAdvisor`。
 
 ### 2.6 RAG 检索引擎
 
@@ -446,9 +526,10 @@ reranker:
   │   └─ 音频(mp3/wav/flac) → AudioExtractor（Tika Metadata 提取）
   │
   ├─ 内容清洗 (DocumentCleaner: 移除 OCR 噪声、页码、乱码)
-  ├─ ChunkerFactory.chunk(document, semanticEnabled, chunkSize)  # 分块策略路由
-  │   ├─ semanticEnabled=true  → SemanticChunker（多尺度滑动窗口 + 动态阈值）
-  │   └─ semanticEnabled=false → TokenChunker（TokenTextSplitter 固定分块）
+  ├─ ChunkerFactory.chunk(document, semanticEnabled, chunkSize, chunkSeparator)  # 分块策略路由（按 @Order）
+  │   ├─ semanticEnabled=true   → SemanticChunker @Order(10)（多尺度滑动窗口 + 多策略动态阈值 + 父子分块）
+  │   ├─ semanticEnabled=false + 分隔符非空 → SeparatorChunker @Order(20)（正则/字面量 + Token 兜底）
+  │   └─ semanticEnabled=false + 分隔符为空 → TokenChunker @Order(30)（TokenTextSplitter 固定分块）
   ├─ 存入 Weaviate 向量库
   └─ 同步 MySQL chunk 记录
 ```
@@ -506,7 +587,7 @@ extract:
 
 ##### 2.6.2.2 WordExtractor 详细设计
 
-`WordExtractor` 是最复杂的提取器（958 行），分两条路径：
+`WordExtractor` 是最复杂的提取器（972 行），分两条路径：
 
 | 路径 | 格式 | 解析方式 | 输出质量 |
 | :--- | :--- | :--- | :--- |
@@ -523,6 +604,7 @@ extract:
 | 图片处理 | blip@embed/imagedata@id → rId → 图片；内容 MD5 去重；小图过滤(<5KB)；共享线程池并行 OCR；总超时 120s |
 | 图片占位符 | 私用区哨兵字符(\uE000...\uE001)，不与正文碰撞 |
 | 特殊元素 | hyperlink/smartTag/sdt/fldSimple 内文本；过滤删除修订(del/delText)；AlternateContent 只取 Choice 分支 |
+| 生成器兼容 | `<t>` 文本改用 `cursor.getTextValue()` 读取（不强转 `CTText`），兼容 WPS/LibreOffice 在扩展命名空间或 Fallback 分支产出的 `<t>`——Schema 未命中时 `getObject()` 返回 `XmlAnyTypeImpl`，强转会抛 `ClassCastException` |
 | 内容控件 | XWPFSDT 兆底取文本 |
 
 ##### 2.6.2.3 ExcelExtractor 详细设计
@@ -607,7 +689,7 @@ extract:
   ├─ 1. Pattern.compile(separator).split(text) 按分隔符切分为原始块
   │   └─ trim 后过滤空串；若切分结果为空，降级 Token 分块
   │
-  ├─ 2. 过小的块（< MIN_UNIT_CHARS=250 字符）向前合并
+  ├─ 2. 过小的块（< MIN_UNIT_TOKENS=100 Token）向前合并
   │   └─ 合并后 Token 数不超过 chunkSize 才允许合并，避免超限
   │
   └─ 3. 超长块（Token 数 > chunkSize）用 TokenTextSplitter 兜底细切
@@ -618,74 +700,115 @@ extract:
 
 | 参数 | 值 | 说明 |
 | :--- | :--- | :--- |
-| `MIN_UNIT_CHARS` | `250` | 块最小字符数，低于此值向前合并 |
+| `MIN_UNIT_TOKENS` | `100` | 块最小 Token 数（统一 token 度量，中英文行为一致），低于此值向前合并 |
 | `MERGE_JOINER` | `\n\n` | 合并块时的连接符 |
 | Token 细切分参数 | 同 TokenChunker | 超长块兜底 |
 
-**策略 C：SemanticChunker（语义分块 —— 多尺度滑动窗口 + 动态阈值）**
+**策略 C：SemanticChunker（语义分块 V5 —— 多尺度滑动窗口 + 多策略动态阈值 + 父子分层分块 + 块间重叠）**
 
 通过 `kb_document.semantic_chunking` 字段控制启用；若同时配置了 `chunk_separator`，则作为**最小语义单元**的切分依据（未配置时默认按 `\n\n` 段落切分）。
 
-**核心思想**：基于 Embedding 向量计算段落间的语义相似度，采用**多尺度滑动窗口算法**检测语义边界，将语义相近的段落合并为同一块。
+**核心思想**：先做**结构感知切分**（标题 → 段落 → 句子）得到语义最小单元，基于 Embedding 向量用**多尺度滑动窗口**计算相邻单元相似度，再用**多策略动态阈值**（默认标准差法）检测语义边界；语义相近的单元聚合为**父块**，父块再切分为带重叠的**子块**用于向量检索——命中子块后通过 metadata 回溯父块全文喂给 LLM（对齐 Dify 父子分块模式）。全流程以 **Token** 为统一度量（jtokkit CL100K_BASE），并对相邻块注入句子级重叠缓解边界割裂。
 
 **算法流程**（`SemanticChunker.chunk()`）：
 
 ```
 文档内容 + chunkSeparator（可选）
   │
-  ├─ 1. 切分为语义最小单元（splitIntoSemanticUnits）
-  │   ├─ 优先按 chunkSeparator 切分（未配置则按空行 \n\n）
-  │   └─ 单元超过 chunkSize*2 时，按句子进一步切分
-  │       └─ 支持中英文标点（。！？!?；;）
+  ├─ 0. 文本清洗（cleanText）
+  │   ├─ 换行统一 CRLF/CR → LF、连续空白归一、空行压缩至 ≤2
+  │   └─ 删除 URL / 邮箱（REMOVE_URL_AND_EMAIL=true，对齐 Dify 预处理）
   │
-  ├─ 2. 计算每个单元的 Embedding 向量
-  │   ├─ 调用本地 Embedding 模型（Qwen3-Embedding-4B）
-  │   └─ 分批调用（batchSize=20），避免单次请求过大
+  ├─ 1. 结构感知切分为语义最小单元（splitIntoSemanticUnits）
+  │   ├─ 先按标题行分 section（HEADING_PATTERN），再按 chunkSeparator（默认空行）分段落
+  │   ├─ 段落 > chunkSize*2（MAX_UNIT_TOKENS_FACTOR）时按句子聚合，单元 ≥ MIN_UNIT_TOKENS=100
+  │   └─ startIndex 游标递进定位（O(n)，重复段落各自定位到正确位置）
   │
-  ├─ 3. 多尺度滑动窗口计算切分点（findSplitPoints）
-  │   ├─ 窗口大小集合：{1, 2}（多尺度融合）
-  │   ├─ 每个位置 p：左右窗口平均向量的余弦相似度，多尺度取均值
-  │   └─ 动态阈值：取相似度最低的 20% 分位为切分点
+  ├─ 2. 窗口大小自适应：windowSize = min(MAX_WINDOW_SIZE=2, (units-1)/2)
   │
-  ├─ 4. 按切分点合并单元，形成语义块
+  ├─ 3. 计算单元 Embedding（computeEmbeddings）
+  │   ├─ 超长单元按句子预切分至 ≤ embeddingMaxInputTokens=512（单句超限退 token 硬切并修复 U+FFFD）
+  │   ├─ 分批调用（EMBEDDING_BATCH_SIZE=16），多片段按维平均为整单元向量
+  │   └─ 返回向量数与请求片段数校验，异常或不符则整体降级 Token 分块
   │
-  ├─ 5. 合并过小的语义块（<250 字符向前合并）
+  ├─ 4. 多尺度滑动窗口找切分点（findSplitPoints）
+  │   ├─ 每个位置 p：左右各 windowSize 个单元的平均向量余弦相似度，多尺度取均值
+  │   ├─ 多策略动态阈值（THRESHOLD_STRATEGY）选出候选断点：
+  │   │   • STANDARD_DEVIATION（默认）：阈值 = mean - k*std（k=THRESHOLD_AMOUNT=1.5）
+  │   │   • PERCENTILE：相似度最低的 PERCENTILE_FRACTION=0.20 分位
+  │   │   • INTERQUARTILE：阈值 = Q1 - k*(Q3-Q1)
+  │   │   • GRADIENT：相邻相似度骤降幅度最大的 5% 位置
+  │   └─ 局部极小值校验（LOCAL_MIN_RADIUS=1）剔除窄幅抖动造成的噪声切分
   │
-  └─ 6. 对过大的语义块按 Token 细切分
-      └─ 超过 chunkSize 的块，用 TokenTextSplitter 再切分
+  ├─ 5. 组装父块（groupUnitsBySplitPoints → splitOversizedGroups → mergeSmallGroups）
+  │   ├─ 按切分点分组
+  │   ├─ 超长组（> chunkSize*2）按单元边界二次拆分
+  │   └─ 过小组（< MIN_UNIT_TOKENS=100）就近双向合并（合并后不超 chunkSize）
+  │
+  ├─ 6. 物化父块（toParentChunk）：标题拼入父块文本，保证上下文完整 + 标题式 query 召回
+  │
+  ├─ 7. 父块间重叠（addOverlapBetweenParents）：相邻父块注入 ~12%（PARENT_OVERLAP_RATIO）句子级重叠
+  │   └─ 取自原文快照、限制 30~200 token，不跨父块级联累积
+  │
+  └─ 8. 构建父子结构（buildParentChildDocuments）
+      ├─ 子块大小 childSize = max(MIN_CHILD_TOKENS=64, chunkSize * CHILD_SIZE_RATIO=1/3)
+      ├─ 子块间注入 ~15%（CHILD_OVERLAP_RATIO）尾部句子重叠
+      ├─ 子块 metadata：parent_id（`{docId}-parent-{p}` 全局唯一）、parent_text（父块全文）、
+      │   chunk_index、child_index、start_index、heading
+      └─ 极端兜底：单个子块 > childSize*2 时走 TokenTextSplitter 细切
 ```
 
 **关键参数**：
 
 | 参数 | 默认值 | 说明 |
 | :--- | :--- | :--- |
-| `WINDOW_SIZES` | `{1, 2}` | 多尺度滑动窗口大小集合 |
-| `SPLIT_PERCENTILE` | `0.20` | 动态切分阈值百分位（取相似度最低的 20%） |
-| `MIN_GAP_SAMPLES` | `4` | 最小语义断点样本数，不足则降级 |
-| `MIN_UNIT_CHARS` | `250` | 最小语义块字符数，过小则向前合并 |
-| `batchSize` | `20` | Embedding 分批调用大小 |
+| `MAX_WINDOW_SIZE` | `2` | 多尺度滑动窗口最大半径（实际窗口按单元数自适应收缩） |
+| `THRESHOLD_STRATEGY` | `STANDARD_DEVIATION` | 动态阈值策略：PERCENTILE / STANDARD_DEVIATION / INTERQUARTILE / GRADIENT |
+| `THRESHOLD_AMOUNT` | `1.5` | 标准差/四分位法的 k 值（阈值 = mean - k*std 或 Q1 - k*IQR） |
+| `PERCENTILE_FRACTION` | `0.20` | PERCENTILE 策略的切分分位（相似度最低的 20%） |
+| `LOCAL_MIN_RADIUS` | `1` | 局部极小值校验半径，剔除相似度窄幅抖动噪声 |
+| `MIN_UNIT_TOKENS` | `100` | 语义单元/块最小 Token 数（≈250 中文字符），过小则合并 |
+| `MAX_UNIT_TOKENS_FACTOR` | `2` | 单元/父组上限 = chunkSize * 2，超过则二次拆分 |
+| `CHILD_SIZE_RATIO` | `1/3` | 子块大小 = chunkSize * 1/3（不低于 MIN_CHILD_TOKENS） |
+| `MIN_CHILD_TOKENS` | `64` | 子块最小 Token 数 |
+| `CHILD_OVERLAP_RATIO` | `0.15` | 子块间尾部句子重叠比例（~15%） |
+| `PARENT_OVERLAP_RATIO` | `0.12` | 相邻父块句子级重叠比例（~12%，限 30~200 token） |
+| `EMBEDDING_BATCH_SIZE` | `16` | Embedding 分批调用大小 |
+| `embeddingMaxInputTokens` | `512` | Embedding 模型单次输入上限（`aichat.embedding.max-input-tokens`） |
+| `REMOVE_URL_AND_EMAIL` | `true` | 清洗阶段删除 URL / 邮箱 |
+| `TOKEN_CACHE_MAX_ENTRIES` | `10000` | 短文本 Token 估算 LRU 缓存容量 |
+
+**父子分块（Parent-Child Chunking）**：
+
+- **子块检索、父块回溯**：向量库只存**子块**（粒度小、语义聚焦，检索命中率高）；命中后直接读取子块 metadata 的 `parent_text`（父块全文）作为 LLM 上下文，无需二次查询。
+- **parent_id 全局唯一**：格式 `{docId}-parent-{p}`，`docId` 优先取 metadata `doc_id`、缺失则随机 UUID；检索端可按 `parent_id` 去重，避免同一父块的多个子块重复占用上下文窗口。
+- **双层重叠**：父块间 ~12% + 子块间 ~15% 的句子级重叠，缓解切分边界处的信息割裂。
+- **对齐 Dify 父子模式**：兼顾“检索精度（小子块）”与“上下文完整性（大父块）”。
 
 **降级机制**：
 
 | 场景 | 降级策略 |
 | :--- | :--- |
 | 未配置 `EmbeddingModel` | `supports()` 返回 false，ChunkerFactory 自动选择 SeparatorChunker/TokenChunker |
-| 语义单元数不足（≤ 2*MAX_WINDOW+1） | 降级为 Token 分块 |
-| Embedding 计算异常 | 捕获异常，降级为 Token 分块 |
-| 语义断点样本数 < MIN_GAP_SAMPLES | 降级为 Token 分块 |
-| SeparatorChunker 分隔符未匹配任何切分点 | 降级为 Token 分块 |
+| 语义单元数不足（无法形成有效窗口） | 降级为 Token 分块 |
+| Embedding 计算异常 / 返回向量数与请求片段数不符 | 捕获并降级为 Token 分块 |
+| 单个子块 > childSize*2（单句超长等极端情况） | 该子块走 TokenTextSplitter 细切 |
+
+> **V5 变更**：不再因“语义断点样本数不足（旧 `MIN_GAP_SAMPLES`）”而整体降级为 Token 分块——语义断点稀少时改由 `splitOversizedGroups`（超长按单元边界拆）与 `mergeSmallGroups`（过小就近合并）兜底，保证父块粒度稳定；度量单位由字符数（旧 `MIN_UNIT_CHARS=250`）统一切换为 Token（`MIN_UNIT_TOKENS=100`，jtokkit CL100K_BASE）。
 
 **三种策略对比**：
 
 | 维度 | TokenChunker | SeparatorChunker | SemanticChunker |
 | :--- | :--- | :--- | :--- |
-| 切分依据 | Token 数量 + 标点 | 用户自定义正则 | Embedding 语义相似度 |
-| 结构感知 | 无 | 强（依赖分隔符设计） | 中（依赖段落切分） |
-| 语义完整性 | 可能切断语义边界 | 依赖分隔符合理性 | 语义相近段落自动合并 |
+| 切分依据 | Token 数量 + 标点 | 用户自定义正则 | Embedding 语义相似度（多策略动态阈值） |
+| 结构感知 | 无 | 强（依赖分隔符设计） | 强（标题 → 段落 → 句子层级切分） |
+| 语义完整性 | 可能切断语义边界 | 依赖分隔符合理性 | 语义相近单元自动聚合为父块 |
+| 父子结构 | 无 | 无 | 有（子块检索 + 父块回溯，对齐 Dify） |
+| 块间重叠 | 无 | 无 | 有（父块 ~12% + 子块 ~15%） |
 | 计算开销 | 低（纯文本处理） | 低（正则 + Token 估算） | 高（需调用 Embedding 模型） |
-| 适用场景 | 结构不明的通用文档 | Markdown / 代码 / FAQ / 日志 | 语义连贯、段落边界模糊的文档 |
-| 检索精度 | 依赖固定切分质量 | 高（结构对齐业务语义） | 语义块更完整，检索命中率更高 |
-| 阈值策略 | 无（固定 chunkSize） | 无（依赖分隔符） | 动态百分位阈值（自适应文档特征） |
+| 适用场景 | 结构不明的通用文档 | Markdown / 代码 / FAQ / 日志 | 语义连贯、段落边界模糊的长文档 |
+| 检索精度 | 依赖固定切分质量 | 高（结构对齐业务语义） | 最高（小子块命中 + 大父块上下文） |
+| 阈值策略 | 无（固定 chunkSize） | 无（依赖分隔符） | 多策略动态阈值（自适应文档特征） |
 
 ### 2.7 SSE 流式推送
 
@@ -696,7 +819,7 @@ ChatAgent.chatStream()
   │
   ├─ 主流：LLM 文本流 → chunk 事件 → 前端
   │
-  └─ 旁路：FullHistoryChatMemoryAdvisor 拦截工具调用
+  └─ 旁路：HistoryChatMemoryAdvisor 拦截工具调用
            → tool_call 事件 → AgentEventSinkManager → 前端
   │
   └─ 旁路：RagContextQueryAdvisor 推送 RAG 检索状态
@@ -753,7 +876,7 @@ LLM 决定调用工具
 - **模型幻觉**：工具过多时 LLM 容易选错工具或编造参数
 - **响应变慢**：Prompt 过长导致推理延迟增加
 
-**解决方案**：使用 Spring AI 2.0 的 `ToolSearchToolCallingAdvisor`，采用 **"渐进式工具披露"（Progressive Tool Disclosure）** 模式——初始只给 LLM 一个内置的 `toolSearchTool`，由 LLM 按需主动搜索并发现业务工具。
+**解决方案**：使用 Spring AI 2.0 的 `ToolSearchToolCallingAdvisor`（本项目采用其增强子类 **`HistoryAwareToolSearchAdvisor`**），采用 **"渐进式工具披露"（Progressive Tool Disclosure）** 模式——初始只给 LLM 一个内置的 `toolSearchTool`，由 LLM 按需主动搜索并发现业务工具。
 
 ##### 配置
 
@@ -1024,29 +1147,48 @@ Spring AI 2.0 提供 3 种 `ToolIndex` 实现（本项目使用前两种）：
 
 | 顺序 | Advisor | Order | 职责 |
 | :--- | :--- | :--- | :--- |
-| 1 | MessageChatMemoryAdvisor | HIGHEST+200 | 近期上下文读写 |
-| 2 | VectorStoreChatMemoryAdvisor | HIGHEST+201 | 长期语义记忆 |
-| 3 | ReturnDirectChatMemoryAdvisor | HIGHEST+202 | returnDirect 工具结果拦截 |
-| **4** | **ToolSearchToolCallingAdvisor** | **HIGHEST+300** | **工具动态检索注入** |
-| 5 | FullHistoryChatMemoryAdvisor | 1 | 全量记录 + 工具调用事件推送 |
-| 6 | SimpleLoggerAdvisor | 2 | 请求/响应日志 |
+| 1 | VectorStoreChatMemoryAdvisor | 98 | 长期语义记忆 |
+| 2 | ReturnDirectChatMemoryAdvisor | 99 | returnDirect 工具结果拦截 |
+| **3** | **HistoryAwareToolSearchAdvisor** | **100** | **工具动态检索注入** |
+| 4 | SessionMemoryAdvisor | 101 | 近期上下文窗口记忆 |
+| 5 | RagContextQueryAdvisor | 102 | 知识库上下文查询 |
+| 6 | HistoryChatMemoryAdvisor | 103 | 全量记录 + 工具审计 + tool_call 事件推送 |
+| 7 | SimpleLoggerAdvisor | 104 | 请求/响应日志 |
 
 **顺序设计要点**：
-- ToolSearch 的默认 order 是 `HIGHEST_PRECEDENCE + 300`（Spring AI 2.0 内置值）
+- 工具搜索 Advisor order=100，通过 `HistoryAwareToolSearchAdvisor.newBuilder().advisorOrder(100)` 显式指定
 - 位于记忆 Advisor 之后：确保记忆已加载完成再搜索工具
-- 位于历史记录 Advisor 之前：确保 FullHistoryChatMemoryAdvisor 能拿到最终的工具调用信息
-- ToolSearch 之后的 Advisor（order=1, 2）位于循环**内部**，每轮迭代都会执行
+- 位于历史记录 Advisor（103）之前：确保 `HistoryChatMemoryAdvisor` 能拿到最终的工具调用信息写入审计日志
+
+##### HistoryAwareToolSearchAdvisor（工具回调丢失修复）
+
+`ToolSearchToolCallingAdvisor` 的“渐进式工具披露”在**跨轮/历史压缩/多迭代**场景下存在缺陷：父类 `prepareIteration` 在**每一轮迭代**都会用重新计算的 `selectedToolCallbacks`（仅 `toolSearchTool` + 当前消息窗口内发现的工具）**整体覆盖** `options.toolCallbacks`。当会话历史被压缩或跨轮请求时，最初的搜索发现响应可能已不在窗口内，但 LLM 仍会从持久化历史里看到自己之前调用过某工具，于是直接复调——此时回调集合里没有它，报 `No ToolCallback found for tool name`。
+
+`HistoryAwareToolSearchAdvisor` 采用**双层防护**修复：
+
+| 防护层 | 实现 | 作用 |
+| :--- | :--- | :--- |
+| **Prompt 侧** | `restoreHistoryReferencedTools()`（每轮 `doBeforeCall`/`doBeforeStream` 在父类覆盖之后执行） | 扫描历史 Assistant 消息里调用过的工具，把“当前回调集合缺失但原始集合存在”的工具定义补回，保证模型能合法看到并复调 |
+| **执行侧** | `HistoryAwareToolCallingManager`（装饰传给父类的 `ToolCallingManager`） | 无论父类内部循环覆盖多少次，真正 `executeToolCalls` 前依据 sessionId 从会话级全量注册表兜底补全回调 |
+
+**关键机制**：
+- `captureFullToolCallbacks()`：每轮在父类覆盖前捕获原始全量工具回调（name → callback），写入 context 并按 `sessionId` 注册到装饰 manager
+- `HistoryAwareToolCallingManager.augment()`：仅补“当前缺失”项，不整体塞回，保留渐进式披露的 token 优势
+- `evictSession()`：会话结束时 `unregister(sessionId)` 清理注册表，避免内存泄漏
+- 两层配合下：prompt 里默认仍只暴露已发现工具（保留 token 优势），而执行侧永远不缺 callback
 
 ##### 关键类
 
 | 类/Bean | 职责 |
 | :--- | :--- |
+| `HistoryAwareToolSearchAdvisor` | **自定义**：继承 `ToolSearchToolCallingAdvisor`，双层防护修复跨轮/压缩丢失工具回调 |
+| `HistoryAwareToolCallingManager` | **自定义**：执行期兜底装饰器，按 sessionId 从全量注册表补回缺失回调 |
 | `ToolSearchToolCallingAdvisor` | 递归 Advisor，索引工具 + 注入 toolSearchTool + 拦截搜索调用 |
 | `ToolIndex` | 工具索引接口（`search(query, maxResults)`） |
 | `LuceneToolIndex` | Lucene 实现，本地倒排索引，阈值 0.3 |
 | `VectorToolIndex` | 向量库实现，基于 Weaviate 语义检索 |
 | `RegexToolIndex` | 正则实现，按工具名模式匹配（本项目未使用） |
-| `ChatClientConfig` | 配置类，注册 ToolIndex 和 ToolSearchAdvisor Bean |
+| `ChatClientConfig` | 配置类，注册 ToolIndex 和 HistoryAwareToolSearchAdvisor Bean |
 
 ##### 效果对比
 
@@ -1366,21 +1508,23 @@ spring:
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
-| `MessageChatMemoryAdvisor` | 处理近期上下文的读/写切面 | 负责调用 ChatMemory |
-| `VectorStoreChatMemoryAdvisor` | **自定义**：长期语义记忆（userId 跨会话检索 + 异步写入 + upsert 合并） | 实现 BaseChatMemoryAdvisor，调用 smallChatClient 提取/合并记忆 |
-| `RagContextQueryAdvisor` | **自定义**：知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件） | 参考 VectorStoreChatMemoryAdvisor 模式 |
-| `FullHistoryChatMemoryAdvisor` | **自定义**：全量聊天记录入库 + 工具调用事件推送 | 流式拦截 ToolCall 事件 |
-| `ReturnDirectChatMemoryAdvisor` | **自定义**：拦截 returnDirect 工具结果 | 单独入库，不经过 LLM |
-| `ToolSearchToolCallingAdvisor` | 工具动态检索顾问 | 模型按需获取工具 |
-| `SimpleLoggerAdvisor` | 请求/响应日志 | order=4 |
+| `VectorStoreChatMemoryAdvisor` | **自定义**：长期语义记忆（userId 跨会话检索 + 异步写入 + Mem0 两阶段决策） | order=98，实现 BaseChatMemoryAdvisor，调用 smallChatClient 提取/决策记忆 |
+| `ReturnDirectChatMemoryAdvisor` | **自定义**：拦截 returnDirect 工具结果 | order=99，单独入库，不经过 LLM |
+| `HistoryAwareToolSearchAdvisor` | **自定义**：继承 ToolSearchToolCallingAdvisor，双层防护修复跨轮/压缩丢失工具回调 | order=100 |
+| `HistoryAwareToolCallingManager` | **自定义**：执行期兜底装饰器，按 sessionId 补回缺失工具回调 | 装饰父类 ToolCallingManager |
+| `SessionMemoryAdvisor` | Spring AI 2.0 原生：近期上下文窗口记忆 + 滑动窗口压缩 | order=101，基于 SessionService（JDBC） |
+| `RagContextQueryAdvisor` | **自定义**：知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件） | order=102 |
+| `HistoryChatMemoryAdvisor` | **自定义**：全量聊天记录入库 + 工具调用审计日志 + tool_call 事件推送 | order=103，流式拦截 ToolCall 事件 |
+| `SimpleLoggerAdvisor` | 请求/响应日志 | order=104 |
 
 ### 5.2 存储与记忆
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
-| `RedisCachedAndMysqlMemoryRepository` | **自定义**：Redis+MySQL 双层存储 | 实现 ChatMemoryRepository 接口 |
-| `smallChatClient` | **概述小模型** ChatClient Bean | 记忆提取/合并、会话标题生成（替代原 titleChatClient / compressChatClient） |
-| `ToolDataCacheService` | 工具大数据 Redis 缓存 | dataId 机制，避免撑爆 LLM 上下文 |
+| `SessionService` | Spring AI 2.0 原生会话服务（JDBC 仓储） | 取代原 `RedisCachedAndMysqlMemoryRepository` 双层存储 |
+| `smallChatClient` | **概述小模型** ChatClient Bean | 记忆提取/决策、会话标题生成 |
+| `AiAgentToolCallLog` / `IAiAgentToolCallLogService` | **新增**：工具调用审计日志实体与服务 | 落库 `ai_agent_tool_call_log`，与业务聊天记录解耦 |
+| `MemoryType` / `MemoryOperation` / `ExtractedMemory` | **新增**：Mem0 记忆模型枚举与提取产物 | PROFILE/FACT + ADD/UPDATE/DELETE/NOOP |
 
 ### 5.3 RAG 检索与文档解析
 
@@ -1397,9 +1541,10 @@ spring:
 | `PdfExtractor` | PDF 提取（Tika 结构化 Markdown） | 标题/表格/列表保留，输出上限防 OOM |
 | `ImageExtractor` | 图片 OCR（本地 MinerU-OCR 视觉模型） | opendatalab/MinerU2.5-Pro-2605-1.2B |
 | `AudioExtractor` | 音频元数据提取（Tika Metadata） | 支持 MP3/WAV/FLAC/OGG 等 |
-| `ChunkerFactory` | 分块策略工厂（按配置自动选择） | Spring Bean 自动发现所有 Chunker |
-| `SemanticChunker` | 语义分块（多尺度滑动窗口 + 动态阈值） | EmbeddingModel 不可用时自动降级 |
-| `TokenChunker` | Token 固定分块（TokenTextSplitter） | 默认分块策略 |
+| `ChunkerFactory` | 分块策略工厂（按 @Order 自动选择） | Spring Bean 自动发现所有 Chunker |
+| `SemanticChunker` | 语义分块 @Order(10)（多尺度滑动窗口 + 动态阈值） | EmbeddingModel 不可用时自动降级 |
+| `SeparatorChunker` | 分隔符分块 @Order(20)（正则/字面量） | 超长块用 TokenTextSplitter 兜底细切 |
+| `TokenChunker` | Token 固定分块 @Order(30)（TokenTextSplitter） | 默认兜底分块策略 |
 
 ### 5.4 工具编排
 
@@ -1461,19 +1606,20 @@ spring:
             mcp-echarts:
               url: http://114.132.102.8:2001  # 自部署 ECharts MCP
               endpoint: /mcp
+    session:                                 # 会话记忆（SessionMemoryAdvisor + SessionService）
+      repository:
+        jdbc:
+          initialize-schema: always          # MySQL/PostgreSQL 必须显式开启建表
+      time-to-live: 30d                      # 会话有效期，默认 60d，支持 ISO-8601
     vectorstore:
       weaviate:
         host: 114.132.102.8:18080
         scheme: http
         api-key: b251055070805a857b31dd014d40b727dd6a23714ea1bf66
 
-chat-memory:
-  max-messages: 4                            # 窗口记忆条数
-
 vectorstore:
   enabled: true                              # 开启全局向量功能
   chat-memory-default-topk: 1               # 向量记忆检索条数
-  compression-threshold: 4                   # 压缩阈值
   weaviate:
     knowledge-object-class: KnowledgeBase
     chat-memory-object-class: ConversationHistory
@@ -1577,7 +1723,7 @@ spring:
 *   **存储成本**：向量库不仅存文本，还存高维浮点数组，磁盘占用是 MySQL 的 10 倍以上。
 *   **必须清理**：切勿永久存储所有向量。长期记忆默认 30 天 TTL（`expireAt` 字段），检索时过滤过期记忆。
 *   **数据一致性**：向量库更新是异步的，消息入库后立刻查询可能查不到（延迟问题）。
-*   **记忆合并机制**：`VectorStoreChatMemoryAdvisor` 采用单条 upsert 合并（无相近 → 新增；精确相同 → 续期；语义相近 → 小模型合并），替代原批量压缩方案。
+*   **记忆决策机制**：`VectorStoreChatMemoryAdvisor` 采用 Mem0 两阶段模型（提取 → 决策），写入时按相似度检索候选并由小模型判定 `ADD/UPDATE/DELETE/NOOP`（profile 覆盖、fact 追加、完全相同续期），替代原批量压缩方案。
 
 ### 7.2 隐私隔离（安全）
 
@@ -1585,15 +1731,15 @@ spring:
 *   **推荐做法**：在写入 Document 时 metadata 强制加入 userId / knowledgeId，查询时强制过滤。
 *   **长期记忆作用域**：`VectorStoreChatMemoryAdvisor` 检索表达式为 `userId = {userId} AND status = active AND expireAt > now`，缺失 userId 时兜底为 `anonymous`（生产环境应在入口处保证 userId 必传）。
 
-### 7.3 消息顺序与偶数限制
+### 7.3 会话记忆与压缩
 
-*   AI 对话极其依赖角色顺序。窗口记忆底层强制偶数，防止截断后出现连续角色错误。
-*   **开发建议**：配置 `maxMessages` 时直接填写偶数（如 4, 10, 20）。
+*   近期上下文由 `SessionMemoryAdvisor` + `SessionService`（JDBC）承载，`TurnCountTrigger(4)` 每 4 轮触发压缩，`SlidingWindowCompactionStrategy(maxEvents=8)` 保留最近 8 个事件。
+*   **开发建议**：调整压缩粒度时修改 `ChatClientConfig.sessionMemoryAdvisor()` 的 `TurnCountTrigger` / `maxEvents` 参数；会话有效期由 `spring.ai.session.time-to-live`（默认 30d）控制。
 
 ### 7.4 事务一致性
 
-*   MySQL 全量表与窗口表不在同一个事务中。如果全量入库成功但窗口更新失败，用户可能看到历史记录但 AI "失忆"。
-*   **优化**：优先保证窗口写入成功，全量入库失败可记录日志异步重试。
+*   MySQL 全量表（`sys_chat_history`）、会话表（`SessionService` JDBC）与工具审计表（`ai_agent_tool_call_log`）不在同一个事务中。如果全量入库成功但会话写入失败，用户可能看到历史记录但 AI "失忆"。
+*   **优化**：优先保证会话写入成功，全量入库/审计入库失败可记录日志异步重试。
 
 ### 7.5 工具调用安全
 
