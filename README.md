@@ -1341,51 +1341,64 @@ com.mall.chatmcp
 
 ### 3.5 NL2SQL 工具
 
-**完整执行链路**：用户消息 → Feign 检索 kbType=20 知识库 → 标签匹配找出相似 KbDocument → 获取 getKnowledgeId 去向量库查询 → Reranker 重排序 → 返回 Schema → LLM 生成 SQL → 安全校验 → 执行 → 结果摘要
+**完整执行链路**（对齐 Alibaba NL2SQL 主干：召回 → 外键扩展 → 证据 → 生成 → 校验 → 执行 → 语义校验 → 自愈重试）：
 
 ```
-用户消息
+用户消息（+ 可选 chatHistory 最近几轮对话）
   │
-  ├─ 知识库检索（Feign 调用 chat 服务，kbType=20）
-  │   ├─ chat 服务端查询 kbType=20 的知识库
-  │   ├─ 将用户消息与知识库内容的标签（tags）反向匹配，找出所有相似的 KbDocument
-  │   ├─ 从匹配的 KbDocument 获取 getKnowledgeId()
-  │   ├─ 携带 knowledgeId 单重过滤去向量库查询
-  │   └─ Reranker 重排序后返回最相关的表结构Schema
+  ├─ 并行召回（CompletableFuture，省 1~2 秒串行等待）
+  │   ├─ Schema 召回（Feign 调用 chat 服务，kbType=20）
+  │   │   ├─ 标签反向匹配找出相似 KbDocument → knowledgeId 单重过滤向量检索
+  │   │   ├─ Reranker 重排序返回表结构 Schema
+  │   │   └─ 外键扩展（FK Expansion）：读 information_schema.KEY_COLUMN_USAGE
+  │   │       双向查询外键，补全关联表 DDL + 显式声明 JOIN 关系
+  │   │       （相比 LLM 推理表关系更准更快）
+  │   └─ 业务证据召回（kbType=21，指标口径/术语定义，失败优雅降级不阻断）
   │
-  ├─ SQL 生成（sqlChatClient）
-  │   └─ 基于 Schema + 用户问题 + 示例 + 约束规则
-  │       ├─ 强制工具调用：nl2SqlQuery 声明为"任何需要数据/统计/列表的问题必须优先调用"
-  │       ├─ 系统表查询示例：sys_user / sys_dept / sys_post / sys_role 直接给出可用的 SQL 模板
-  │       ├─ LIKE 模糊约束：文本字段必须用 LIKE '%关键词%'，禁止 = 精确匹配
-  │       ├─ 用户查询须同时匹配 user_name（账号）+ nick_name（昵称）
-  │       ├─ 岗位查询须同时匹配 post_name + post_code
-  │       ├─ 角色查询须同时匹配 role_name + role_key
-  │       └─ 简称也要用 LIKE 匹配完整名称（如 '研发' → 匹配 '研发部门'）
+  ├─ LLM 意图分类 + 指代消解（结构化 JSON 三态输出）
+  │   ├─ QUERY：需要查库 → 生成 SQL（rewritten 字段 = 指代消解后的完整问题）
+  │   ├─ CHAT：闲聊/写作/打招呼 → 直接返回说明，不进 SQL 链路
+  │   ├─ CLARIFY：歧义/缺条件 → 返回澄清问题
+  │   └─ 时间感知：Prompt 注入数据库当前时间（SELECT NOW()，60s 缓存），
+  │       "上个月/本周/近30天"等相对时间据此换算为具体日期范围
   │
-  ├─ 安全校验
+  ├─ 安全校验（双层防线）
   │   ├─ 表名白名单校验（防止 LLM 幻觉出不存在的表）
-  │   └─ JSqlParser AST 校验（只允许 SELECT，拒绝注入/多语句）
+  │   └─ JSqlParser AST 校验（只允许单条 SELECT，拒绝注入/多语句）
   │
-  ├─ LIMIT 保护（自动添加 LIMIT 100，聚合查询除外）
+  ├─ LIMIT 保护（自动添加 LIMIT 100；全 AST 检测聚合函数——含子查询/
+  │   标量子查询/HAVING/UNION，修复顶层检测漏判导致的误加 LIMIT）
   │
-  ├─ 自我修正（执行失败携带错误信息重试 1 次）
+  ├─ 远程执行（Feign 调用 mall-system）+ 结果值格式化
+  │   ├─ Timestamp → yyyy-MM-dd HH:mm:ss，BigDecimal → toPlainString
+  │   │   （避免科学计数法），byte[] → 占位文本（LLM 友好形态）
+  │   └─ 结果达到 LIMIT 上限时在 summary 提示可能截断
   │
-  └─ 远程执行（Feign 调用 mall-system，SqlQueryRequest DTO 封装）
-      ├─ 修复：Feign StringHttpMessageConverter 默认 ISO-8859-1 编码
-      │        导致 SQL 中的中文被转义为 '?' 的问题
-      └─ 结果摘要
+  ├─ 语义一致性校验（条件触发：多表 JOIN / 空结果 / 聚合意图）
+  │   ├─ 独立低 temperature（可配独立模型），不暴露生成侧 reasoning，
+  │   │   降低同模型同参数的相关性误判风险
+  │   └─ 判定不一致 → 携带反馈进入自愈重试
+  │
+  └─ 自愈重试（统一重试循环，最多 2 次，全程受总时延预算约束）
+      └─ 预算耗尽 → 放弃重试返回明确错误（防止 MCP 调用方先超时）
 ```
 
 **关键实现方法**（`Nl2SqlToolServiceImpl`）：
 
 | 方法 | 职责 |
 | :--- | :--- |
-| `retrieveSchema()` | 步骤1-4：Feign 调用 chat 服务的 RAG 检索接口（kbType=20），获取表结构 Schema |
-| `generateValidateAndExecute()` | 步骤5：生成SQL → JSqlParser安全校验 → 表名白名单校验 → 强制LIMIT → 执行（含自我修正重试） |
+| `nl2SqlQuery()` | 工具入口：Schema/Evidence 并行召回 → 统一重试循环；`chatHistory` 可选参数支持多轮指代消解 |
+| `generateValidateAndExecute()` | 生成 → 校验 → 执行 → 语义校验统一循环；CHAT 分支直接返回；每轮检查时延预算 |
+| `expandWithForeignKeys()` | 外键扩展：读 information_schema 双向查外键，补全关联表 DDL + JOIN 声明 |
+| `generateSql()` | LLM 意图分类三态解析（type/sql/rewritten/explanation/clarify/reply），单次调用带超时 |
+| `buildPrompt()` | Schema + 当前时间 + 对话上下文 + 证据 + 修正指令 + 思维链 + JSON 输出契约 |
+| `getDbNowText()` | 数据库当前时间（SELECT NOW()，60s 缓存，失败降级应用服务器时间） |
+| `checkSemanticConsistency()` | 语义校验（独立 options：低 temperature + 可选独立模型，只给问题+SQL+结果） |
+| `hasAggregateInSql()` | 全 AST 聚合检测（AggregateFinder 覆盖子查询/标量子查询/HAVING/UNION） |
+| `needSemanticCheck()` | 语义校验触发条件：AST 表计数 >1（含逗号连接多表）/ 空结果 / 聚合意图关键词 |
+| `formatResultValues()` | 结果值格式化：Timestamp/BigDecimal/byte[] 转为 LLM 友好形态 |
+| `wrapResult()` | 封装结果：CLARIFY/CHAT/QUERY 三分支 + rewrittenQuestion + 截断提示 |
 | `extractTableNames()` | 从 Schema 中提取 `CREATE TABLE` 表名，构成白名单 |
-| `findMissingTables()` / `collectTableNames()` | 用 JSqlParser 递归收集 SQL 引用的表名（含 JOIN/子查询/UNION），校验是否在白名单内 |
-| `wrapResult()` | 封装查询结果（generatedSql + result + rowCount + summary） |
 
 **安全校验双层防线**：
 
@@ -1393,7 +1406,29 @@ com.mall.chatmcp
 | :--- | :--- |
 | 表名白名单 | 从 Schema 提取合法表名，SQL 引用了白名单外的表名 → 拒绝并触发 LLM 自我修正 |
 | JSqlParser AST | 精确识别语句类型，只允许 SELECT，自动拒绝 INSERT/UPDATE/DELETE/DROP 等 |
-| LIMIT 保护 | 自动添加 `LIMIT 100`（聚合查询除外），防止查询过载 |
+| LIMIT 保护 | 自动添加 `LIMIT 100`（全 AST 聚合检测，含子查询），防止查询过载 |
+
+**可调配置**（`nl2sql.*`，均有默认值，可在 Nacos 配置中心覆盖）：
+
+| 配置项 | 默认值 | 说明 |
+| :--- | :--- | :--- |
+| `nl2sql.time-budget-ms` | 45000 | 总时延预算（毫秒）：召回+生成+重试全流程共享，超时放弃重试直接报错 |
+| `nl2sql.llm-timeout-seconds` | 15 | 单次 LLM 调用超时（秒），生成与语义校验调用均生效 |
+| `nl2sql.semantic-check.temperature` | 0.0 | 语义校验独立 temperature（与生成侧隔离，降低相关性误判） |
+| `nl2sql.semantic-check.model` | 空 | 语义校验独立模型名（如 qwen-plus，空则复用生成模型） |
+| `nl2sql.eval.cron` | 0 0 3 * * ? | 评测集定时执行 cron（设为 "-" 禁用定时评测） |
+
+> 配套调整：`spring.ai.mcp.server.request-timeout` 需大于总时延预算（默认已调为 60s），
+> 避免 MCP 层先于时延预算超时中断长查询。
+
+**评测体系**（`Nl2SqlEvalService` + `sql/nl2sql_eval.sql`）：
+
+黄金评测集让 Prompt/Reranker/证据的每次调整有据可依（对齐 Alibaba/析言 GBI 的运营化度量）：
+
+- **用例来源**：优先读业务库 `nl2sql_eval` 表（运营可维护），未建表时降级内置 15 条默认集
+- **断言方式**：意图类型（QUERY/CHAT/CLARIFY）+ SQL 关键特征片段（contains/not_contains）+ 最小行数，不比对 SQL 文本（写法太多）
+- **触发方式**：每日 03:00 定时跑（`@Scheduled`，`nl2sql.eval.cron` 可调）或 MCP 工具 `nl2SqlEvalRun` 手动触发
+- **输出**：准确率 + 逐条用例明细（PASS/FAIL + 失败原因），15 条约 1~3 分钟适合低峰期执行
 
 ### 3.6 MCP 协议配置
 

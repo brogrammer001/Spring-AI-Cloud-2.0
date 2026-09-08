@@ -41,7 +41,8 @@ spring:
         type: ASYNC  # Recommended for reactive applications
         instructions: "asddasdad"
         protocol: STREAMABLE
-        request-timeout: 20s
+        # 配合 nl2sql.time-budget-ms=45s 总时延预算留出余量，避免 MCP 层先于预算超时中断长查询
+        request-timeout: 60s
         streamable-http:
           mcp-endpoint: /mcp
           keep-alive-interval: 30s

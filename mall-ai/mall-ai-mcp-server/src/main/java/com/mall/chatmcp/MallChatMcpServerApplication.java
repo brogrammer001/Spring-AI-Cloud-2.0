@@ -6,9 +6,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 
 @EnableRyFeignClients
+@EnableScheduling
 @SpringBootApplication(exclude = {
     DataSourceAutoConfiguration.class,
 })
