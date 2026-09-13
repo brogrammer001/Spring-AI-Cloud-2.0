@@ -8,6 +8,20 @@ spring:
     # 应用名称
     name: mall-ai-chat
   ai:
+    nacos:
+      prompt:
+        server-addr: 114.132.102.8:8848   # 你的 Nacos 服务器
+        namespace-id: public              # 控制台上 Prompt 所在的命名空间 ID
+        username: nacos                   # 有鉴权就填，没开鉴权可省略
+        password: nacos
+        transport-mode: http            # 可选，强制走 HTTP（默认 gRPC）
+        bindings:
+          system-prompt:
+            key: system-prompt
+            label: latest
+          VectorStoreChatMemoryPrompt:
+            key: VectorStoreChatMemoryPrompt
+            label: latest
     mcp:
       client:
         enabled: false
@@ -43,14 +57,14 @@ spring:
           tool-index-type: vector #vector
           max-results: 3               # 每次搜索最多返回几个工具
     openai:
-#      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-#      api-key: ${aliQwen-api}
-#      chat:
-#        model: qwen3.7-flash-2026-07-15
-      base-url: https://api-inference.modelscope.cn/v1
-      api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${aliQwen-api}
       chat:
-        model: deepseek-ai/DeepSeek-V4-Pro-0813
+        model: qwen3.7-flash-2026-07-15
+#      base-url: https://api-inference.modelscope.cn/v1
+#      api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
+#      chat:
+#        model: deepseek-ai/DeepSeek-V4-Pro-0813
       embedding:
         model: Qwen3-Embedding-4B-Q8_0
         base-url: http://127.0.0.1:8889/v1 # 2.0版本需要带上 /v1 后缀

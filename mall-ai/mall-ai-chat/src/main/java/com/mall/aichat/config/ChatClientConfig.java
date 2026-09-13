@@ -66,9 +66,6 @@ public class ChatClientConfig {
     @Value("${spring.ai.mcp.client.enabled}")
     private boolean mcpEnabled;
 
-    @Value("classpath:/prompts/system-prompt-simplify.md")
-    private org.springframework.core.io.Resource systemSimplifyPromptResource;
-
     /**
      * 方案 A: 向量检索索引
      * 当配置 vector.enabled = true 时生效
@@ -164,8 +161,9 @@ public class ChatClientConfig {
         // 7. 观测日志
         advisors.add(new SimpleLoggerAdvisor(104));
 
+        // 系统提示词已迁移至 Nacos Prompt Registry（NacosPromptRegistry），
+        // 由调用侧每次请求时动态注入，支持控制台发布后热更新
         ChatClient.Builder builder = ChatClient.builder(model)
-            .defaultSystem(systemSimplifyPromptResource)
             .defaultAdvisors(advisors);
 
         if (mcpEnabled) {

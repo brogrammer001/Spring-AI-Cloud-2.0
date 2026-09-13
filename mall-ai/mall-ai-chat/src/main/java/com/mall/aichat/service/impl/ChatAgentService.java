@@ -1,6 +1,7 @@
 package com.mall.aichat.service.impl;
 
 import com.mall.aichat.config.AgentEventSinkManager;
+import com.mall.aichat.config.NacosPromptRegistry;
 import com.mall.aichat.constant.ChatConstants;
 import com.mall.aichat.domain.ChatRequest;
 import com.mall.aichat.domain.ChatStreamEvent;
@@ -34,11 +35,14 @@ public class ChatAgentService {
 
     private final ChatClient qwenChatClient;
     private final AgentEventSinkManager agentEventSinkManager;
+    private final NacosPromptRegistry promptRegistry;
 
     public ChatAgentService(@Qualifier("qwenChatClient") ChatClient qwenChatClient,
-                            AgentEventSinkManager agentEventSinkManager) {
+                            AgentEventSinkManager agentEventSinkManager,
+                            NacosPromptRegistry promptRegistry) {
         this.qwenChatClient = qwenChatClient;
         this.agentEventSinkManager = agentEventSinkManager;
+        this.promptRegistry = promptRegistry;
     }
 
     /**
@@ -68,6 +72,8 @@ public class ChatAgentService {
         AtomicInteger idx = new AtomicInteger(0);
 
         return qwenChatClient.prompt()
+            // 每次调用实时读取本地缓存（由 Nacos 订阅自动刷新），控制台发布新版本即刻生效
+            .system(promptRegistry.get("system-prompt"))
             .user(request.getQuestion())
             .advisors(a ->
                 a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, conversationId)

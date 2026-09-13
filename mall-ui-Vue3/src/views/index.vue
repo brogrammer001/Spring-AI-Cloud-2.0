@@ -198,7 +198,7 @@ import '@/assets/styles/tailwind.scss';
 import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
 import useTagsViewStore from '@/store/modules/tagsView';
-import {md} from '@/utils/markdown';
+import {md, mdUser} from '@/utils/markdown';
 import {createEventStream} from '@/utils/chatStream';
 import * as echarts from 'echarts';
 import router from '@/router';
@@ -273,14 +273,40 @@ const removeDraftFromStorage = (conversationId) => {
 //   return html;
 // };
 
+// HTML 转义工具：\x26 为 & 的十六进制写法，避免实体串被编辑器/工具链二次解码
+const escapeHtml = (str) => String(str)
+  .replace(/&/g, '\x26amp;')
+  .replace(/</g, '\x26lt;')
+  .replace(/>/g, '\x26gt;')
+  .replace(/"/g, '\x26quot;')
+  .replace(/'/g, '\x26#039;');
+
 const renderMessage = (message) => {
   if (message.role === 'user') {
-    return message.content
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    // 用户消息同样走 Markdown 渲染（mdUser 实例 html:false，原生 HTML 会被自动转义，防 XSS）
+    try {
+      let content = String(message.content ?? '');
+
+      // 修复未闭合代码块，避免流式/复制粘贴场景下渲染错乱
+      const fenceCount = (content.match(/```/g) || []).length;
+      if (fenceCount % 2 !== 0) {
+        content += '\n```';
+      }
+
+      let html = mdUser.render(content);
+
+      // 用户气泡（粉色）内的表格也包一层横向滚动容器，防止撑爆气泡
+      html = html.replace(/<table[^>]*>[\s\S]*?<\/table>/g, (match) => {
+        const styled = match.replace(/<t([hd])([^>]*)>/g, '<t$1$2 style="max-width: 260px; word-break: break-word; overflow-wrap: anywhere;">');
+        return `<div style="overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">${styled}</div>`;
+      });
+
+      return html;
+    } catch (error) {
+      console.error('用户消息 Markdown 渲染异常:', error);
+      // 渲染异常时回退为纯文本转义显示
+      return escapeHtml(String(message.content ?? ''));
+    }
   }
 
   if (!message.content) return '';
@@ -1670,4 +1696,80 @@ textarea {
   border-radius: 12px;
   overflow: hidden;
 }
+
+/* ===== 用户气泡内 Markdown 元素配色适配 =====
+   用户消息现走 Markdown 渲染（mdUser），v-html 注入的子元素无 scoped 属性，
+   故本块样式必须放在非 scoped 样式中才能命中；玫红底上需覆盖全局
+   .markdown-body 的深色文字/浅色底，保证白字可读性 */
+.msg-bubble-user .markdown-body {
+  font-size: 14px;
+}
+
+.msg-bubble-user .markdown-body p:last-child,
+.msg-bubble-user .markdown-body ul:last-child,
+.msg-bubble-user .markdown-body ol:last-child,
+.msg-bubble-user .markdown-body pre:last-child,
+.msg-bubble-user .markdown-body blockquote:last-child {
+  margin-bottom: 0;
+}
+
+.msg-bubble-user .markdown-body h1,
+.msg-bubble-user .markdown-body h2,
+.msg-bubble-user .markdown-body h3,
+.msg-bubble-user .markdown-body h4,
+.msg-bubble-user .markdown-body h5,
+.msg-bubble-user .markdown-body h6,
+.msg-bubble-user .markdown-body strong {
+  color: #ffffff;
+}
+
+.msg-bubble-user .markdown-body a {
+  color: #ffe0ea;
+  text-decoration: underline;
+}
+
+.msg-bubble-user .markdown-body a:hover {
+  color: #ffffff;
+}
+
+/* 行内代码：白色半透明底，与玫红气泡区分 */
+.msg-bubble-user .markdown-body code {
+  background: rgba(255, 255, 255, 0.20);
+  color: #ffffff;
+}
+
+/* 代码块：加深背景保持代码可读，highlight.js 高亮色在深底上仍可见 */
+.msg-bubble-user .markdown-body pre {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.msg-bubble-user .markdown-body pre code {
+  background: none;
+  color: #f8f8f2;
+}
+
+.msg-bubble-user .markdown-body blockquote {
+  border-left-color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.msg-bubble-user .markdown-body th,
+.msg-bubble-user .markdown-body td {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.msg-bubble-user .markdown-body th {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.msg-bubble-user .markdown-body td {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.msg-bubble-user .markdown-body hr {
+  border-top-color: rgba(255, 255, 255, 0.35);
+}
+
+/* 暗色模式下用户气泡为更深的玫红（#b0254e），上述半透明白叠加同样可读，无需重复定义 */
 </style>

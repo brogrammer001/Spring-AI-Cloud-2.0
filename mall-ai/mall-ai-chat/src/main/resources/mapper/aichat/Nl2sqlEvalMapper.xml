@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.aichat.mapper.Nl2sqlEvalMapper">
+    
+    <resultMap type="Nl2sqlEval" id="Nl2sqlEvalResult">
+        <result property="id"    column="id"    />
+        <result property="question"    column="question"    />
+        <result property="expectedType"    column="expected_type"    />
+        <result property="expectedSqlContains"    column="expected_sql_contains"    />
+        <result property="expectedSqlNotContains"    column="expected_sql_not_contains"    />
+        <result property="expectedMinRows"    column="expected_min_rows"    />
+        <result property="enabled"    column="enabled"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectNl2sqlEvalVo">
+        select id, question, expected_type, expected_sql_contains, expected_sql_not_contains, expected_min_rows, enabled, create_by, create_time, update_by, update_time, remark from nl2sql_eval
+    </sql>
+
+    <select id="selectNl2sqlEvalList" parameterType="Nl2sqlEval" resultMap="Nl2sqlEvalResult">
+        <include refid="selectNl2sqlEvalVo"/>
+        <where>  
+            <if test="question != null  and question != ''"> and question = #{question}</if>
+            <if test="expectedType != null  and expectedType != ''"> and expected_type = #{expectedType}</if>
+            <if test="expectedSqlContains != null  and expectedSqlContains != ''"> and expected_sql_contains = #{expectedSqlContains}</if>
+            <if test="expectedSqlNotContains != null  and expectedSqlNotContains != ''"> and expected_sql_not_contains = #{expectedSqlNotContains}</if>
+            <if test="expectedMinRows != null "> and expected_min_rows = #{expectedMinRows}</if>
+            <if test="enabled != null  and enabled != ''"> and enabled = #{enabled}</if>
+        </where>
+    </select>
+    
+    <select id="selectNl2sqlEvalById" parameterType="Long" resultMap="Nl2sqlEvalResult">
+        <include refid="selectNl2sqlEvalVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertNl2sqlEval" parameterType="Nl2sqlEval" useGeneratedKeys="true" keyProperty="id">
+        insert into nl2sql_eval
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="question != null and question != ''">question,</if>
+            <if test="expectedType != null and expectedType != ''">expected_type,</if>
+            <if test="expectedSqlContains != null">expected_sql_contains,</if>
+            <if test="expectedSqlNotContains != null">expected_sql_not_contains,</if>
+            <if test="expectedMinRows != null">expected_min_rows,</if>
+            <if test="enabled != null">enabled,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="question != null and question != ''">#{question},</if>
+            <if test="expectedType != null and expectedType != ''">#{expectedType},</if>
+            <if test="expectedSqlContains != null">#{expectedSqlContains},</if>
+            <if test="expectedSqlNotContains != null">#{expectedSqlNotContains},</if>
+            <if test="expectedMinRows != null">#{expectedMinRows},</if>
+            <if test="enabled != null">#{enabled},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateNl2sqlEval" parameterType="Nl2sqlEval">
+        update nl2sql_eval
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="question != null and question != ''">question = #{question},</if>
+            <if test="expectedType != null and expectedType != ''">expected_type = #{expectedType},</if>
+            <if test="expectedSqlContains != null">expected_sql_contains = #{expectedSqlContains},</if>
+            <if test="expectedSqlNotContains != null">expected_sql_not_contains = #{expectedSqlNotContains},</if>
+            <if test="expectedMinRows != null">expected_min_rows = #{expectedMinRows},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteNl2sqlEvalById" parameterType="Long">
+        delete from nl2sql_eval where id = #{id}
+    </delete>
+
+    <delete id="deleteNl2sqlEvalByIds" parameterType="String">
+        delete from nl2sql_eval where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

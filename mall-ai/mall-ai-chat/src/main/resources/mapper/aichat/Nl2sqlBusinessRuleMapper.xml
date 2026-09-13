@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.aichat.mapper.Nl2sqlBusinessRuleMapper">
+    
+    <resultMap type="Nl2sqlBusinessRule" id="Nl2sqlBusinessRuleResult">
+        <result property="id"    column="id"    />
+        <result property="ruleName"    column="rule_name"    />
+        <result property="ruleContent"    column="rule_content"    />
+        <result property="appliesTo"    column="applies_to"    />
+        <result property="enabled"    column="enabled"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectNl2sqlBusinessRuleVo">
+        select id, rule_name, rule_content, applies_to, enabled, create_by, create_time, update_by, update_time from nl2sql_business_rule
+    </sql>
+
+    <select id="selectNl2sqlBusinessRuleList" parameterType="Nl2sqlBusinessRule" resultMap="Nl2sqlBusinessRuleResult">
+        <include refid="selectNl2sqlBusinessRuleVo"/>
+        <where>  
+            <if test="ruleName != null  and ruleName != ''"> and rule_name like concat('%', #{ruleName}, '%')</if>
+            <if test="ruleContent != null  and ruleContent != ''"> and rule_content = #{ruleContent}</if>
+            <if test="appliesTo != null  and appliesTo != ''"> and applies_to = #{appliesTo}</if>
+            <if test="enabled != null  and enabled != ''"> and enabled = #{enabled}</if>
+        </where>
+    </select>
+    
+    <select id="selectNl2sqlBusinessRuleById" parameterType="Long" resultMap="Nl2sqlBusinessRuleResult">
+        <include refid="selectNl2sqlBusinessRuleVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertNl2sqlBusinessRule" parameterType="Nl2sqlBusinessRule" useGeneratedKeys="true" keyProperty="id">
+        insert into nl2sql_business_rule
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="ruleName != null and ruleName != ''">rule_name,</if>
+            <if test="ruleContent != null and ruleContent != ''">rule_content,</if>
+            <if test="appliesTo != null">applies_to,</if>
+            <if test="enabled != null">enabled,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="ruleName != null and ruleName != ''">#{ruleName},</if>
+            <if test="ruleContent != null and ruleContent != ''">#{ruleContent},</if>
+            <if test="appliesTo != null">#{appliesTo},</if>
+            <if test="enabled != null">#{enabled},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateNl2sqlBusinessRule" parameterType="Nl2sqlBusinessRule">
+        update nl2sql_business_rule
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="ruleName != null and ruleName != ''">rule_name = #{ruleName},</if>
+            <if test="ruleContent != null and ruleContent != ''">rule_content = #{ruleContent},</if>
+            <if test="appliesTo != null">applies_to = #{appliesTo},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteNl2sqlBusinessRuleById" parameterType="Long">
+        delete from nl2sql_business_rule where id = #{id}
+    </delete>
+
+    <delete id="deleteNl2sqlBusinessRuleByIds" parameterType="String">
+        delete from nl2sql_business_rule where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,12 +1,5 @@
 package com.mall.aichat.advisor;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
@@ -17,6 +10,9 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.toolsearch.ToolSearchTool;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * {@link ToolCallingManager} 的执行期兜底装饰器。
@@ -121,7 +117,7 @@ public class HistoryAwareToolCallingManager implements ToolCallingManager {
             return options;
         }
 
-        return ((ToolCallingChatOptions.Builder<?>) options.mutate())
+        return options.mutate()
             .toolCallbacks(merged)
             .toolContext(toolContext)
             .build();

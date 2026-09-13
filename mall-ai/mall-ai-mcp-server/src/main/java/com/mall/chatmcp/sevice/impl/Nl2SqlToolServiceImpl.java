@@ -5,8 +5,10 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
-import com.mall.system.api.RemoteKbRagRetrieveService;
-import com.mall.system.api.RemoteSqlService;
+import com.mall.system.api.*;
+import com.mall.system.api.domain.Nl2sqlBusinessRuleVo;
+import com.mall.system.api.domain.Nl2sqlDimensionVo;
+import com.mall.system.api.domain.Nl2sqlMetricVo;
 import com.mall.system.api.domain.SqlQueryRequest;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
@@ -102,6 +104,15 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     /** 对话上下文最大长度（字符），超出后保留最近部分（防注入 payload 藏身 + 控制 prompt 长度） */
     private static final int MAX_CHAT_HISTORY_LENGTH = 2000;
 
+    /** 低基数字段枚举值缓存时长（毫秒），表级 TTL 1 小时 */
+    private static final long ENUM_CACHE_TTL_MS = 3_600_000L;
+
+    /** 疑似枚举列的列注释关键词（命中则尝试 DISTINCT 取值） */
+    private static final Set<String> ENUM_COLUMN_COMMENT_KEYWORDS = Set.of("状态", "类型", "是否", "标志", "标记");
+
+    /** 疑似枚举列的列类型长度阈值（char/varchar 且长度 <= 10 视为低基数） */
+    private static final int ENUM_COLUMN_TYPE_MAX_LENGTH = 10;
+
     /**
      * 表名提取正则：正确处理 `db`.`table` 库名前缀，只捕获表名。
      * 相比旧正则（`?(?:[a-zA-Z0-9_]+\.)?`?`?），新正则把库名前缀整体作为可选组
@@ -139,6 +150,12 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     private volatile long cachedDbTimeAt;
 
     /**
+     * 低基数字段枚举值缓存：key = "table.column"，value = 可选取值列表。
+     * 表级 TTL {@link #ENUM_CACHE_TTL_MS}，避免每次请求都查 DISTINCT。
+     */
+    private final Map<String, EnumCacheEntry> enumValueCache = new HashMap<>();
+
+    /**
      * 异步召回专用线程池：避免 CompletableFuture.supplyAsync 默认跑 ForkJoinPool.commonPool
      * 导致 Feign 调用丢失 RequestContextHolder 上下文（网关透传的 token/租户信息）。
      * 线程池线程为 daemon，不阻塞 JVM 退出。
@@ -147,6 +164,18 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
 
     @Autowired
     private RemoteSqlService remoteSqlService;
+
+    /** NL2SQL语义层：指标定义 Feign 客户端（指向 mall-ai-chat 内部API） */
+    @Autowired
+    private RemoteNl2sqlMetricService remoteNl2sqlMetricService;
+
+    /** NL2SQL语义层：维度定义 Feign 客户端（指向 mall-ai-chat 内部API） */
+    @Autowired
+    private RemoteNl2sqlDimensionService remoteNl2sqlDimensionService;
+
+    /** NL2SQL语义层：业务规则 Feign 客户端（指向 mall-ai-chat 内部API） */
+    @Autowired
+    private RemoteNl2sqlBusinessRuleService remoteNl2sqlBusinessRuleService;
 
     @Autowired
     @Lazy
@@ -194,7 +223,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
                 .thenApplyAsync(s -> withRequestContext(requestAttrs, () -> expandWithForeignKeys(s)), asyncExecutor)
                 .thenApplyAsync(s -> withRequestContext(requestAttrs, () -> filterSchemaByLLM(question, s, deadline)), asyncExecutor);
             CompletableFuture<String> evidenceFuture = CompletableFuture
-                .supplyAsync(() -> withRequestContext(requestAttrs, () -> retrieveEvidence(question)), asyncExecutor);
+                .supplyAsync(() -> withRequestContext(requestAttrs, () -> renderSemanticContext(question)), asyncExecutor);
             String schema;
             String evidence;
             try {
@@ -207,7 +236,9 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
             }
 
             // ========== 步骤4-8：意图分类 → 生成SQL（多候选） → 校验 → 执行 → 语义校验（统一重试循环） ==========
-            SqlExecutionResult executionResult = generateValidateAndExecute(question, chatHistory, schema, evidence, deadline);
+            // 编排化第一步：节点管道（Nl2SqlState 贯穿全流程，每个节点 State → State，可单测）
+            SqlExecutionResult executionResult = runPipeline(new Nl2SqlState(
+                question, chatHistory, schema, evidence, extractTableNames(schema), "", 0, null, null, deadline));
 
             // 封装返回结果
             return wrapResult(executionResult);
@@ -234,10 +265,80 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     }
 
     /**
-     * 步骤3：召回业务证据（Evidence）—— 指标口径/术语定义等业务语义知识
+     * 步骤3：渲染语义上下文（结构化直查为主，kbType=21 自由文本兜底）
+     * <p>
+     * 对齐析言 GBI 语义层结构化设计：指标/维度/业务规则三层直查直用，不走向量。
+     * 结构化渲染比自由文本更难被 LLM 忽略，且管理端可维护（改口径不用重新向量化）。
+     * <p>
+     * 降级策略：三层都未命中时，降级走原有 kbType=21 向量召回（长尾术语兜底）；
+     * 语义表不存在或查询异常时同样降级，不影响主流程。
+     */
+    private String renderSemanticContext(String question) {
+        StringBuilder sb = new StringBuilder();
+        try {
+            // 1. 指标：Feign调用chat服务内部API获取指标定义，按 metric_name/synonyms 匹配问题关键词
+            R<List<Nl2sqlMetricVo>> metricResult = remoteNl2sqlMetricService.list();
+            if (metricResult.getCode() == 200 && metricResult.getData() != null) {
+                for (Nl2sqlMetricVo m : metricResult.getData()) {
+                    String name = str(m.getMetricName());
+                    String synonyms = str(m.getSynonyms());
+                    if (question.contains(name) || (!synonyms.isEmpty() && containsAny(question, synonyms))) {
+                        sb.append("【指标定义】").append(name)
+                            .append(" = ").append(str(m.getMetricExpr()))
+                            .append("，默认聚合 ").append(str(m.getAggDefault()))
+                            .append("，单位 ").append(str(m.getUnit())).append("\n");
+                    }
+                }
+            }
+
+            // 2. 维度：Feign调用chat服务内部API获取维度定义，匹配命中的维度输出"维度名 + 字段路径 + 枚举值含义表"
+            R<List<Nl2sqlDimensionVo>> dimensionResult = remoteNl2sqlDimensionService.list();
+            if (dimensionResult.getCode() == 200 && dimensionResult.getData() != null) {
+                for (Nl2sqlDimensionVo d : dimensionResult.getData()) {
+                    String dimName = str(d.getDimName());
+                    String synonyms = str(d.getSynonyms());
+                    if (question.contains(dimName) || (!synonyms.isEmpty() && containsAny(question, synonyms))) {
+                        sb.append("【维度枚举】").append(dimName)
+                            .append("(").append(str(d.getTableName())).append(".").append(str(d.getColumnName())).append(")：");
+                        String dimValues = d.getDimValues();
+                        if (dimValues != null) {
+                            sb.append(formatDimValues(dimValues));
+                        }
+                        sb.append("（查询时必须用值而非含义）\n");
+                    }
+                }
+            }
+
+            // 3. 业务规则：Feign调用chat服务内部API获取业务规则，applies_to 为空的全局规则 + 关键词命中的规则
+            R<List<Nl2sqlBusinessRuleVo>> ruleResult = remoteNl2sqlBusinessRuleService.list();
+            if (ruleResult.getCode() == 200 && ruleResult.getData() != null) {
+                for (Nl2sqlBusinessRuleVo r : ruleResult.getData()) {
+                    String appliesTo = str(r.getAppliesTo());
+                    if (appliesTo.isEmpty() || containsAny(question, appliesTo)) {
+                        sb.append("【业务规则】").append(str(r.getRuleName()))
+                            .append("：").append(str(r.getRuleContent())).append("\n");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("[SQL工具] 语义层结构化查询失败，降级kbType=21: {}", e.getMessage());
+            return retrieveEvidence(question);
+        }
+
+        // 4. 三层都空时降级走 kbType=21 向量召回（长尾术语兜底）
+        if (sb.length() == 0) {
+            logger.info("[SQL工具] 语义层未命中，降级kbType=21向量召回");
+            return retrieveEvidence(question);
+        }
+        logger.info("[SQL工具] 语义层结构化渲染完成，长度: {} 字符", sb.length());
+        return sb.toString();
+    }
+
+    /**
+     * 步骤3兜底：召回业务证据（Evidence）—— 指标口径/术语定义等业务语义知识
      * <p>
      * 复用已有 KB 体系，按 kbType=21 检索。该源为可选，检索不到或异常时返回空串，
-     * 不影响主流程（优雅降级）。
+     * 不影响主流程（优雅降级）。语义层结构化未命中时作为长尾术语兜底。
      */
     private String retrieveEvidence(String question) {
         try {
@@ -250,6 +351,38 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
             logger.warn("[SQL工具] 业务证据召回失败，跳过（不影响主流程）: {}", e.getMessage());
         }
         return "";
+    }
+
+    /** 判断问题是否包含逗号分隔关键词中的任意一个 */
+    private boolean containsAny(String question, String commaSeparated) {
+        for (String kw : commaSeparated.split(",")) {
+            if (!kw.isBlank() && question.contains(kw.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 格式化维度枚举值 JSON（兼容 fastjson2 的 JSON 数组字符串） */
+    private String formatDimValues(Object dimValues) {
+        try {
+            JSONArray arr = dimValues instanceof JSONArray ja ? ja : JSON.parseArray(dimValues.toString());
+            if (arr == null || arr.isEmpty()) {
+                return "";
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < arr.size(); i++) {
+                JSONObject item = arr.getJSONObject(i);
+                if (i > 0) {
+                    sb.append(" ");
+                }
+                sb.append(item.getString("value")).append("=").append(item.getString("meaning"));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            logger.warn("[SQL工具] 维度枚举值解析失败: {}", e.getMessage());
+            return dimValues.toString();
+        }
     }
 
     /**
@@ -368,17 +501,26 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
             List<Map<String, Object>> cols = entry.getValue();
             for (int i = 0; i < cols.size(); i++) {
                 Map<String, Object> col = cols.get(i);
-                ddl.append("  `").append(str(col.get("COLUMN_NAME"))).append("` ")
-                    .append(str(col.get("COLUMN_TYPE")));
+                String columnName = str(col.get("COLUMN_NAME"));
+                String columnType = str(col.get("COLUMN_TYPE"));
+                String comment = str(col.get("COLUMN_COMMENT"));
+                ddl.append("  `").append(columnName).append("` ")
+                    .append(columnType);
                 String key = str(col.get("COLUMN_KEY"));
                 if ("PRI".equalsIgnoreCase(key)) {
                     ddl.append(" PRIMARY KEY");
                 } else if (!key.isEmpty()) {
                     ddl.append(" -- ").append(key);
                 }
-                String comment = str(col.get("COLUMN_COMMENT"));
                 if (!comment.isEmpty()) {
                     ddl.append(" COMMENT '").append(comment.replace("'", "''")).append("'");
+                }
+                // 低基数字段自动枚举注入：疑似枚举列追加可选取值，帮助 LLM 用值而非含义
+                if (isLikelyEnumColumn(columnName, columnType, comment)) {
+                    List<String> enumValues = getEnumValues(table, columnName);
+                    if (!enumValues.isEmpty()) {
+                        ddl.append(" -- ").append(columnName).append(" 可选取值: ").append(String.join(",", enumValues));
+                    }
                 }
                 ddl.append(i < cols.size() - 1 ? ",\n" : "\n");
             }
@@ -390,6 +532,65 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
             ddl.append(";\n\n");
         }
         return ddl.toString();
+    }
+
+    /**
+     * 判断是否为疑似低基数字段（枚举列）：
+     * 列注释含"状态/类型/是否/标志/标记" 或 char/varchar 且长度 <= {@link #ENUM_COLUMN_TYPE_MAX_LENGTH}。
+     * 命中则尝试 DISTINCT 取值注入 DDL 注释，解决语义表未覆盖的枚举列"查停用用户查空"类问题。
+     */
+    private boolean isLikelyEnumColumn(String columnName, String columnType, String comment) {
+        String typeLower = columnType.toLowerCase();
+        boolean shortType = (typeLower.startsWith("char") || typeLower.startsWith("varchar"))
+            && extractTypeLength(columnType) <= ENUM_COLUMN_TYPE_MAX_LENGTH;
+        boolean commentHint = ENUM_COLUMN_COMMENT_KEYWORDS.stream().anyMatch(comment::contains);
+        return shortType || commentHint;
+    }
+
+    /** 提取列类型长度（如 varchar(10) → 10），解析失败返回 Integer.MAX_VALUE */
+    private int extractTypeLength(String columnType) {
+        int start = columnType.indexOf('(');
+        int end = columnType.indexOf(')');
+        if (start >= 0 && end > start) {
+            try {
+                return Integer.parseInt(columnType.substring(start + 1, end));
+            } catch (Exception ignore) {
+                // 解析失败按最大长度处理
+            }
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    /**
+     * 查询低基数字段可选取值（DISTINCT，LIMIT 10），带表级 TTL 缓存 {@link #ENUM_CACHE_TTL_MS}。
+     * 查询失败返回空列表，不阻断 DDL 构建。
+     */
+    private List<String> getEnumValues(String table, String column) {
+        String key = table + "." + column;
+        EnumCacheEntry entry = enumValueCache.get(key);
+        long now = System.currentTimeMillis();
+        if (entry != null && now - entry.at() < ENUM_CACHE_TTL_MS) {
+            return entry.values();
+        }
+        try {
+            // 表名/列名反引号转义，防止特殊字符破坏 SQL
+            String safeTable = table.replace("`", "``");
+            String safeColumn = column.replace("`", "``");
+            List<Map<String, Object>> rows = executeSql(
+                "SELECT DISTINCT `" + safeColumn + "` AS v FROM `" + safeTable + "` LIMIT 10");
+            List<String> values = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                Object v = row.get("v");
+                if (v != null && !v.toString().isBlank()) {
+                    values.add(v.toString());
+                }
+            }
+            enumValueCache.put(key, new EnumCacheEntry(values, now));
+            return values;
+        } catch (Exception e) {
+            logger.debug("[SQL工具] 枚举值查询失败 table={} col={}: {}", table, column, e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
     /**
@@ -495,6 +696,10 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     /**
      * 生成SQL → 安全校验 → 执行 → 语义校验，所有失败路径统一走重试循环
      * <p>
+     * 编排化第一步：把单方法重构为"节点形状"的内部结构（对齐 DataAgent StateGraph 的 OverAllState）。
+     * 每个节点是独立的 State → State 方法，可单测；后续引入 StateGraph 时这些方法原样复用。
+     * 重试循环保留在外层（当前场景不需要图框架的 Checkpoint/条件边，等出现多步分析/HITL 需求再上）。
+     * <p>
      * 触发重试（最多 {@link #MAX_RETRIES} 次）的失败路径包括：
      * <ul>
      *   <li>生成的 SQL 为空</li>
@@ -509,74 +714,93 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
      * LLM 返回 CLARIFY 时直接结束，交由上层向用户澄清；返回 CHAT 时直接说明无需查库；
      * 每轮重试前检查总时延预算，超时后放弃重试直接报错。
      */
-    private SqlExecutionResult generateValidateAndExecute(String question, String chatHistory,
-                                                           String schema, String evidence, long deadline) {
-        String lastError = "";
-        // 从Schema中提取合法表名白名单（用于防止LLM幻觉表名）
-        Set<String> allowedTables = extractTableNames(schema);
-
+    private SqlExecutionResult runPipeline(Nl2SqlState init) {
+        Nl2SqlState state = init;
         for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            state = state.withAttempt(attempt);
             // 时延预算检查：召回耗时已计入，剩余时间不足以支撑一轮"生成+执行+语义校验"时直接失败退出
-            if (System.currentTimeMillis() > deadline) {
-                throw new RuntimeException("查询总耗时超出时延预算(" + timeBudgetMs + "ms)，已放弃重试。最后错误: " + lastError);
+            if (System.currentTimeMillis() > state.deadline()) {
+                throw new RuntimeException("查询总耗时超出时延预算(" + timeBudgetMs + "ms)，已放弃重试。最后错误: " + state.lastError());
             }
-            String failReason = null;
             try {
-                // 重试场景：可选启用问题扩写后重新召回证据（默认关闭，时延敏感）。
-                // 语义校验失败大概率是原始表述没召对证据，扩写后重新召回可提高重试成功率。
-                String currentEvidence = evidence;
-                if (attempt > 0 && retryExpandEnabled && lastError != null && lastError.contains("语义")) {
-                    String expanded = expandQuestion(question);
-                    if (expanded != null && !expanded.isBlank()) {
-                        currentEvidence = retrieveEvidence(expanded);
-                        logger.info("[SQL工具] 语义失败重试，已用扩写问题重新召回证据");
-                    }
+                // 节点1：生成（意图分类 + 指代消解 + 多候选），CLARIFY/CHAT 直接出口
+                state = nodeGenerate(state);
+                if (state.result() != null) {
+                    return state.result();
                 }
-
-                // 1. 生成SQL（意图分类 + 指代消解改写 + 结构化JSON输出，带上上次的错误信息进行自我修正）
-                SqlGenerationResult generation = generateSql(question, chatHistory, schema, currentEvidence, lastError);
-
-                // 1a. 澄清分支：LLM 判定问题歧义，直接返回澄清信息，不硬猜SQL
-                if (generation.isClarify()) {
-                    logger.info("[SQL工具] LLM请求澄清: {}", generation.getClarify());
-                    return SqlExecutionResult.clarify(generation.getClarify());
-                }
-
-                // 1b. 闲聊分支：LLM 判定问题无需查库（打招呼/写周报等超纲请求），跳过整条 SQL 链路
-                if (generation.isChat()) {
-                    logger.info("[SQL工具] LLM判定无需查库(CHAT): {}", generation.getReply());
-                    return SqlExecutionResult.chat(generation.getReply());
-                }
-
-                // 2. 主候选 + 备选候选依次尝试（多候选机制：同一次生成多个候选，校验失败时优先用备选，不重新调用LLM）
-                List<SqlCandidate> candidates = generation.getCandidates();
-                if (candidates == null || candidates.isEmpty()) {
-                    candidates = List.of(new SqlCandidate(generation.getSql(), generation.getExplanation(), generation.getRewritten(), 0.0));
-                }
-                for (SqlCandidate candidate : candidates) {
-                    if (System.currentTimeMillis() > deadline) {
-                        throw new RuntimeException("查询总耗时超出时延预算(" + timeBudgetMs + "ms)，已放弃重试。最后错误: " + lastError);
-                    }
-                    AttemptResult attemptResult = validateAndExecute(candidate, question, allowedTables, currentEvidence, deadline);
-                    if (attemptResult.isSuccess()) {
-                        return attemptResult.success();
-                    }
-                    failReason = attemptResult.failReason();
-                    logger.warn("[SQL工具] 候选SQL未通过: {}", failReason);
+                // 节点2：校验+执行+语义校验（候选循环），失败写 lastError
+                state = nodeValidateExecute(state);
+                if (state.result() != null) {
+                    return state.result();
                 }
             } catch (Exception e) {
                 // 生成/解析阶段异常同样纳入重试
-                failReason = "SQL生成或解析异常: " + e.getMessage();
+                state = state.withLastError("SQL生成或解析异常: " + e.getMessage());
             }
 
             // ===== 统一失败处理：写入 lastError 反馈给下一轮，仅在最后一轮抛出 =====
-            lastError = failReason;
-            logger.warn("[SQL工具] 第{}轮生成失败: {}", attempt + 1, failReason);
+            logger.warn("[SQL工具] 第{}轮生成失败: {}", attempt + 1, state.lastError());
             if (attempt == MAX_RETRIES) {
-                throw new RuntimeException("多次尝试后仍无法生成可执行的SQL，最后错误: " + failReason);
+                throw new RuntimeException("多次尝试后仍无法生成可执行的SQL，最后错误: " + state.lastError());
             }
         }
         throw new RuntimeException("查询失败");
+    }
+
+    /**
+     * 节点1：生成SQL（意图分类 + 指代消解改写 + 结构化JSON输出 + 多候选）。
+     * CLARIFY/CHAT 时写入 result 出口；QUERY 时写入 remainingCandidates 供下一节点消费。
+     */
+    private Nl2SqlState nodeGenerate(Nl2SqlState s) {
+        // 重试场景：可选启用问题扩写后重新召回证据（默认关闭，时延敏感）。
+        // 语义校验失败大概率是原始表述没召对证据，扩写后重新召回可提高重试成功率。
+        String currentEvidence = s.evidence();
+        if (s.attempt() > 0 && retryExpandEnabled && s.lastError() != null && s.lastError().contains("语义")) {
+            String expanded = expandQuestion(s.question());
+            if (expanded != null && !expanded.isBlank()) {
+                currentEvidence = retrieveEvidence(expanded);
+                logger.info("[SQL工具] 语义失败重试，已用扩写问题重新召回证据");
+            }
+        }
+
+        SqlGenerationResult generation = generateSql(s.question(), s.chatHistory(), s.schema(), currentEvidence, s.lastError());
+
+        // 澄清分支：LLM 判定问题歧义，直接返回澄清信息，不硬猜SQL
+        if (generation.isClarify()) {
+            logger.info("[SQL工具] LLM请求澄清: {}", generation.getClarify());
+            return s.withResult(SqlExecutionResult.clarify(generation.getClarify()));
+        }
+        // 闲聊分支：LLM 判定问题无需查库（打招呼/写周报等超纲请求），跳过整条 SQL 链路
+        if (generation.isChat()) {
+            logger.info("[SQL工具] LLM判定无需查库(CHAT): {}", generation.getReply());
+            return s.withResult(SqlExecutionResult.chat(generation.getReply()));
+        }
+
+        // 主候选 + 备选候选（多候选机制：同一次生成多个候选，校验失败时优先用备选，不重新调用LLM）
+        List<SqlCandidate> candidates = generation.getCandidates();
+        if (candidates == null || candidates.isEmpty()) {
+            candidates = List.of(new SqlCandidate(generation.getSql(), generation.getExplanation(), generation.getRewritten(), 0.0));
+        }
+        return s.withEvidence(currentEvidence).withCandidates(candidates);
+    }
+
+    /**
+     * 节点2：候选 SQL 校验+执行+语义校验（候选循环）。
+     * 任一候选成功写入 result；全部失败写入 lastError（最后一个候选的失败原因）。
+     */
+    private Nl2SqlState nodeValidateExecute(Nl2SqlState s) {
+        for (SqlCandidate candidate : s.remainingCandidates()) {
+            if (System.currentTimeMillis() > s.deadline()) {
+                throw new RuntimeException("查询总耗时超出时延预算(" + timeBudgetMs + "ms)，已放弃重试。最后错误: " + s.lastError());
+            }
+            AttemptResult attemptResult = validateAndExecute(candidate, s.question(), s.allowedTables(), s.evidence(), s.deadline());
+            if (attemptResult.isSuccess()) {
+                return s.withResult(attemptResult.success());
+            }
+            s = s.withLastError(attemptResult.failReason());
+            logger.warn("[SQL工具] 候选SQL未通过: {}", attemptResult.failReason());
+        }
+        return s;
     }
 
     /**
@@ -1159,11 +1383,19 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
                 .append("\n###\n\n");
         }
 
-        // 4. 错误修正指令
+        // 4. 错误修正指令（按失败来源分支：语义校验失败 vs 执行/校验失败，修正方向不同）
         if (previousError != null && !previousError.isBlank()) {
             p.append("### 修正指令\n")
-                .append("上一轮生成的SQL未能通过校验或执行，原因如下：\n").append(previousError).append("\n")
-                .append("请针对上述原因修正后重新生成。\n\n");
+                .append("上一轮生成的SQL未能通过校验或执行，原因如下：\n").append(previousError).append("\n");
+            if (previousError.contains("语义") || previousError.contains("未能回答用户问题")) {
+                // 语义类失败：换指标/换维度/换过滤条件，而不是改语法
+                p.append("这是语义偏差问题：请重新理解用户问题的指标、维度、时间范围与过滤条件，"
+                    + "优先检查是否用错了聚合函数、分组维度或WHERE条件，而不是修改SQL语法。\n\n");
+            } else {
+                // 执行/校验类失败：改语法/改字段/改表名
+                p.append("这是执行或校验问题：请检查SQL语法、列名、表名、JOIN条件，"
+                    + "确保SQL能正确执行并通过安全校验。\n\n");
+            }
         }
 
         // 5. 示例
@@ -1619,6 +1851,52 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
      * 多候选 SQL：一条候选 SQL + 自评质量分（0~1）
      */
     private record SqlCandidate(String sql, String explanation, String rewritten, double score) {
+    }
+
+    /**
+     * 贯穿全流程的执行上下文（对齐 DataAgent StateGraph 的 OverAllState）。
+     * 每个节点：State → State，失败写 lastError，成功写 result。
+     * 后续引入 StateGraph 时，该 record 直接作为图的状态类型复用。
+     */
+    private record Nl2SqlState(
+        String question, String chatHistory,
+        String schema, String evidence,
+        Set<String> allowedTables,
+        String lastError, int attempt,
+        List<SqlCandidate> remainingCandidates,
+        SqlExecutionResult result,
+        long deadline) {
+
+        Nl2SqlState withLastError(String error) {
+            return new Nl2SqlState(question, chatHistory, schema, evidence, allowedTables,
+                error, attempt, remainingCandidates, result, deadline);
+        }
+
+        Nl2SqlState withResult(SqlExecutionResult r) {
+            return new Nl2SqlState(question, chatHistory, schema, evidence, allowedTables,
+                lastError, attempt, remainingCandidates, r, deadline);
+        }
+
+        Nl2SqlState withCandidates(List<SqlCandidate> candidates) {
+            return new Nl2SqlState(question, chatHistory, schema, evidence, allowedTables,
+                lastError, attempt, candidates, result, deadline);
+        }
+
+        Nl2SqlState withEvidence(String e) {
+            return new Nl2SqlState(question, chatHistory, schema, evidence, allowedTables,
+                lastError, attempt, remainingCandidates, result, deadline);
+        }
+
+        Nl2SqlState withAttempt(int a) {
+            return new Nl2SqlState(question, chatHistory, schema, evidence, allowedTables,
+                lastError, a, remainingCandidates, result, deadline);
+        }
+    }
+
+    /**
+     * 低基数字段枚举值缓存条目：可选取值列表 + 缓存时间戳
+     */
+    private record EnumCacheEntry(List<String> values, long at) {
     }
 
     /**

@@ -1,5 +1,10 @@
 package com.mall.aichat.config;
 
+import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.ai.AiFactory;
+import com.alibaba.nacos.api.ai.AiService;
+import com.alibaba.nacos.api.ai.constant.AiConstants;
+import com.alibaba.nacos.api.exception.NacosException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -7,9 +12,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
+import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -42,6 +49,23 @@ public class SaLlmConfig {
             .defaultHeader(HttpHeaders.ACCEPT, MediaType.ALL_VALUE)
             .requestFactory(factory)
             .build();
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    public AiService nacosAiService(PromptProperties props) throws NacosException {
+        Properties properties = new Properties();
+        properties.setProperty(PropertyKeyConst.SERVER_ADDR, props.getServerAddr());
+        properties.setProperty(PropertyKeyConst.NAMESPACE, props.getNamespaceId());
+        // 开源自建 Nacos 的账号密码鉴权；未开启鉴权可注释掉
+        if (StringUtils.hasText(props.getUsername())) {
+            properties.setProperty(PropertyKeyConst.USERNAME, props.getUsername());
+            properties.setProperty(PropertyKeyConst.PASSWORD, props.getPassword());
+        }
+        // 可选：强制 HTTP 传输模式，与直接调 REST 接口行为一致
+        if ("http".equalsIgnoreCase(props.getTransportMode())) {
+            properties.setProperty(AiConstants.AI_TRANSPORT_MODE, AiConstants.AI_TRANSPORT_MODE_HTTP);
+        }
+        return AiFactory.createAiService(properties);
     }
 
     /**

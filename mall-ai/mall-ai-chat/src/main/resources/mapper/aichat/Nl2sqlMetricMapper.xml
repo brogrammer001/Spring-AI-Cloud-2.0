@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.aichat.mapper.Nl2sqlMetricMapper">
+    
+    <resultMap type="Nl2sqlMetric" id="Nl2sqlMetricResult">
+        <result property="id"    column="id"    />
+        <result property="metricName"    column="metric_name"    />
+        <result property="synonyms"    column="synonyms"    />
+        <result property="metricExpr"    column="metric_expr"    />
+        <result property="aggDefault"    column="agg_default"    />
+        <result property="unit"    column="unit"    />
+        <result property="enabled"    column="enabled"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectNl2sqlMetricVo">
+        select id, metric_name, synonyms, metric_expr, agg_default, unit, enabled, create_by, create_time, update_by, update_time from nl2sql_metric
+    </sql>
+
+    <select id="selectNl2sqlMetricList" parameterType="Nl2sqlMetric" resultMap="Nl2sqlMetricResult">
+        <include refid="selectNl2sqlMetricVo"/>
+        <where>  
+            <if test="metricName != null  and metricName != ''"> and metric_name like concat('%', #{metricName}, '%')</if>
+            <if test="synonyms != null  and synonyms != ''"> and synonyms = #{synonyms}</if>
+            <if test="metricExpr != null  and metricExpr != ''"> and metric_expr = #{metricExpr}</if>
+            <if test="aggDefault != null  and aggDefault != ''"> and agg_default = #{aggDefault}</if>
+            <if test="unit != null  and unit != ''"> and unit = #{unit}</if>
+            <if test="enabled != null  and enabled != ''"> and enabled = #{enabled}</if>
+        </where>
+    </select>
+    
+    <select id="selectNl2sqlMetricById" parameterType="Long" resultMap="Nl2sqlMetricResult">
+        <include refid="selectNl2sqlMetricVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertNl2sqlMetric" parameterType="Nl2sqlMetric" useGeneratedKeys="true" keyProperty="id">
+        insert into nl2sql_metric
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="metricName != null and metricName != ''">metric_name,</if>
+            <if test="synonyms != null">synonyms,</if>
+            <if test="metricExpr != null and metricExpr != ''">metric_expr,</if>
+            <if test="aggDefault != null">agg_default,</if>
+            <if test="unit != null">unit,</if>
+            <if test="enabled != null">enabled,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="metricName != null and metricName != ''">#{metricName},</if>
+            <if test="synonyms != null">#{synonyms},</if>
+            <if test="metricExpr != null and metricExpr != ''">#{metricExpr},</if>
+            <if test="aggDefault != null">#{aggDefault},</if>
+            <if test="unit != null">#{unit},</if>
+            <if test="enabled != null">#{enabled},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateNl2sqlMetric" parameterType="Nl2sqlMetric">
+        update nl2sql_metric
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="metricName != null and metricName != ''">metric_name = #{metricName},</if>
+            <if test="synonyms != null">synonyms = #{synonyms},</if>
+            <if test="metricExpr != null and metricExpr != ''">metric_expr = #{metricExpr},</if>
+            <if test="aggDefault != null">agg_default = #{aggDefault},</if>
+            <if test="unit != null">unit = #{unit},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteNl2sqlMetricById" parameterType="Long">
+        delete from nl2sql_metric where id = #{id}
+    </delete>
+
+    <delete id="deleteNl2sqlMetricByIds" parameterType="String">
+        delete from nl2sql_metric where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

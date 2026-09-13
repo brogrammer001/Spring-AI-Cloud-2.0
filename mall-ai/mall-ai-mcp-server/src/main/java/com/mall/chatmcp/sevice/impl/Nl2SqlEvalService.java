@@ -2,18 +2,14 @@ package com.mall.chatmcp.sevice.impl;
 
 import com.mall.common.core.domain.R;
 import com.mall.common.core.web.domain.AjaxResult;
-import com.mall.system.api.RemoteSqlService;
-import com.mall.system.api.domain.SqlQueryRequest;
+import com.mall.system.api.RemoteNl2sqlEvalService;
+import com.mall.system.api.domain.Nl2sqlEvalVo;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * NL2SQL 黄金评测集执行器（运营化度量）
@@ -33,8 +29,9 @@ public class Nl2SqlEvalService extends BaseToolServiceImpl {
     @Autowired
     private Nl2SqlToolServiceImpl nl2SqlToolService;
 
+    /** NL2SQL黄金评测集 Feign 客户端（指向 mall-ai-chat 内部API） */
     @Autowired
-    private RemoteSqlService remoteSqlService;
+    private RemoteNl2sqlEvalService remoteNl2sqlEvalService;
 
     /**
      * 评测用例
@@ -190,19 +187,18 @@ public class Nl2SqlEvalService extends BaseToolServiceImpl {
      */
     private List<EvalCase> loadCases() {
         try {
-            R<List<Map<String, Object>>> result = remoteSqlService.executeSelect(new SqlQueryRequest(
-                "SELECT question, expected_type, expected_sql_contains, expected_sql_not_contains, expected_min_rows "
-                    + "FROM nl2sql_eval WHERE enabled = '1' ORDER BY id"));
+            // Feign调用chat服务内部API获取启用的评测用例（替代裸SQL查询 nl2sql_eval 表）
+            R<List<Nl2sqlEvalVo>> result = remoteNl2sqlEvalService.list();
             if (result.getCode() == 200 && result.getData() != null && !result.getData().isEmpty()) {
                 List<EvalCase> cases = new ArrayList<>();
-                for (Map<String, Object> row : result.getData()) {
-                    String type = str(row.get("expected_type"));
+                for (Nl2sqlEvalVo e : result.getData()) {
+                    String type = str(e.getExpectedType());
                     cases.add(new EvalCase(
-                        str(row.get("question")),
+                        str(e.getQuestion()),
                         type.isBlank() ? "QUERY" : type.toUpperCase(),
-                        splitCsv(str(row.get("expected_sql_contains"))),
-                        splitCsv(str(row.get("expected_sql_not_contains"))),
-                        parseInteger(row.get("expected_min_rows"))));
+                        splitCsv(str(e.getExpectedSqlContains())),
+                        splitCsv(str(e.getExpectedSqlNotContains())),
+                        e.getExpectedMinRows() == null ? null : e.getExpectedMinRows().intValue()));
                 }
                 logger.info("[NL2SQL评测] 从 nl2sql_eval 表加载 {} 条用例", cases.size());
                 return cases;
@@ -262,17 +258,6 @@ public class Nl2SqlEvalService extends BaseToolServiceImpl {
             .map(String::trim)
             .filter(s -> !s.isEmpty())
             .toList();
-    }
-
-    private static Integer parseInteger(Object value) {
-        if (value == null) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(value.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     private static String str(Object obj) {
