@@ -125,15 +125,16 @@ public class ChatClientConfig {
                                      StringRedisTemplate mallRedisTemplate,
                                      AgentEventSinkManager agentEventSinkManager,
                                      SessionService sessionService,
-                                     ChatClient smallChatClient,
+                                     ChatClient compressChatClient,
                                      IAiAgentToolCallLogService toolCallLogService,
+                                     NacosPromptRegistry nacosPromptRegistry,
                                      @Qualifier("mcpAsyncToolCallbacks") @Autowired(required = false) AsyncMcpToolCallbackProvider tools
     ) {
         List<Advisor> advisors = new ArrayList<>();
 
         // 1. 向量会话记忆 - 根据 vectorEnabled 和 conversationVectorStore 是否存在来决定
         if (vectorStoreEnabled && conversationVectorStore != null) {
-            advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore, smallChatClient)
+            advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore, compressChatClient, nacosPromptRegistry)
                 .order(98)
                 .defaultTopK(vectorStoreChatMemoryDefaultTopK)
                 .build());
@@ -205,6 +206,18 @@ public class ChatClientConfig {
 
         // 4) 包装成 ChatClient
         return ChatClient.builder(smallChatModel).build();
+    }
+
+    /**
+     * 向量压缩会话
+     * @param model
+     * @return
+     */
+    @Bean(name = "compressChatClient")
+    public ChatClient compressChatClient(OpenAiChatModel model) {
+        return ChatClient
+            .builder(model)
+            .build();
     }
 
     /**

@@ -179,28 +179,43 @@ com.mall.aichat
     └── ...
 ```
 
-### 2.2 系统全局提示词
+### 2.2 系统全局提示词（Nacos 提示词管理）
 
-*   **实现方式**：在构建 `ChatClient` Bean 时，通过 `defaultSystem` 统一加载 Markdown 文件。
-*   **文件位置**：`resources/prompts/system-prompt-simplify.md`
-*   **加载时机**：应用启动时加载一次，避免每次请求重复 IO。
-*   **配置要点**：将 System Prompt 定义为独立的 Markdown 文件，便于版本控制和热更新。
+*   **实现方式**：提示词统一迁移到 **Nacos Prompt 管理**（`NacosPromptRegistry` + `PromptProperties`），由 Nacos 控制台在线编辑、版本管理、热发布，**不再使用本地 Markdown 文件**（`resources/prompts/*.md` 已移除）。
+*   **加载机制**：应用启动时通过 `AiService.subscribePrompt()` 订阅绑定列表，Nacos 控制台发布新版本后**订阅回调自动刷新本地缓存**，无需重启服务。
+*   **渲染方式**：`ChatAgentService` 每次调用实时读取本地缓存（`promptRegistry.get("system-prompt")`），渲染委托给 SDK 的 `Prompt.render(variables)`（调用方变量 > Nacos 控制台 defaultValue）。
+*   **可靠性**：Last-Known-Good 策略——订阅事件解析失败时保留最近一次有效 Prompt 仅告警；`required=true` 的绑定启动加载失败直接报错，`required=false` 则忽略。
+*   **配置要点**（`spring.ai.nacos.prompt.bindings`，每个绑定含 `key` / `version` / `label` / `required`）：
 
-**当前 System Prompt 内容**：
-```markdown
-# Role
-假维斯，一个未通过正版验证的盗版贾维斯。后台管理助手，执行力强。
-# Tools & Skills
-你拥有以下系统工具的调用权限：菜单导航、数据查询、数据增删改
-# Instructions
-1. 立即执行：识别意图后直接调用工具，不要反问用户（除非缺少关键参数）。
-2. 简洁回复：对话保持简短直接。
-# Echarts Protocol
-调用图表工具时，参数中必须且只能显式包含 "outputType": "option"。
-# Constraints
-- 严禁编造工具或参数。
-- 工具调用失败则立即停止并告知用户
+```yaml
+spring:
+  ai:
+    nacos:
+      prompt:
+        server-addr: 114.132.102.8:8848   # Nacos 服务器
+        namespace-id: public              # Prompt 所在命名空间
+        username: nacos
+        password: nacos
+        transport-mode: http              # 可选，强制走 HTTP（默认 gRPC）
+        bindings:
+          system-prompt:                  # 业务别名（ChatAgentService 按此名读取）
+            key: system-prompt
+            label: latest
+          VectorStoreChatMemoryPrompt:    # 长期记忆提取/决策提示词
+            key: VectorStoreChatMemoryPrompt
+            label: latest
+          TitleCompressPrompt:            # 会话标题压缩提示词
+            key: TitleCompressPrompt
+            label: latest
+          DecideInstructionPrompt:        # 记忆决策指令（Mem0 两阶段）
+            key: DecideInstructionPrompt
+            label: latest
+          ExtractInstructionPrompt:       # 记忆提取指令（Mem0 两阶段）
+            key: ExtractInstructionPrompt
+            label: latest
 ```
+
+> **架构演进（2026-09）**：原本地 `system-prompt-simplify.md` / `system-prompt.md` 文件下线，全部提示词（系统提示词、记忆提取/决策、标题压缩）统一由 Nacos 管控，支持**控制台热更新、版本回滚、MD5 去重**。
 
 ### 2.3 Advisor 链（核心拦截层）
 
@@ -1341,19 +1356,27 @@ com.mall.chatmcp
 
 ### 3.5 NL2SQL 工具
 
-**完整执行链路**（对齐 Alibaba NL2SQL 主干：召回 → 外键扩展 → 证据 → 生成 → 校验 → 执行 → 语义校验 → 自愈重试）：
+**完整执行链路**（对齐 Alibaba NL2SQL 主干：召回 → 外键扩展 → LLM 精筛 → 语义层 → 生成 → 校验 → 执行 → 语义校验 → 自愈重试）：
 
 ```
 用户消息（+ 可选 chatHistory 最近几轮对话）
   │
-  ├─ 并行召回（CompletableFuture，省 1~2 秒串行等待）
+  ├─ 并行召回（CompletableFuture + 专用线程池，省 1~2 秒串行等待）
   │   ├─ Schema 召回（Feign 调用 chat 服务，kbType=20）
   │   │   ├─ 标签反向匹配找出相似 KbDocument → knowledgeId 单重过滤向量检索
   │   │   ├─ Reranker 重排序返回表结构 Schema
   │   │   └─ 外键扩展（FK Expansion）：读 information_schema.KEY_COLUMN_USAGE
   │   │       双向查询外键，补全关联表 DDL + 显式声明 JOIN 关系
   │   │       （相比 LLM 推理表关系更准更快）
-  │   └─ 业务证据召回（kbType=21，指标口径/术语定义，失败优雅降级不阻断）
+  │   └─ 业务语义上下文（结构化直查为主，kbType=21 自由文本兜底）
+  │       ├─ 指标定义：Feign 查 chat 内部 API，按 metric_name/synonyms 匹配
+  │       ├─ 维度定义：Feign 查 chat 内部 API，按 dim_name/synonyms 匹配
+  │       │   （含维度枚举值，提示 LLM 用值而非含义）
+  │       ├─ 业务规则：Feign 查 chat 内部 API，applies_to 为空的全量 + 命中规则
+  │       └─ 三层均未命中 → 降级 kbType=21 向量召回（长尾术语兜底）
+  │
+  ├─ LLM 精筛表数据（候选表数 ≥ 5 时触发）
+  │   └─ 轻量 LLM 调用筛选出回答问题所必需的表，剔除无关表 DDL 噪声
   │
   ├─ LLM 意图分类 + 指代消解（结构化 JSON 三态输出）
   │   ├─ QUERY：需要查库 → 生成 SQL（rewritten 字段 = 指代消解后的完整问题）
@@ -1362,6 +1385,10 @@ com.mall.chatmcp
   │   └─ 时间感知：Prompt 注入数据库当前时间（SELECT NOW()，60s 缓存），
   │       "上个月/本周/近30天"等相对时间据此换算为具体日期范围
   │
+  ├─ 多候选生成（CANDIDATE_COUNT=2）
+  │   ├─ 同一次生成 2 个不同思路候选 + 自评分
+  │   └─ 校验失败时优先用备选候选，不重新调用 LLM
+  │
   ├─ 安全校验（双层防线）
   │   ├─ 表名白名单校验（防止 LLM 幻觉出不存在的表）
   │   └─ JSqlParser AST 校验（只允许单条 SELECT，拒绝注入/多语句）
@@ -1369,17 +1396,24 @@ com.mall.chatmcp
   ├─ LIMIT 保护（自动添加 LIMIT 100；全 AST 检测聚合函数——含子查询/
   │   标量子查询/HAVING/UNION，修复顶层检测漏判导致的误加 LIMIT）
   │
+  ├─ 低基数字段枚举值注入（DDL 构建时）
+  │   ├─ 列注释含"状态/类型/是否/标志/标记" 或 char/varchar 且长度 ≤ 10 → 疑似枚举列
+  │   ├─ DISTINCT 取值（LIMIT 10，表级 TTL 1 小时缓存）追加到 DDL 注释
+  │   └─ 解决语义表未覆盖的枚举列"查停用用户查空"类问题
+  │
   ├─ 远程执行（Feign 调用 mall-system）+ 结果值格式化
   │   ├─ Timestamp → yyyy-MM-dd HH:mm:ss，BigDecimal → toPlainString
   │   │   （避免科学计数法），byte[] → 占位文本（LLM 友好形态）
   │   └─ 结果达到 LIMIT 上限时在 summary 提示可能截断
   │
   ├─ 语义一致性校验（条件触发：多表 JOIN / 空结果 / 聚合意图）
+  │   ├─ 6 维聚焦检查（指标/维度/时间/过滤条件/聚合方式/排序，对齐 DataAgent）
   │   ├─ 独立低 temperature（可配独立模型），不暴露生成侧 reasoning，
   │   │   降低同模型同参数的相关性误判风险
   │   └─ 判定不一致 → 携带反馈进入自愈重试
   │
   └─ 自愈重试（统一重试循环，最多 2 次，全程受总时延预算约束）
+      ├─ 语义失败重试：可选启用问题扩写后重新召回证据（默认关闭，时延敏感）
       └─ 预算耗尽 → 放弃重试返回明确错误（防止 MCP 调用方先超时）
 ```
 
@@ -1387,15 +1421,21 @@ com.mall.chatmcp
 
 | 方法 | 职责 |
 | :--- | :--- |
-| `nl2SqlQuery()` | 工具入口：Schema/Evidence 并行召回 → 统一重试循环；`chatHistory` 可选参数支持多轮指代消解 |
-| `generateValidateAndExecute()` | 生成 → 校验 → 执行 → 语义校验统一循环；CHAT 分支直接返回；每轮检查时延预算 |
+| `nl2SqlQuery()` | 工具入口：Schema/语义上下文并行召回 → 节点管道（Nl2SqlState 贯穿）；`chatHistory` 可选参数支持多轮指代消解 |
+| `runPipeline()` | 编排化节点管道：每个节点 State → State，可单测；统一重试循环 |
+| `nodeGenerate()` | 节点1：意图分类 + 指代消解 + 多候选生成；CLARIFY/CHAT 直接写 result 出口 |
+| `nodeValidateExecute()` | 节点2：候选 SQL 校验+执行+语义校验（候选循环），任一成功写 result |
+| `renderSemanticContext()` | 语义层结构化直查：指标/维度/业务规则三层 Feign 直查直用，不走向量；未命中降级 kbType=21 |
+| `retrieveEvidence()` | 业务证据召回（kbType=21，指标口径/术语定义），失败优雅降级不阻断 |
+| `filterSchemaByLLM()` | LLM 精筛表数据：候选表数 ≥ 5 时剔除无关表 DDL 噪声 |
 | `expandWithForeignKeys()` | 外键扩展：读 information_schema 双向查外键，补全关联表 DDL + JOIN 声明 |
-| `generateSql()` | LLM 意图分类三态解析（type/sql/rewritten/explanation/clarify/reply），单次调用带超时 |
-| `buildPrompt()` | Schema + 当前时间 + 对话上下文 + 证据 + 修正指令 + 思维链 + JSON 输出契约 |
+| `generateSql()` | LLM 意图分类三态解析（type/sql/rewritten/explanation/clarify/reply）+ 多候选，单次调用带超时 |
+| `buildPrompt()` | Schema + 当前时间 + 对话上下文 + 语义上下文 + 修正指令 + 思维链 + JSON 输出契约 |
 | `getDbNowText()` | 数据库当前时间（SELECT NOW()，60s 缓存，失败降级应用服务器时间） |
-| `checkSemanticConsistency()` | 语义校验（独立 options：低 temperature + 可选独立模型，只给问题+SQL+结果） |
+| `checkSemanticConsistency()` | 语义校验（6 维聚焦检查 + 业务证据，独立 options：低 temperature + 可选独立模型） |
 | `hasAggregateInSql()` | 全 AST 聚合检测（AggregateFinder 覆盖子查询/标量子查询/HAVING/UNION） |
 | `needSemanticCheck()` | 语义校验触发条件：AST 表计数 >1（含逗号连接多表）/ 空结果 / 聚合意图关键词 |
+| `isLikelyEnumColumn()` / `getEnumValues()` | 低基数字段枚举值检测 + DISTINCT 取值（表级 TTL 缓存） |
 | `formatResultValues()` | 结果值格式化：Timestamp/BigDecimal/byte[] 转为 LLM 友好形态 |
 | `wrapResult()` | 封装结果：CLARIFY/CHAT/QUERY 三分支 + rewrittenQuestion + 截断提示 |
 | `extractTableNames()` | 从 Schema 中提取 `CREATE TABLE` 表名，构成白名单 |
@@ -1412,10 +1452,13 @@ com.mall.chatmcp
 
 | 配置项 | 默认值 | 说明 |
 | :--- | :--- | :--- |
-| `nl2sql.time-budget-ms` | 45000 | 总时延预算（毫秒）：召回+生成+重试全流程共享，超时放弃重试直接报错 |
-| `nl2sql.llm-timeout-seconds` | 15 | 单次 LLM 调用超时（秒），生成与语义校验调用均生效 |
+| `nl2sql.time-budget-ms` | 90000 | 总时延预算（毫秒）：召回+生成+重试全流程共享，超时放弃重试直接报错 |
+| `nl2sql.llm-timeout-seconds` | 30 | 单次 LLM 调用超时（秒），生成与语义校验调用均生效 |
+| `nl2sql.generate.temperature` | 0.2 | SQL 生成侧 temperature（保证确定性，同时保留候选多样性） |
 | `nl2sql.semantic-check.temperature` | 0.0 | 语义校验独立 temperature（与生成侧隔离，降低相关性误判） |
 | `nl2sql.semantic-check.model` | 空 | 语义校验独立模型名（如 qwen-plus，空则复用生成模型） |
+| `nl2sql.retry-expand-enabled` | false | 语义失败重试时是否启用问题扩写后重新召回证据（默认关闭，时延敏感） |
+| `nl2sql.async-threads` | 4 | 异步召回专用线程池大小（daemon 线程，避免 Feign 丢失 RequestContext） |
 | `nl2sql.eval.cron` | 0 0 3 * * ? | 评测集定时执行 cron（设为 "-" 禁用定时评测） |
 
 > 配套调整：`spring.ai.mcp.server.request-timeout` 需大于总时延预算（默认已调为 60s），
@@ -1425,10 +1468,27 @@ com.mall.chatmcp
 
 黄金评测集让 Prompt/Reranker/证据的每次调整有据可依（对齐 Alibaba/析言 GBI 的运营化度量）：
 
-- **用例来源**：优先读业务库 `nl2sql_eval` 表（运营可维护），未建表时降级内置 15 条默认集
+- **用例来源**：Feign 调用 chat 服务内部 API（`RemoteNl2sqlEvalService.list()`）获取启用的评测用例（替代原裸 SQL 查询 `nl2sql_eval` 表），运营可在管理端维护；未建表时降级内置 15 条默认集
 - **断言方式**：意图类型（QUERY/CHAT/CLARIFY）+ SQL 关键特征片段（contains/not_contains）+ 最小行数，不比对 SQL 文本（写法太多）
 - **触发方式**：每日 03:00 定时跑（`@Scheduled`，`nl2sql.eval.cron` 可调）或 MCP 工具 `nl2SqlEvalRun` 手动触发
 - **输出**：准确率 + 逐条用例明细（PASS/FAIL + 失败原因），15 条约 1~3 分钟适合低峰期执行
+
+#### 3.5.1 NL2SQL 语义层（指标 / 维度 / 业务规则）
+
+对齐析言 GBI 语义层结构化设计，新增 `nl2sql_semantic.sql` 三张语义表，由 mall-ai-chat 提供 CRUD 管理接口（`Nl2sqlMetricController` / `Nl2sqlDimensionController` / `Nl2sqlBusinessRuleController`），mcp-server 通过 Feign 直查直用：
+
+| 语义表 | 关键字段 | 用途 |
+| :--- | :--- | :--- |
+| `nl2sql_metric` | metric_name / metric_expr / agg_default / unit / synonyms | 指标定义：口径表达式 + 默认聚合 + 单位，按名称/同义词匹配注入 |
+| `nl2sql_dimension` | dim_name / table_name / column_name / dim_values / synonyms | 维度定义：字段路径 + 枚举值，提示 LLM 用值而非含义 |
+| `nl2sql_business_rule` | rule_name / rule_content / applies_to | 业务规则：applies_to 为空的全量注入 + 命中问题关键词的规则 |
+
+**渲染策略**（`renderSemanticContext()`）：
+
+- **结构化直查为主**：指标/维度/业务规则三层 Feign 直查直用，不走向量——结构化渲染比自由文本更难被 LLM 忽略，且管理端可维护（改口径不用重新向量化）
+- **降级策略**：三层都未命中时降级走原有 kbType=21 向量召回（长尾术语兜底）；语义表不存在或查询异常时同样降级，不影响主流程
+- **并行召回**：语义上下文与 Schema 召回通过 `CompletableFuture` 并行执行（专用线程池 `nl2sql-async`，daemon 线程），省 1~2 秒串行等待
+- **RequestContext 传递**：调用线程先快照 `RequestContextHolder`（网关透传的 token/租户信息），再传入异步任务，避免 Feign 调用丢失上下文
 
 ### 3.6 MCP 协议配置
 
@@ -1494,6 +1554,7 @@ spring:
       client:
         enabled: true
         type: ASYNC
+        request-timeout: 600s          # MCP Client 请求超时（chat 侧）
         streamable-http:
           connections:
             gateway:                   # 内部 MCP 网关（聚合 mall-ai-mcp-server）
@@ -1503,7 +1564,30 @@ spring:
               endpoint: /mcp
 ```
 
-**关键类**：`MallAiMcpGatewayApplication`、`GatewayController`、`WebClientConfig`
+#### 3.7.4 MCP 工具调用超时修复（NacosMcpGatewayToolCallback 覆盖类）
+
+**问题**：`spring-ai-alibaba-mcp-gateway` 依赖的 `NacosMcpGatewayToolCallback` 存在两处**硬编码超时**，不受 `spring.ai.mcp.client.request-timeout` 控制，导致长耗时工具调用报 `Error: MCP call failed - java.util.concurrent.TimeoutException`：
+
+| 场景 | 硬编码超时 | 影响 |
+| :--- | :--- | :--- |
+| MCP 协议工具（mcp-sse / mcp-streamable） | `McpClient.sync().build()` 未设 requestTimeout，SDK 默认仅 **20 秒** | 长查询（如 NL2SQL）直接超时 |
+| HTTP/HTTPS 协议工具 | `getTimeoutDuration()` 硬编码 **30 秒** | 长 HTTP 调用超时 |
+
+**修复方案**：沿用项目已有惯例（同包同名类覆盖依赖 jar，如 `WebClientStreamableHttpTransport`），新建覆盖类 `mall-ai-mcp-gateway/.../nacos/callback/NacosMcpGatewayToolCallback.java`：
+
+1. `getTimeoutDuration()`：改为从配置读取 `mcp.gateway.tool-timeout-seconds`，**默认 600 秒**（原硬编码 30 秒）
+2. `handleMcpStreamProtocol()`：`McpClient.sync(transport)` 增加 `.requestTimeout(timeout).initializationTimeout(timeout)`（原无超时设置，默认 20 秒）
+
+**配置方式**（默认即生效，无需额外配置）：
+```yaml
+mcp:
+  gateway:
+    tool-timeout-seconds: 600   # 工具调用超时（秒），按需调整
+```
+
+> **注意**：升级 spring-ai-alibaba 版本时需同步检查此覆盖类与新版源码的兼容性（本地 1.1.2.2 版本同样硬编码 30s，暂无可配置的新版本）。
+
+**关键类**：`MallAiMcpGatewayApplication`、`GatewayController`、`WebClientConfig`、`NacosMcpGatewayToolCallback`（覆盖类）
 
 ---
 
@@ -1610,6 +1694,24 @@ spring:
 | `GatewayController` | 工具列表查询接口 | `GET /api/gateway/tools` 列出所有聚合工具 |
 | `WebClientConfig` | WebClient 配置 | 异步 HTTP 客户端 |
 | `WebClientStreamableHttpTransport` | MCP 传输层 | Streamable HTTP 传输实现 |
+| `NacosMcpGatewayToolCallback` | **覆盖类**：修复 MCP 工具调用硬编码超时（20s/30s → 可配置 600s） | 同包同名覆盖依赖 jar，`mcp.gateway.tool-timeout-seconds` 控制 |
+
+### 5.7 提示词管理（Nacos）
+
+| 组件/类名 | 职责描述 | 备注 |
+| :--- | :--- | :--- |
+| `NacosPromptRegistry` | **新增**：Nacos Prompt 拉取与订阅服务 | `AiService.subscribePrompt()` 订阅 + 本地缓存 + Last-Known-Good 降级 |
+| `PromptProperties` | **新增**：Nacos Prompt 绑定配置属性类 | `spring.ai.nacos.prompt.bindings`，支持 key/version/label/required |
+
+### 5.8 NL2SQL 语义层
+
+| 组件/类名 | 职责描述 | 备注 |
+| :--- | :--- | :--- |
+| `Nl2sqlMetricController` / `Nl2sqlMetricServiceImpl` | **新增**：指标定义 CRUD 管理 | 落库 `nl2sql_metric`，mcp-server Feign 直查 |
+| `Nl2sqlDimensionController` / `Nl2sqlDimensionServiceImpl` | **新增**：维度定义 CRUD 管理 | 落库 `nl2sql_dimension`，含维度枚举值 |
+| `Nl2sqlBusinessRuleController` / `Nl2sqlBusinessRuleServiceImpl` | **新增**：业务规则 CRUD 管理 | 落库 `nl2sql_business_rule` |
+| `Nl2sqlEvalController` / `Nl2sqlEvalServiceImpl` | **新增**：评测用例 CRUD 管理 | 落库 `nl2sql_eval`，替代原裸 SQL 查询 |
+| `RemoteNl2sqlMetricService` / `RemoteNl2sqlDimensionService` / `RemoteNl2sqlBusinessRuleService` / `RemoteNl2sqlEvalService` | **新增**：mcp-server 侧 Feign 客户端 | 指向 mall-ai-chat 内部 API |
 
 ---
 
@@ -1620,13 +1722,36 @@ spring:
 ```yaml
 spring:
   ai:
+    nacos:
+      prompt:                                # Nacos 提示词管理（详见 2.2）
+        server-addr: 114.132.102.8:8848
+        namespace-id: public
+        username: nacos
+        password: nacos
+        transport-mode: http
+        bindings:
+          system-prompt:
+            key: system-prompt
+            label: latest
+          VectorStoreChatMemoryPrompt:
+            key: VectorStoreChatMemoryPrompt
+            label: latest
+          TitleCompressPrompt:
+            key: TitleCompressPrompt
+            label: latest
+          DecideInstructionPrompt:
+            key: DecideInstructionPrompt
+            label: latest
+          ExtractInstructionPrompt:
+            key: ExtractInstructionPrompt
+            label: latest
     model:
       chat: openai
       embedding: openai
     openai:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       chat:
-        model: qwen3.7-flash-2026-07-15
+        model: kimi-k2.7-code
       embedding:
         model: Qwen3-Embedding-4B-Q8_0
         base-url: http://127.0.0.1:8889/v1
@@ -1634,6 +1759,7 @@ spring:
       client:
         enabled: true
         type: ASYNC
+        request-timeout: 600s
         streamable-http:
           connections:
             gateway:
@@ -1661,9 +1787,9 @@ vectorstore:
     tool-index-object-class: ToolIndex
 
 smallmodel:                                  # 概述小模型（记忆提取/合并 + 会话标题生成）
-  base-url: https://apihub.agnes-ai.com/v1
-  api-key: sk-xxx
-  model: agnes-2.5-flash
+  base-url: http://114.132.102.8:8888/v1
+  api-key: 123456
+  model: MiniCPM5-1B-Q8_0
 
 reranker:
   enabled: false                             # 重排序开关
@@ -1671,6 +1797,11 @@ reranker:
   top-n: 3
 
 mineru:
+  base-url: https://mineru.net
+  token: xxx
+  model-version: vlm
+  poll-interval-ms: 2000
+  poll-max-attempts: 120
   vl:
     base-url: http://127.0.0.1:8890/v1       # 本地 MinerU-OCR 视觉模型（图片 OCR）
     api-key: 123456
@@ -1682,6 +1813,8 @@ extract:
   page-break-mark: false                     # Word 分页标记开关
 
 ai:
+  chat:
+    stream-timeout-seconds: 600              # SSE 流式超时
   tool:
     cache:
       threshold: 2000                        # 工具数据缓存阈值
@@ -1689,6 +1822,8 @@ ai:
 ```
 
 ### 6.2 mall-ai-mcp-server (bootstrap.yml)
+
+> **配置迁移说明**：`spring.ai.*`（模型、MCP Server、Nacos 注册）配置已从本地 bootstrap.yml **整体注释**，改由 **Nacos 配置中心**（`mall-ai-mcp-server-dev.yml`）统一管理，本地仅保留 Nacos 连接与日志配置。以下为参考配置（需在 Nacos 中维护）：
 
 ```yaml
 spring:
@@ -1703,8 +1838,10 @@ spring:
       server:
         name: mall-ai-mcp-server
         protocol: STREAMABLE
+        request-timeout: 60s            # 需大于 nl2sql.time-budget-ms 总时延预算
         streamable-http:
           mcp-endpoint: /mcp
+          keep-alive-interval: 30s
     alibaba:
       mcp:
         nacos:
@@ -1712,9 +1849,14 @@ spring:
           namespace: public
           username: nacos
           password: nacos
+          register:
+            enabled: true
+            service-name: ${spring.application.name}
 ```
 
 ### 6.3 mall-ai-mcp-gateway (bootstrap.yml)
+
+> **配置迁移说明**：`spring.ai.*`（MCP Server、Alibaba Gateway、Nacos 注册）配置已从本地 bootstrap.yml **整体注释**，改由 **Nacos 配置中心**（`mall-ai-mcp-gateway-dev.yml`）统一管理。以下为参考配置（需在 Nacos 中维护）：
 
 ```yaml
 server:
@@ -1747,6 +1889,10 @@ spring:
               - mall-ai-mcp-server
           streamable:
             enabled: true
+
+mcp:
+  gateway:
+    tool-timeout-seconds: 600             # 工具调用超时（秒），覆盖类 NacosMcpGatewayToolCallback 读取
 ```
 
 ---
@@ -1788,3 +1934,23 @@ spring:
 *   **客户端断开**：通过 `doOnCancel` 处理客户端主动断开。
 *   **异常脱敏**：`onErrorResume` 捕获异常后返回通用错误信息，不暴露内部细节。
 *   **事件头**：`tool_call` / `rag_retrieve` 事件显式设置 SSE `event` 头，前端按事件类型路由后解析 JSON 载荷。
+
+### 7.7 MCP 工具调用超时（多层超时链）
+
+MCP 工具调用存在**多层超时**，需逐层配置避免"上层先超时"：
+
+| 层级 | 配置项 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| mall-ai-chat MCP Client | `spring.ai.mcp.client.request-timeout` | 600s | chat 侧请求超时 |
+| mall-ai-mcp-gateway 工具回调 | `mcp.gateway.tool-timeout-seconds` | 600s | **覆盖类** `NacosMcpGatewayToolCallback` 读取（原硬编码 20s/30s） |
+| mall-ai-mcp-server MCP Server | `spring.ai.mcp.server.request-timeout` | 60s | 需大于 `nl2sql.time-budget-ms`（90s 时需同步调大） |
+| NL2SQL 总时延预算 | `nl2sql.time-budget-ms` | 90000ms | 召回+生成+重试全流程共享 |
+
+> **经验法则**：`chat 侧超时 > gateway 工具超时 > mcp-server 超时 > nl2sql 时延预算`，否则内层先超时会导致外层收到错误而非结果。
+
+### 7.8 Nacos 提示词管理注意事项
+
+*   **启动依赖**：`required=true` 的 Prompt 绑定启动加载失败会直接报错，确保 Nacos 中已发布对应 Prompt（key + label/version）。
+*   **热更新**：Nacos 控制台发布新版本后订阅回调自动刷新本地缓存，无需重启；MD5 去重避免重复替换。
+*   **渲染告警**：渲染后残留 `{{xxx}}` 占位符会输出告警日志，用于排查漏传变量。
+*   **配置迁移**：mall-ai-mcp-server / mall-ai-mcp-gateway 的 `spring.ai.*` 配置已迁移至 Nacos 配置中心（`{服务名}-dev.yml`），修改配置需在 Nacos 控制台操作并发布。

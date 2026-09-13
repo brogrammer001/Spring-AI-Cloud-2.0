@@ -3,171 +3,171 @@
     "objects": [
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788678984619,
-            "id": "0035fa41-a498-47cb-b667-cc79af601f2b",
-            "lastUpdateTimeUnix": 1788678984619,
+            "creationTimeUnix": 1789299168659,
+            "id": "1a030440-13b8-4a78-8391-ecdb3103390a",
+            "lastUpdateTimeUnix": 1789299168659,
             "properties": {
-                "content": "用户打开聊天历史菜单",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791270995157,
-                "meta_ingestedAt": 1788678995157,
+                "content": "用户查询了所有部门下用户信息",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891175199,
+                "meta_ingestedAt": 1789299175199,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788678995157,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791270995157,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299175199,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891175199,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788678974408,
-            "id": "09ac11ac-32d6-49b2-96d3-bae84844c518",
-            "lastUpdateTimeUnix": 1788678974408,
+            "creationTimeUnix": 1789299316771,
+            "id": "3184f82b-eeb4-4092-b8b7-7369ffad36a0",
+            "lastUpdateTimeUnix": 1789299316771,
             "properties": {
-                "content": "用户打开岗位菜单",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791270984793,
-                "meta_ingestedAt": 1788678984793,
+                "content": "用户将图表换成了饼图",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891323224,
+                "meta_ingestedAt": 1789299323224,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788678984793,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791270984793,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299323224,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891323224,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788679451862,
-            "id": "129a9007-be74-4483-a7fe-f96e4f0791a1",
-            "lastUpdateTimeUnix": 1788679451862,
+            "creationTimeUnix": 1789298998349,
+            "id": "4d3fbb38-e867-40b9-a3c9-12d781828581",
+            "lastUpdateTimeUnix": 1789298998349,
             "properties": {
-                "content": "用户叫张三",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791271462231,
-                "meta_ingestedAt": 1788679462231,
+                "content": "用户新增了经营部门",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891004630,
+                "meta_ingestedAt": 1789299004630,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788679462231,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271462231,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299004630,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891004630,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788678909606,
-            "id": "4ef609e6-75cb-4e29-a552-5caa089b1b12",
-            "lastUpdateTimeUnix": 1788678909606,
+            "creationTimeUnix": 1789299098027,
+            "id": "8cfe5632-2924-4df0-b53a-57ebd8a03d2c",
+            "lastUpdateTimeUnix": 1789299098027,
             "properties": {
-                "content": "用户打开用户管理菜单",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791270920075,
-                "meta_ingestedAt": 1788678920075,
+                "content": "用户删除了经营部门下的王三",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891104442,
+                "meta_ingestedAt": 1789299104442,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788678920075,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791270920075,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299104442,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891104442,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788679373889,
-            "id": "4f653ab1-f910-4685-9889-b38aca9a91dd",
-            "lastUpdateTimeUnix": 1788679373889,
+            "creationTimeUnix": 1789299094605,
+            "id": "8f581c20-f91f-4bd2-9828-3101e1fd4f07",
+            "lastUpdateTimeUnix": 1789299094605,
             "properties": {
-                "content": "用户提到财务部门",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791271384175,
-                "meta_ingestedAt": 1788679384175,
+                "content": "用户删除了经营部门",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891100930,
+                "meta_ingestedAt": 1789299100930,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788679384175,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271384175,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299100930,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891100930,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788679593310,
-            "id": "5abbabc6-4bce-4474-8cf5-d7a7060f0c6f",
-            "lastUpdateTimeUnix": 1788679593310,
+            "creationTimeUnix": 1789299287716,
+            "id": "aef6cd30-c230-436a-9258-bb8a02616adf",
+            "lastUpdateTimeUnix": 1789299287716,
             "properties": {
-                "content": "用户查询所有部门下的用户信息",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791271603575,
-                "meta_ingestedAt": 1788679603575,
+                "content": "用户查询了各部门用户数量统计",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891294129,
+                "meta_ingestedAt": 1789299294129,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788679603575,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791271603575,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299294129,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891294129,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788679247540,
-            "id": "5e10ea1d-a2d8-4af7-84aa-a4fa0b1b2932",
-            "lastUpdateTimeUnix": 1788679247540,
+            "creationTimeUnix": 1789298914320,
+            "id": "d369ac8b-f32c-459f-89f8-2bc23d203c47",
+            "lastUpdateTimeUnix": 1789298914320,
             "properties": {
-                "content": "用户号码是***",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791271257792,
-                "meta_ingestedAt": 1788679257792,
+                "content": "用户打开了用户管理菜单",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791890920791,
+                "meta_ingestedAt": 1789298920791,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788679257792,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271257792,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789298920791,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791890920791,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788679460633,
-            "id": "6528ad0f-a7fb-45af-b61c-09b55e0477c2",
-            "lastUpdateTimeUnix": 1788679460633,
+            "creationTimeUnix": 1789299211568,
+            "id": "d5e2f879-fa43-4783-952f-62fc7af59c9e",
+            "lastUpdateTimeUnix": 1789299211568,
             "properties": {
-                "content": "用户下周要去北京出差",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791271471097,
-                "meta_ingestedAt": 1788679471097,
+                "content": "用户要修改王三手机号为***",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891217766,
+                "meta_ingestedAt": 1789299217766,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788679471097,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"fact\",\"expireAt\":1791271471097,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299217766,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891217766,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788679252750,
-            "id": "aff15776-447a-4132-9ef9-8c266958a2a2",
-            "lastUpdateTimeUnix": 1788679252750,
+            "creationTimeUnix": 1789299045220,
+            "id": "f89b8e8c-b220-4db7-b24f-2f22b0e4a002",
+            "lastUpdateTimeUnix": 1789299045220,
             "properties": {
-                "content": "用户性别是男",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791271263099,
-                "meta_ingestedAt": 1788679263099,
+                "content": "用户在经营部门下新增用户王三",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891051636,
+                "meta_ingestedAt": 1789299051636,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788679263099,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271263099,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299051636,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891051636,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         },
         {
             "class": "ConversationHistory",
-            "creationTimeUnix": 1788679342246,
-            "id": "b113b6d8-8dd7-4b09-b737-d199c15e51cb",
-            "lastUpdateTimeUnix": 1788679342246,
+            "creationTimeUnix": 1789299002313,
+            "id": "f8c86764-d558-44e3-bb32-b21616530381",
+            "lastUpdateTimeUnix": 1789299002313,
             "properties": {
-                "content": "用户新增了小明，18岁",
-                "meta_conversationId": "74a3c53d-da01-4e71-8067-ebba604ee34e",
-                "meta_expireAt": 1791271352576,
-                "meta_ingestedAt": 1788679352576,
+                "content": "用户将经营部门挂在深圳总公司下",
+                "meta_conversationId": "a417f21b-f379-4415-bbf9-ef8d0bc57100",
+                "meta_expireAt": 1791891008523,
+                "meta_ingestedAt": 1789299008523,
                 "meta_messageType": "user",
                 "meta_status": "active",
                 "meta_userId": "1",
-                "metadata": "{\"ingestedAt\":1788679352576,\"messageType\":\"user\",\"conversationId\":\"74a3c53d-da01-4e71-8067-ebba604ee34e\",\"memory_type\":\"profile\",\"expireAt\":1791271352576,\"userId\":\"1\",\"status\":\"active\"}"
+                "metadata": "{\"ingestedAt\":1789299008523,\"messageType\":\"user\",\"conversationId\":\"a417f21b-f379-4415-bbf9-ef8d0bc57100\",\"memory_type\":\"fact\",\"expireAt\":1791891008523,\"userId\":\"1\",\"status\":\"active\"}"
             },
             "vectorWeights": null
         }

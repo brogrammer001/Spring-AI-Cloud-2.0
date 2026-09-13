@@ -9,36 +9,36 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Nacos Prompt Registry：Prompt 拉取与订阅服务
- * <p>启动时按 {@link PromptProperties.Binding} 逐个订阅 Nacos Prompt Registry（promptKey 维度），
- * 控制台发布新版本后自动推送热更新，无需重启应用。</p>
- * <ul>
- *   <li>MD5 去重：重复推送相同内容时跳过替换</li>
- *   <li>Last-Known-Good：某版本/标签被下线导致推送空事件时，保留最近一次有效 Prompt 仅告警</li>
- *   <li>不可变快照：缓存内容以 record 暴露，保证并发读安全</li>
- * </ul>
+ * Nacos Prompt Registry：Prompt 拉取与订阅服务。
+ * <p>渲染直接委托给 SDK 的 {@link Prompt#render(Map)}（defaultValue 合并 + 变量覆盖），
+ * 本类只补充两件事：漏传变量告警、Object 类型变量转换。</p>
  */
 @Service
 public class NacosPromptRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(NacosPromptRegistry.class);
 
+    /** 仅用于渲染后检查残留占位符（不参与替换） */
+    private static final Pattern LEFTOVER = Pattern.compile("\\{\\{\\s*[\\w.\\-]+\\s*}}");
+
     private final AiService aiService;
     private final PromptProperties properties;
-
-    /** 业务别名 → 不可变 Prompt 快照，保证并发读安全 */
     private final ConcurrentHashMap<String, PromptSnapshot> prompts = new ConcurrentHashMap<>();
 
     /**
-     * 每次更新生成不可变快照
+     * 不可变快照。prompt 字段直接持有 SDK 对象，渲染走 prompt.render()；
+     * 其余字段用于日志、链路追踪和管控台展示。
      */
-    public record PromptSnapshot(String promptKey, String version, String md5, String template) {
-    }
+    public record PromptSnapshot(String promptKey, String version, String md5,
+                                 String template, Prompt prompt) { }
 
     public NacosPromptRegistry(AiService aiService, PromptProperties properties) {
         this.aiService = aiService;
@@ -55,12 +55,8 @@ public class NacosPromptRegistry {
 
     private void subscribe(String name, PromptProperties.Binding binding) {
         try {
-            // 参数顺序：subscribePrompt(promptKey, version, label, listener)
-            // 按标签订阅时 version 传 null；两者都不传则跟随 latest
             var current = aiService.subscribePrompt(
-                binding.getKey(),
-                binding.getVersion(),
-                binding.getLabel(),
+                binding.getKey(), binding.getVersion(), binding.getLabel(),
                 new AbstractNacosPromptListener() {
                     @Override
                     public void onEvent(NacosPromptEvent event) {
@@ -70,12 +66,15 @@ public class NacosPromptRegistry {
                             return;
                         }
                         update(name, event.getPrompt());
-                        log.info("Nacos Prompt [{}] 热更新完成: key={}, version={}, md5={}", name, event.getPrompt().getPromptKey(), event.getPrompt().getVersion(), event.getPrompt().getMd5());
+                        log.info("Nacos Prompt [{}] 热更新完成: key={}, version={}, md5={}",
+                            name, event.getPrompt().getPromptKey(),
+                            event.getPrompt().getVersion(), event.getPrompt().getMd5());
                     }
                 });
-            // 订阅成功后立即用首次返回值初始化本地缓存
+
             update(name, current);
-            log.info("Nacos Prompt [{}] 加载成功, key={}, version={}", name, current.getPromptKey(), current.getVersion());
+            log.info("Nacos Prompt [{}] 加载成功, key={}, version={}",
+                name, current.getPromptKey(), current.getVersion());
         } catch (Exception e) {
             if (binding.isRequired()) {
                 throw new IllegalStateException("启动加载 Nacos Prompt 失败: " + binding.getKey(), e);
@@ -84,35 +83,23 @@ public class NacosPromptRegistry {
         }
     }
 
-    /**
-     * 通过 MD5 去重，避免重复替换
-     */
+    /** 通过 MD5 去重，避免重复替换 */
     private void update(String name, Prompt prompt) {
         var previous = prompts.get(name);
         if (previous != null && Objects.equals(previous.md5(), prompt.getMd5())) {
             return;
         }
         prompts.put(name, new PromptSnapshot(
-            prompt.getPromptKey(),
-            prompt.getVersion(),
-            prompt.getMd5(),
-            prompt.getTemplate()));
+            prompt.getPromptKey(), prompt.getVersion(), prompt.getMd5(),
+            prompt.getTemplate(), prompt));
     }
 
-    /**
-     * 业务侧统一入口：按别名取 prompt 原文
-     */
+    /** 按 Nacos 别名取 prompt 原文（未渲染） */
     public String get(String name) {
-        var snapshot = prompts.get(name);
-        if (snapshot == null) {
-            throw new IllegalStateException("Prompt 未加载: " + name);
-        }
-        return snapshot.template();
+        return getSnapshot(name).template();
     }
 
-    /**
-     * 取快照元数据（版本 / md5），可用于链路追踪
-     */
+    /** 取快照元数据（版本 / md5 / 原始 Prompt 对象），可用于链路追踪 */
     public PromptSnapshot getSnapshot(String name) {
         var snapshot = prompts.get(name);
         if (snapshot == null) {
@@ -122,16 +109,47 @@ public class NacosPromptRegistry {
     }
 
     /**
-     * 如果模板里有 {{variable}} 占位符，按简单字符串替换渲染
+     * 业务侧统一渲染入口：委托给 SDK 的 prompt.render(variables)。
+     * <p>渲染优先级（SDK 内部实现）：调用方变量 &gt; Nacos 控制台 defaultValue。</p>
+     *
+     * @param name      业务别名（bindings 里配置的名字）
+     * @param variables 变量名 → 变量值；可为 null 或空（此时仅使用 defaultValue）
+     * @return 渲染后的最终 Prompt 文本
      */
     public String render(String name, Map<String, String> variables) {
-        String template = get(name);
+        var snapshot = getSnapshot(name);
+        // SDK render：template == null 返回 null；merged 为空时返回原 template
+        String rendered = snapshot.prompt().render(variables);
+        checkLeftover(name, rendered);
+        return rendered;
+    }
+
+    /** 便捷重载：变量值为任意 Object（数字、List 等）时自动转 String */
+    public String render(String name, Map<String, Object> variables, boolean objectValues) {
         if (variables == null || variables.isEmpty()) {
-            return template;
+            return render(name, (Map<String, String>) null);
         }
-        for (var entry : variables.entrySet()) {
-            template = template.replace("{{" + entry.getKey() + "}}", entry.getValue());
+        Map<String, String> stringVars = new HashMap<>(variables.size());
+        variables.forEach((k, v) -> stringVars.put(k, v == null ? null : String.valueOf(v)));
+        return render(name, stringVars);
+    }
+
+    /** SDK render 对漏传变量静默保留，这里补一层告警，方便排查漏传 */
+    private void checkLeftover(String name, String rendered) {
+        if (rendered == null) {
+            return;
         }
-        return template;
+        Matcher m = LEFTOVER.matcher(rendered);
+        if (m.find()) {
+            StringBuilder keys = new StringBuilder();
+            m.reset();
+            while (m.find()) {
+                if (keys.length() > 0) {
+                    keys.append(", ");
+                }
+                keys.append(m.group());
+            }
+            log.warn("Nacos Prompt [{}] 渲染后仍有未替换占位符（可能漏传变量或模板含空白）: {}", name, keys);
+        }
     }
 }

@@ -122,11 +122,11 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         "(?i)CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(?:`?[a-zA-Z0-9_]+`?\\.)?`?([a-zA-Z_][a-zA-Z0-9_]*)`?");
 
     /** 总时延预算（毫秒）：超时后放弃重试直接报错，防止 MCP 调用方超时 */
-    @Value("${nl2sql.time-budget-ms:45000}")
+    @Value("${nl2sql.time-budget-ms:90000}")
     private long timeBudgetMs;
 
     /** 单次 LLM 调用超时（秒） */
-    @Value("${nl2sql.llm-timeout-seconds:15}")
+    @Value("${nl2sql.llm-timeout-seconds:30}")
     private long llmTimeoutSeconds;
 
     /** 语义校验独立 temperature（与生成侧隔离，降低同模型同参数的相关性误判风险） */

@@ -1,5 +1,6 @@
 package com.mall.aichat.service.impl;
 
+import com.mall.aichat.config.NacosPromptRegistry;
 import com.mall.aichat.domain.AiConversation;
 import com.mall.aichat.mapper.AiConversationMapper;
 import com.mall.aichat.service.IAiAgentToolCallLogService;
@@ -66,11 +67,14 @@ public class AiConversationServiceImpl implements IAiConversationService {
     @Qualifier("toolVectorStore")
     private VectorStore toolVectorStore;
 
-    @Resource(name = "smallChatClient")
+    @Resource(name = "qwenChatClient")
     public ChatClient titleChatClient;
 
     @Resource(name = "taskExecutor")
     public Executor taskExecutor;
+
+    @Autowired
+    public NacosPromptRegistry registry;
 
     @Value("${vectorstore.enabled}")
     private boolean vectorStoreEnabled;
@@ -176,15 +180,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
                     }
 
                     String aiTitle = titleChatClient.prompt()
-                        .system("""
-                            你是对话标题生成器。根据用户消息生成一个简短的对话标题。
-                            要求：不超过15个字；概括消息主题；不要标点结尾；不要解释；只输出标题本身。
-                            示例：
-                            消息：帮我看看这段Java代码为什么在多线程环境下会出现死锁
-                            标题：Java多线程死锁分析
-                            消息：我想了解一下现在跨境电商平台的主流技术架构是什么样的
-                            标题：跨境电商技术架构
-                            """)
+                        .system(registry.get("TitleCompressPrompt"))
                         .user(u -> u.text(question))
                         .call()
                         .content();
