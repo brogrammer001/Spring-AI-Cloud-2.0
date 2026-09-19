@@ -75,6 +75,9 @@ public class ChatConstants
     /** 请求级指定知识库类型（kbType）的 context key，RagContextQueryAdvisor 据此检索知识库 */
     public static final String CTX_KB_TYPE = "rag_kb_type";
 
+    /** 请求级 RAG 检索结果缓存 context key，避免 tool-calling 循环中重复检索 */
+    public static final String CTX_RAG_RESULT_CACHE = "rag_result_cache";
+
     /**
      * SSE 事件名：增量消息
      */

@@ -66,12 +66,16 @@ public class RagContextQueryAdvisor implements BaseChatMemoryAdvisor {
 
     private final AgentEventSinkManager agentEventSinkManager;
 
+    /** vectorstore.enabled 配置：false 时不推送 RAG 检索开始事件、不执行知识库检索 */
+    private final boolean vectorStoreEnabled;
+
     private RagContextQueryAdvisor(int order,
                                    Scheduler scheduler,
                                    VectorStore knowledgeVectorStore,
                                    IKbDocumentService kbDocumentService,
                                    RerankerService rerankerService,
-                                   AgentEventSinkManager agentEventSinkManager) {
+                                   AgentEventSinkManager agentEventSinkManager,
+                                   boolean vectorStoreEnabled) {
         Assert.notNull(scheduler, "scheduler cannot be null");
         Assert.notNull(knowledgeVectorStore, "knowledgeVectorStore cannot be null");
         Assert.notNull(kbDocumentService, "kbDocumentService cannot be null");
@@ -83,13 +87,15 @@ public class RagContextQueryAdvisor implements BaseChatMemoryAdvisor {
         this.kbDocumentService = kbDocumentService;
         this.rerankerService = rerankerService;
         this.agentEventSinkManager = agentEventSinkManager;
+        this.vectorStoreEnabled = vectorStoreEnabled;
     }
 
     public static Builder builder(VectorStore knowledgeVectorStore,
                                   IKbDocumentService kbDocumentService,
                                   RerankerService rerankerService,
-                                  AgentEventSinkManager agentEventSinkManager) {
-        return new Builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager);
+                                  AgentEventSinkManager agentEventSinkManager,
+                                  boolean vectorStoreEnabled) {
+        return new Builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager, vectorStoreEnabled);
     }
 
     @Override
@@ -112,6 +118,27 @@ public class RagContextQueryAdvisor implements BaseChatMemoryAdvisor {
         String query = Objects.requireNonNullElse(request.prompt().getUserMessage().getText(), "");
         String kbType = getKbType(request.context());
 
+        // vectorstore.enabled=false 时跳过整个 RAG 检索（不推送 RAG 检索开始事件、不检索知识库）
+        if (!vectorStoreEnabled) {
+            log.info("[RAG检索] vectorstore.enabled=false，跳过 RAG 检索，不推送 RAG 检索开始事件");
+            return request;
+        }
+
+        // 检查 context 中是否已有本次请求的 RAG 检索结果缓存。
+        // tool-calling 循环中 Advisor 链会重复执行（LLM 返回工具调用 → 执行工具 → 重新走 Advisor 链），
+        // 若不做缓存，同一请求会对知识库重复检索并重复推送 rag_retrieve 事件。
+        @SuppressWarnings("unchecked")
+        Map<String, String> cache = (Map<String, String>) request.context().get(CTX_RAG_RESULT_CACHE);
+        if (cache != null && cache.containsKey(kbType)) {
+            String cachedContext = cache.get(kbType);
+            // 已有缓存，直接复用，不再推送 RAG 事件、不再重复检索
+            SystemMessage systemMessage = request.prompt().getSystemMessage();
+            String augmentedSystemText = systemMessage.getText() + ChatConstants.KNOWLEDGE_PREFIX + cachedContext;
+            return request.mutate()
+                .prompt(request.prompt().augmentSystemMessage(augmentedSystemText))
+                .build();
+        }
+
         // 推送 RAG 检索开始事件
         agentEventSinkManager.emitRagRetrieve(conversationId, ChatConstants.RAG_START);
 
@@ -123,6 +150,13 @@ public class RagContextQueryAdvisor implements BaseChatMemoryAdvisor {
         } else {
             agentEventSinkManager.emitRagRetrieve(conversationId, ChatConstants.RAG_EMPTY);
         }
+
+        // 缓存检索结果到 context（含空结果），避免 tool-calling 循环中重复检索
+        if (cache == null) {
+            cache = new HashMap<>();
+            request.context().put(CTX_RAG_RESULT_CACHE, cache);
+        }
+        cache.put(kbType, relevantContext);
 
         // 将检索到的知识拼接到系统提示词
         SystemMessage systemMessage = request.prompt().getSystemMessage();
@@ -478,15 +512,18 @@ public class RagContextQueryAdvisor implements BaseChatMemoryAdvisor {
         private final IKbDocumentService kbDocumentService;
         private final RerankerService rerankerService;
         private final AgentEventSinkManager agentEventSinkManager;
+        private final boolean vectorStoreEnabled;
 
         Builder(VectorStore knowledgeVectorStore,
                 IKbDocumentService kbDocumentService,
                 RerankerService rerankerService,
-                AgentEventSinkManager agentEventSinkManager) {
+                AgentEventSinkManager agentEventSinkManager,
+                boolean vectorStoreEnabled) {
             this.knowledgeVectorStore = knowledgeVectorStore;
             this.kbDocumentService = kbDocumentService;
             this.rerankerService = rerankerService;
             this.agentEventSinkManager = agentEventSinkManager;
+            this.vectorStoreEnabled = vectorStoreEnabled;
         }
 
         public Builder scheduler(Scheduler scheduler) {
@@ -502,7 +539,8 @@ public class RagContextQueryAdvisor implements BaseChatMemoryAdvisor {
         public RagContextQueryAdvisor build() {
             return new RagContextQueryAdvisor(this.order, this.scheduler,
                 this.knowledgeVectorStore, this.kbDocumentService,
-                this.rerankerService, this.agentEventSinkManager);
+                this.rerankerService, this.agentEventSinkManager,
+                this.vectorStoreEnabled);
         }
     }
 }

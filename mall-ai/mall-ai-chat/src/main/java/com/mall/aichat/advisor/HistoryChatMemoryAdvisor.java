@@ -41,15 +41,20 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
     private IAiAgentToolCallLogService logService;
 
+    /** mcp.client.enabled 配置：false 时不推送工具调用事件 */
+    private boolean mcpEnabled;
+
     private JsonMapper jsonMapper = JsonMapper.builder().build();
 
     public HistoryChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService,
-                                    AgentEventSinkManager agentEventSinkManager, IAiAgentToolCallLogService logService) {
+                                    AgentEventSinkManager agentEventSinkManager, IAiAgentToolCallLogService logService,
+                                    boolean mcpEnabled) {
         this.order = order;
         this.stringRedisTemplate = stringRedisTemplate;
         this.sysChatHistoryService = sysChatHistoryService;
         this.logService = logService;
         this.agentEventSinkManager = agentEventSinkManager;
+        this.mcpEnabled = mcpEnabled;
     }
 
     @Override
@@ -79,7 +84,8 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
                 // 1. 拦截大模型发起的工具调用指令
                 AssistantMessage am = generation.getOutput();
-                if (am.hasToolCalls()) {
+                // mcp.client.enabled=false 时不推送工具调用事件
+                if (mcpEnabled && am.hasToolCalls()) {
                     // 遍历推送所有工具调用的 calling 状态，避免并行工具只推送第一个
                     am.getToolCalls().forEach(toolCall ->
                         agentEventSinkManager.emitThought(conversationId, toolCall.name()));
@@ -216,8 +222,9 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
     }
 
     public static HistoryChatMemoryAdvisor.Builder builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate,
-                                                           AgentEventSinkManager agentEventSinkManager, IAiAgentToolCallLogService logService) {
-        return new HistoryChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate, agentEventSinkManager, logService);
+                                                           AgentEventSinkManager agentEventSinkManager, IAiAgentToolCallLogService logService,
+                                                           boolean mcpEnabled) {
+        return new HistoryChatMemoryAdvisor.Builder(sysChatHistoryService, stringRedisTemplate, agentEventSinkManager, logService, mcpEnabled);
     }
 
     public static final class Builder {
@@ -232,13 +239,17 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
         private IAiAgentToolCallLogService logService;
 
+        private boolean mcpEnabled;
+
         private Builder(ISysChatHistoryService sysChatHistoryService, StringRedisTemplate stringRedisTemplate,
-                        AgentEventSinkManager agentEventSinkManager, IAiAgentToolCallLogService logService) {
+                        AgentEventSinkManager agentEventSinkManager, IAiAgentToolCallLogService logService,
+                        boolean mcpEnabled) {
             Assert.notNull(sysChatHistoryService, "chatMemory cannot be null");
             this.agentEventSinkManager = agentEventSinkManager;
             this.sysChatHistoryService = sysChatHistoryService;
             this.stringRedisTemplate = stringRedisTemplate;
             this.logService = logService;
+            this.mcpEnabled = mcpEnabled;
         }
 
         /**
@@ -258,7 +269,7 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
          * @return the advisor
          */
         public HistoryChatMemoryAdvisor build() {
-            return new HistoryChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService, this.agentEventSinkManager, this.logService);
+            return new HistoryChatMemoryAdvisor(this.order, this.stringRedisTemplate, this.sysChatHistoryService, this.agentEventSinkManager, this.logService, this.mcpEnabled);
         }
 
     }

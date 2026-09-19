@@ -151,13 +151,13 @@ public class ChatClientConfig {
 
         // 5. 知识库上下文查询 - 根据 vectorEnabled 和 knowledgeVectorStore 是否存在来决定
         if (vectorStoreEnabled && knowledgeVectorStore != null) {
-            advisors.add(RagContextQueryAdvisor.builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager)
+            advisors.add(RagContextQueryAdvisor.builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager, vectorStoreEnabled)
                 .order(102)
                 .build());
         }
 
         // 6. 保存全量消息，必须在 toolSearchAdvisor 之后，要拿到工具调用信息
-        advisors.add(HistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, agentEventSinkManager, toolCallLogService).order(103).build());
+        advisors.add(HistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, agentEventSinkManager, toolCallLogService, mcpEnabled).order(103).build());
 
         // 7. 观测日志
         advisors.add(new SimpleLoggerAdvisor(104));

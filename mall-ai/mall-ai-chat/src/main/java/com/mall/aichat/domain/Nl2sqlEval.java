@@ -34,6 +34,8 @@ public class Nl2sqlEval extends BaseEntity
     @Excel(name = "期望SQL不包含的片段", readConverterExp = "逗=号分隔")
     private String expectedSqlNotContains;
 
+    private String expectedResponseNotContains;
+
     /** 期望最小结果行数（NULL则不断言行数） */
     @Excel(name = "期望最小结果行数", readConverterExp = "N=ULL则不断言行数")
     private Long expectedMinRows;
@@ -92,6 +94,16 @@ public class Nl2sqlEval extends BaseEntity
         return expectedSqlNotContains;
     }
 
+    public void setExpectedResponseNotContains(String expectedResponseNotContains)
+    {
+        this.expectedResponseNotContains = expectedResponseNotContains;
+    }
+
+    public String getExpectedResponseNotContains()
+    {
+        return expectedResponseNotContains;
+    }
+
     public void setExpectedMinRows(Long expectedMinRows) 
     {
         this.expectedMinRows = expectedMinRows;
@@ -120,6 +132,7 @@ public class Nl2sqlEval extends BaseEntity
             .append("expectedType", getExpectedType())
             .append("expectedSqlContains", getExpectedSqlContains())
             .append("expectedSqlNotContains", getExpectedSqlNotContains())
+            .append("expectedResponseNotContains", getExpectedResponseNotContains())
             .append("expectedMinRows", getExpectedMinRows())
             .append("enabled", getEnabled())
             .append("createBy", getCreateBy())

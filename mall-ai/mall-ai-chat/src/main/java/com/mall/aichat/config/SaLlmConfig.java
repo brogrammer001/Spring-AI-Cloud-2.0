@@ -65,6 +65,9 @@ public class SaLlmConfig {
         if ("http".equalsIgnoreCase(props.getTransportMode())) {
             properties.setProperty(AiConstants.AI_TRANSPORT_MODE, AiConstants.AI_TRANSPORT_MODE_HTTP);
         }
+        // Prompt 缓存更新轮询间隔（毫秒），默认 60 秒，避免频繁请求 Nacos（SDK 默认 10 秒）
+        properties.setProperty(AiConstants.AI_PROMPT_CACHE_UPDATE_INTERVAL,
+            String.valueOf(props.getPromptCacheUpdateInterval()));
         return AiFactory.createAiService(properties);
     }
 

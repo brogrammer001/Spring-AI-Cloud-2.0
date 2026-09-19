@@ -15,6 +15,7 @@ spring:
         username: nacos                   # 有鉴权就填，没开鉴权可省略
         password: nacos
         transport-mode: http            # 可选，强制走 HTTP（默认 gRPC）
+        prompt-cache-update-interval: 60000  # Prompt 缓存更新轮询间隔（毫秒），默认 60 秒，避免频繁请求 Nacos
         bindings:
           system-prompt:
             key: system-prompt
@@ -33,7 +34,7 @@ spring:
             label: latest
     mcp:
       client:
-        enabled: true
+        enabled: false
         name: ${spring.application.name}
         version: 1.0.0
         request-timeout: 600s
@@ -69,7 +70,7 @@ spring:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${aliQwen-api}
       chat:
-        model: kimi-k2.7-code
+        model: qwen3.7-flash
 #      base-url: https://api-inference.modelscope.cn/v1
 #      api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
 #      chat:

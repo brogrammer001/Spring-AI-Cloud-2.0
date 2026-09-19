@@ -10,6 +10,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="expectedType"    column="expected_type"    />
         <result property="expectedSqlContains"    column="expected_sql_contains"    />
         <result property="expectedSqlNotContains"    column="expected_sql_not_contains"    />
+        <result property="expectedResponseNotContains"    column="expected_response_not_contains"    />
         <result property="expectedMinRows"    column="expected_min_rows"    />
         <result property="enabled"    column="enabled"    />
         <result property="createBy"    column="create_by"    />
@@ -20,7 +21,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectNl2sqlEvalVo">
-        select id, question, expected_type, expected_sql_contains, expected_sql_not_contains, expected_min_rows, enabled, create_by, create_time, update_by, update_time, remark from nl2sql_eval
+        select id, question, expected_type, expected_sql_contains, expected_sql_not_contains, expected_response_not_contains, expected_min_rows, enabled, create_by, create_time, update_by, update_time, remark from nl2sql_eval
     </sql>
 
     <select id="selectNl2sqlEvalList" parameterType="Nl2sqlEval" resultMap="Nl2sqlEvalResult">
@@ -47,6 +48,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="expectedType != null and expectedType != ''">expected_type,</if>
             <if test="expectedSqlContains != null">expected_sql_contains,</if>
             <if test="expectedSqlNotContains != null">expected_sql_not_contains,</if>
+            <if test="expectedResponseNotContains != null">expected_response_not_contains,</if>
             <if test="expectedMinRows != null">expected_min_rows,</if>
             <if test="enabled != null">enabled,</if>
             <if test="createBy != null">create_by,</if>
@@ -60,6 +62,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="expectedType != null and expectedType != ''">#{expectedType},</if>
             <if test="expectedSqlContains != null">#{expectedSqlContains},</if>
             <if test="expectedSqlNotContains != null">#{expectedSqlNotContains},</if>
+            <if test="expectedResponseNotContains != null">#{expectedResponseNotContains},</if>
             <if test="expectedMinRows != null">#{expectedMinRows},</if>
             <if test="enabled != null">#{enabled},</if>
             <if test="createBy != null">#{createBy},</if>
@@ -77,6 +80,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="expectedType != null and expectedType != ''">expected_type = #{expectedType},</if>
             <if test="expectedSqlContains != null">expected_sql_contains = #{expectedSqlContains},</if>
             <if test="expectedSqlNotContains != null">expected_sql_not_contains = #{expectedSqlNotContains},</if>
+            <if test="expectedResponseNotContains != null">expected_response_not_contains = #{expectedResponseNotContains},</if>
             <if test="expectedMinRows != null">expected_min_rows = #{expectedMinRows},</if>
             <if test="enabled != null">enabled = #{enabled},</if>
             <if test="createBy != null">create_by = #{createBy},</if>

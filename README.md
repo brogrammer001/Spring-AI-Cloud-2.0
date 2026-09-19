@@ -1751,7 +1751,7 @@ spring:
     openai:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       chat:
-        model: kimi-k2.7-code
+        model: qwen3.7-flash
       embedding:
         model: Qwen3-Embedding-4B-Q8_0
         base-url: http://127.0.0.1:8889/v1

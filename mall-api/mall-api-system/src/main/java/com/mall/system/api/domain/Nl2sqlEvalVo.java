@@ -27,6 +27,8 @@ public class Nl2sqlEvalVo implements Serializable {
     /** 期望SQL不包含的片段（逗号分隔） */
     private String expectedSqlNotContains;
 
+    private String expectedResponseNotContains;
+
     /** 期望最小结果行数（NULL则不断言行数） */
     private Long expectedMinRows;
 
@@ -71,6 +73,14 @@ public class Nl2sqlEvalVo implements Serializable {
 
     public void setExpectedSqlNotContains(String expectedSqlNotContains) {
         this.expectedSqlNotContains = expectedSqlNotContains;
+    }
+
+    public String getExpectedResponseNotContains() {
+        return expectedResponseNotContains;
+    }
+
+    public void setExpectedResponseNotContains(String expectedResponseNotContains) {
+        this.expectedResponseNotContains = expectedResponseNotContains;
     }
 
     public Long getExpectedMinRows() {

@@ -294,7 +294,7 @@ const { queryParams, form } = toRefs(data)
 const totalPages = computed(() => Math.ceil(total.value / queryParams.value.pageSize) || 1)
 
 function getIconClass(type) {
-  const typeMap = { 'pdf': 'pdf', 'txt': 'txt', 'md': 'md', 'doc': 'doc', 'xlsx': 'doc', 'docx': 'doc', 'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image' }
+  const typeMap = { 'pdf': 'pdf', 'txt': 'txt', 'md': 'md', 'doc': 'doc', 'xls': 'doc', 'xlsx': 'doc', 'docx': 'doc', 'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image' }
   return typeMap[type?.toLowerCase()] || 'other'
 }
 
@@ -382,7 +382,7 @@ function prepareDocumentConfig(file) {
   if (!file) return;
 
   // 简单的格式校验
-  const allowedTypes = ['pdf', 'txt', 'md', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const allowedTypes = ['pdf', 'txt', 'md', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
   const fileExt = file.name.split('.').pop().toLowerCase();
   if (!allowedTypes.includes(fileExt)) {
     showToast(`不支持的文件格式: ${fileExt}`, 'error');

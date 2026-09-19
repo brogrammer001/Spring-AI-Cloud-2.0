@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.Validator;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
+import jakarta.annotation.PreDestroy;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -41,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -75,6 +77,9 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     /** 查询最大返回行数（安全防护） */
     private static final long MAX_ROWS = 100L;
 
+    /** SQL 最大长度（字符数），超长输入直接拒绝，防止超大 payload 造成日志膨胀和数据库压力 */
+    private static final int MAX_SQL_LENGTH = 8_000;
+
     /** SQL 生成最大重试次数（不含首次生成），统一覆盖所有失败路径 */
     private static final int MAX_RETRIES = 2;
 
@@ -88,6 +93,14 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
 
     /** 聚合函数名集合（AST 遍历检测用） */
     private static final Set<String> AGGREGATE_FUNCTIONS = Set.of("COUNT", "SUM", "AVG", "MAX", "MIN");
+
+    /** SELECT 中可能读取文件、休眠或争抢锁的危险函数 */
+    private static final java.util.regex.Pattern DANGEROUS_FUNCTION_PATTERN = java.util.regex.Pattern.compile(
+        "(?i)\\b(LOAD_FILE|SLEEP|BENCHMARK|GET_LOCK|RELEASE_LOCK|IS_FREE_LOCK|MASTER_POS_WAIT)\\s*\\(");
+
+    /** 多语句或注释绕过检测（剥离字符串后仍出现分号/注释，直接拒绝） */
+    private static final java.util.regex.Pattern MULTI_STATEMENT_PATTERN = java.util.regex.Pattern.compile(
+        "(?is);\\s*(?:--|/\\*|SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|CALL|EXEC|WITH)");
 
     /** 数据库时间缓存时长（毫秒），避免每次请求都查库取时间 */
     private static final long DB_TIME_CACHE_MS = 60_000L;
@@ -153,7 +166,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
      * 低基数字段枚举值缓存：key = "table.column"，value = 可选取值列表。
      * 表级 TTL {@link #ENUM_CACHE_TTL_MS}，避免每次请求都查 DISTINCT。
      */
-    private final Map<String, EnumCacheEntry> enumValueCache = new HashMap<>();
+    private final Map<String, EnumCacheEntry> enumValueCache = new ConcurrentHashMap<>();
 
     /**
      * 异步召回专用线程池：避免 CompletableFuture.supplyAsync 默认跑 ForkJoinPool.commonPool
@@ -196,6 +209,12 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
             t.setDaemon(true);
             return t;
         });
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        asyncExecutor.shutdownNow();
+        enumValueCache.clear();
     }
 
     @Tool(description = """
@@ -572,6 +591,9 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         if (entry != null && now - entry.at() < ENUM_CACHE_TTL_MS) {
             return entry.values();
         }
+        if (entry != null) {
+            enumValueCache.remove(key, entry);
+        }
         try {
             // 表名/列名反引号转义，防止特殊字符破坏 SQL
             String safeTable = table.replace("`", "``");
@@ -818,11 +840,15 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         if (sql == null || sql.isBlank()) {
             return AttemptResult.failure("生成的SQL为空，请重新生成一条有效的SELECT语句");
         }
-        // 2. 安全校验（非SELECT/注入/危险子句）
+        // 2. 白名单闭环：Schema 消失或为空时，不允许执行任意查询
+        if (allowedTables == null || allowedTables.isEmpty()) {
+            return AttemptResult.failure("数据库Schema白名单为空，无法执行查询，可能是知识库召回失败");
+        }
+        // 3. 安全校验（非SELECT/注入/危险子句）
         if (!validateSql(sql)) {
             return AttemptResult.failure("SQL包含不安全内容或非SELECT查询语句，请仅生成安全的单条SELECT语句");
         }
-        // 3. 表名白名单校验（防止LLM幻觉出Schema中不存在的表）
+        // 4. 表名白名单校验（防止LLM幻觉出Schema中不存在的表）
         List<String> missingTables = findMissingTables(sql, allowedTables);
         if (!missingTables.isEmpty()) {
             return AttemptResult.failure("SQL使用了知识库中不存在的表名: " + missingTables + "，请仅使用给定的表结构");
@@ -908,7 +934,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     private List<String> findMissingTables(String sql, Set<String> allowedTables) {
         List<String> missing = new ArrayList<>();
         if (allowedTables == null || allowedTables.isEmpty()) {
-            return missing; // 白名单为空时不校验（兼容Schema中无CREATE TABLE的情况）
+            return List.of("<Schema白名单为空，拒绝执行任意表查询>");
         }
         try {
             Statement statement = CCJSqlParserUtil.parse(sql);
@@ -972,13 +998,18 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
             // 处理普通 SELECT
             if (select instanceof PlainSelect plainSelect) {
 
-                // 1. 聚合查询（COUNT/SUM/AVG/MAX/MIN）不需要 LIMIT
-                if (hasAggregateFunction(plainSelect)) {
+                // 1. 只有单行聚合不需要 LIMIT；GROUP BY 聚合仍可能返回大量行
+                if (hasAggregateFunction(plainSelect) && plainSelect.getGroupBy() == null) {
                     return sql;
                 }
 
-                // 2. 已有 LIMIT 则不重复添加
+                // 2. 已有小于上限的 LIMIT 不修改；超大 LIMIT 收紧到安全上限
                 if (plainSelect.getLimit() != null) {
+                    if (plainSelect.getLimit().getRowCount() instanceof LongValue rowCount
+                        && rowCount.getValue() > MAX_ROWS) {
+                        plainSelect.getLimit().setRowCount(new LongValue(MAX_ROWS));
+                        return select.toString();
+                    }
                     return sql;
                 }
 
@@ -1617,19 +1648,33 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         if (sql == null || sql.trim().isEmpty()) {
             return false;
         }
-        // 字符串级危险子句检查（AST 解析前的快速拦截）
+        if (sql.length() > MAX_SQL_LENGTH) {
+            logger.warn("[SQL工具] SQL长度超限({} > {})，已拒绝: {}", sql.length(), MAX_SQL_LENGTH, sql.substring(0, 120));
+            return false;
+        }
+        String normalized = sql.replaceAll("(?is)/\\*.*?\\*/", " ")
+            .replaceAll("(?m)--.*$", " ");
         // 先剥离字符串字面量，避免 WHERE remark = '请勿 FOR UPDATE 操作' 这类合法内容被误杀
-        String noLiterals = sql.replaceAll("'(?:[^'\\\\]|\\\\.)*'", "''");
-        String upper = noLiterals.toUpperCase();
+        String noLiterals = normalized.replaceAll("'(?:[^'\\\\]|\\\\.)*'", "''");
+        String upper = noLiterals.toUpperCase(Locale.ROOT);
+
+        if (MULTI_STATEMENT_PATTERN.matcher(noLiterals).find()) {
+            logger.warn("[SQL工具] SQL包含多语句/分号绕过被拒绝: {}", sql);
+            return false;
+        }
         if (upper.contains("INTO OUTFILE") || upper.contains("INTO DUMPFILE")
             || upper.contains("FOR UPDATE") || upper.contains("LOCK IN SHARE MODE")) {
             logger.warn("[SQL工具] SQL包含危险子句被拒绝: {}", sql);
             return false;
         }
+        if (DANGEROUS_FUNCTION_PATTERN.matcher(noLiterals).find()) {
+            logger.warn("[SQL工具] SQL包含危险函数被拒绝: {}", sql);
+            return false;
+        }
         try {
             // JSqlParser 解析 SQL 为 AST
             // 若包含多条语句（分号拼接）或语法非法，会抛出异常
-            Statement statement = CCJSqlParserUtil.parse(sql);
+            Statement statement = CCJSqlParserUtil.parse(normalized);
 
             // 必须是 SELECT 语句（自动拒绝 INSERT/UPDATE/DELETE/DROP/TRUNCATE/ALTER/CREATE 等）
             if (!(statement instanceof Select)) {
@@ -1644,6 +1689,12 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
     }
 
     private List<Map<String, Object>> executeSql(String sql) {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new RuntimeException("SQL为空，拒绝执行");
+        }
+        if (sql.length() > MAX_SQL_LENGTH) {
+            throw new RuntimeException("SQL长度超出安全上限(" + MAX_SQL_LENGTH + ")，拒绝执行");
+        }
         R<List<Map<String, Object>>> result = remoteSqlService.executeSelect(new SqlQueryRequest(sql));
         if (result.getCode() == 200 && result.getData() != null) {
             return formatResultValues(result.getData());

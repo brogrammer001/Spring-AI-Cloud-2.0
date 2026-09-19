@@ -15,6 +15,8 @@ public class PromptProperties {
     private String username;
     private String password;
     private String transportMode;
+    /** Prompt 缓存更新轮询间隔（毫秒），默认 60000（60秒），避免频繁请求 Nacos */
+    private long promptCacheUpdateInterval = 60000L;
     private Map<String, Binding> bindings = new LinkedHashMap<>();
 
     public static class Binding {
@@ -98,6 +100,14 @@ public class PromptProperties {
 
     public void setTransportMode(String transportMode) {
         this.transportMode = transportMode;
+    }
+
+    public long getPromptCacheUpdateInterval() {
+        return promptCacheUpdateInterval;
+    }
+
+    public void setPromptCacheUpdateInterval(long promptCacheUpdateInterval) {
+        this.promptCacheUpdateInterval = promptCacheUpdateInterval;
     }
 
     public Map<String, Binding> getBindings() {
