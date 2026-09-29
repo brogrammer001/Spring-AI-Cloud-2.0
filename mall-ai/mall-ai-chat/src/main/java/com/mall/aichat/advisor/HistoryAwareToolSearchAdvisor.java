@@ -1,13 +1,5 @@
 package com.mall.aichat.advisor;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
@@ -27,6 +19,10 @@ import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * {@link ToolSearchToolCallingAdvisor} 的增强子类，修复"渐进式工具披露"在跨轮/压缩/多迭代场景下
@@ -191,7 +187,7 @@ public class HistoryAwareToolSearchAdvisor extends ToolSearchToolCallingAdvisor 
             return chatClientRequest;
         }
 
-        ToolCallingChatOptions augmentedOptions = ((ToolCallingChatOptions.Builder<?>) options.mutate())
+        ToolCallingChatOptions augmentedOptions = options.mutate()
             .toolCallbacks(augmented)
             .toolContext(options.getToolContext())
             .build();

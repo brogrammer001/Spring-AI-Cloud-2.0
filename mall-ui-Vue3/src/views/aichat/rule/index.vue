@@ -77,7 +77,7 @@
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="规则ID" align="center" prop="id" />
       <el-table-column label="规则名" align="center" prop="ruleName" />
-      <el-table-column label=""有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今" align="center" prop="ruleContent" />
+      <el-table-column label='有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今' align="center" prop="ruleContent" />
       <el-table-column label="适用关键词，逗号分隔，为空则全局生效" align="center" prop="appliesTo" />
       <el-table-column label="是否启用" align="center" prop="enabled" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
@@ -106,7 +106,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label=""有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今">
+            <el-form-item label='有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今'>
               <editor v-model="form.ruleContent" :min-height="192"/>
             </el-form-item>
           </el-col>
@@ -162,7 +162,7 @@ const data = reactive({
       { required: true, message: "规则名不能为空", trigger: "blur" }
     ],
     ruleContent: [
-      { required: true, message: ""有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今不能为空", trigger: "blur" }
+      { required: true, message: '有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今不能为空', trigger: "blur" }
     ],
   }
 })

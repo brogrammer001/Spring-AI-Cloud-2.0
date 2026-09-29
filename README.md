@@ -197,6 +197,7 @@ spring:
         username: nacos
         password: nacos
         transport-mode: http              # 可选，强制走 HTTP（默认 gRPC）
+        prompt-cache-update-interval: 60000  # Prompt 缓存更新轮询间隔（毫秒），默认 60 秒，避免频繁请求 Nacos（SDK 默认 10 秒）
         bindings:
           system-prompt:                  # 业务别名（ChatAgentService 按此名读取）
             key: system-prompt
@@ -230,6 +231,13 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 `order` 升序（值越
 | 5 | `RagContextQueryAdvisor` | 102 | 知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件）；仅向量库开启时装配 |
 | 6 | `HistoryChatMemoryAdvisor` | 103 | 全量聊天记录入库 MySQL + 工具调用审计日志 + tool_call 事件推送（在工具搜索之后，才能拿到工具调用信息） |
 | 7 | `SimpleLoggerAdvisor` | 104 | 请求/响应观测日志 |
+
+**事件推送开关**（2026-09 新增）：
+
+| 配置项 | 控制的事件 | 说明 |
+| :--- | :--- | :--- |
+| `vectorstore.enabled` | `rag_retrieve`（RAG 检索开始/成功/空） | `false` 时 `RagContextQueryAdvisor` 跳过整个 RAG 检索链路，不推送任何 RAG 事件、不检索知识库 |
+| `spring.ai.mcp.client.enabled` | `tool_call`（工具调用） | `false` 时 `HistoryChatMemoryAdvisor` 不推送工具调用事件（`emitThought` 不执行） |
 
 > **架构演进（2026-09）**：原 `MessageChatMemoryAdvisor` + `RedisCachedAndMysqlMemoryRepository` + `SpringAiChatMemory`（Redis+MySQL 双层窗口记忆）整体下线，改由 Spring AI 2.0 原生 **`SessionMemoryAdvisor` + `SessionService`（JDBC 仓储）** 承载近期上下文，并内置压缩策略；`FullHistoryChatMemoryAdvisor` 重命名为 `HistoryChatMemoryAdvisor` 并新增工具调用审计；`ToolSearchToolCallingAdvisor` 替换为增强子类 `HistoryAwareToolSearchAdvisor`。
 
@@ -473,6 +481,8 @@ after() 阶段拿到本轮完整对话（用户消息 + AI 回复）
 #### 2.6.1 三步检索流程（标签匹配 → 单重过滤向量检索 → Reranker 重排序）
 
 > **架构演进**：知识库查询逻辑已从 `ChatAgentService.ragPhase()` 迁移到 **`RagContextQueryAdvisor`**（参考 `VectorStoreChatMemoryAdvisor` 的 Advisor 模式）。Advisor 在 `before` 阶段执行检索，将结果注入系统提示词，并通过 `AgentEventSinkManager.emitRagRetrieve()` 推送 `rag_retrieve` 状态事件（start / success / empty）。`RagRetrieveContextService` 保留供外部 API（`KbRagRetrieveApi`）和 NL2SQL 工具（kbType=20）调用。
+
+**RAG 结果缓存**（2026-09 新增）：tool-calling 循环中 Advisor 链会重复执行（LLM 返回工具调用 → 执行工具 → 重新走 Advisor 链），若不做缓存，同一请求会对知识库重复检索并重复推送 `rag_retrieve` 事件。`RagContextQueryAdvisor` 通过 context key `rag_result_cache`（`ChatConstants.CTX_RAG_RESULT_CACHE`）按 `kbType` 缓存检索结果（含空结果），后续迭代直接复用缓存，不再推送 RAG 事件、不再重复检索。
 
 `RagContextQueryAdvisor.retrieveContext()` 采用 **"先查询 tag + 单重过滤 + 重排序"** 三步检索策略，对标 Dify Knowledge Retrieve API：
 
@@ -1468,10 +1478,13 @@ com.mall.chatmcp
 
 黄金评测集让 Prompt/Reranker/证据的每次调整有据可依（对齐 Alibaba/析言 GBI 的运营化度量）：
 
-- **用例来源**：Feign 调用 chat 服务内部 API（`RemoteNl2sqlEvalService.list()`）获取启用的评测用例（替代原裸 SQL 查询 `nl2sql_eval` 表），运营可在管理端维护；未建表时降级内置 15 条默认集
-- **断言方式**：意图类型（QUERY/CHAT/CLARIFY）+ SQL 关键特征片段（contains/not_contains）+ 最小行数，不比对 SQL 文本（写法太多）
+- **用例来源**：Feign 调用 chat 服务内部 API（`RemoteNl2sqlEvalService.list()`）获取启用的评测用例（替代原裸 SQL 查询 `nl2sql_eval` 表），运营可在管理端维护；未建表时降级内置 17 条默认集
+- **断言方式**：意图类型（QUERY/CHAT/CLARIFY）+ SQL 关键特征片段（contains/not_contains）+ 最小行数 + **回复禁止特征**（`expected_response_not_contains`，2026-09 新增），不比对 SQL 文本（写法太多）
 - **触发方式**：每日 03:00 定时跑（`@Scheduled`，`nl2sql.eval.cron` 可调）或 MCP 工具 `nl2SqlEvalRun` 手动触发
-- **输出**：准确率 + 逐条用例明细（PASS/FAIL + 失败原因），15 条约 1~3 分钟适合低峰期执行
+- **并发保护**：`ReentrantLock` 互斥锁防止定时任务与手动触发并发执行（`tryLock` 失败返回"评测正在执行中"）
+- **用例校验**：`validateCases()` 过滤非法用例（空问题 / 非法意图类型 / 负最小行数 / QUERY 无任何 SQL 断言）
+- **数据源追踪**：评测结果 summary 输出 `datasetSource`（`DATABASE` 表数据 / `BUILTIN_FALLBACK` 内置降级）
+- **输出**：准确率 + 逐条用例明细（PASS/FAIL + 失败原因），17 条约 1~3 分钟适合低峰期执行
 
 #### 3.5.1 NL2SQL 语义层（指标 / 维度 / 业务规则）
 
@@ -1701,7 +1714,8 @@ mcp:
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
 | `NacosPromptRegistry` | **新增**：Nacos Prompt 拉取与订阅服务 | `AiService.subscribePrompt()` 订阅 + 本地缓存 + Last-Known-Good 降级 |
-| `PromptProperties` | **新增**：Nacos Prompt 绑定配置属性类 | `spring.ai.nacos.prompt.bindings`，支持 key/version/label/required |
+| `PromptProperties` | **新增**：Nacos Prompt 绑定配置属性类 | `spring.ai.nacos.prompt.bindings`，支持 key/version/label/required + `prompt-cache-update-interval`（轮询间隔，默认 60s） |
+| `SaLlmConfig` | **增强**：创建 `AiService` 时设置 Prompt 缓存更新轮询间隔 | 通过 `AiConstants.AI_PROMPT_CACHE_UPDATE_INTERVAL` 控制，避免 SDK 默认 10 秒频繁请求 Nacos |
 
 ### 5.8 NL2SQL 语义层
 
@@ -1729,6 +1743,7 @@ spring:
         username: nacos
         password: nacos
         transport-mode: http
+        prompt-cache-update-interval: 60000  # Prompt 缓存更新轮询间隔（毫秒），默认 60 秒
         bindings:
           system-prompt:
             key: system-prompt
@@ -1953,4 +1968,5 @@ MCP 工具调用存在**多层超时**，需逐层配置避免"上层先超时"�
 *   **启动依赖**：`required=true` 的 Prompt 绑定启动加载失败会直接报错，确保 Nacos 中已发布对应 Prompt（key + label/version）。
 *   **热更新**：Nacos 控制台发布新版本后订阅回调自动刷新本地缓存，无需重启；MD5 去重避免重复替换。
 *   **渲染告警**：渲染后残留 `{{xxx}}` 占位符会输出告警日志，用于排查漏传变量。
+*   **轮询频率**：SDK 默认每 10 秒轮询一次 Nacos（`DEFAULT_AI_CACHE_UPDATE_INTERVAL=10000ms`），即使 Prompt 未修改（304）也会持续请求。通过 `prompt-cache-update-interval`（默认 60000ms）调低频率，避免日志刷屏与无效请求。
 *   **配置迁移**：mall-ai-mcp-server / mall-ai-mcp-gateway 的 `spring.ai.*` 配置已迁移至 Nacos 配置中心（`{服务名}-dev.yml`），修改配置需在 Nacos 控制台操作并发布。

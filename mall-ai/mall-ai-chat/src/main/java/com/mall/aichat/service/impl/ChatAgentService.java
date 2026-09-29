@@ -73,7 +73,7 @@ public class ChatAgentService {
 
         return qwenChatClient.prompt()
             // 每次调用实时读取本地缓存（由 Nacos 订阅自动刷新），控制台发布新版本即刻生效
-            .system(promptRegistry.get("system-prompt"))
+            .system(promptRegistry.get("SystemPrompt"))
             .user(request.getQuestion())
             .advisors(a ->
                 a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, conversationId)

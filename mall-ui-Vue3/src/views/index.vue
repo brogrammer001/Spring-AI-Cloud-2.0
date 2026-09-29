@@ -39,31 +39,30 @@
       </aside>
       <div class="flex-1 flex flex-col h-full overflow-hidden">
         <header class="chat-header flex-shrink-0" :class="{ 'is-dark': settingsStore.isDark }">
-          <div class="flex items-center">
-            <div class="chat-header-title text-lg font-bold truncate" :class="{ 'is-dark': settingsStore.isDark }">
-              {{ currentConversationTitle }}
-            </div>
+          <div class="chat-header-title" :class="{ 'is-dark': settingsStore.isDark }">
+            {{ currentConversationTitle }}
           </div>
         </header>
-        <main ref="chatContainer" class="chat-main flex-1 overflow-y-auto p-4 space-y-6"
-          :class="{ 'is-dark': settingsStore.isDark }" @click="handleRouteClick">
-          <div v-for="(message, index) in messages" :key="index" class="max-w-3xl mx-auto">
-            <div :class="['flex', message.role === 'user' ? 'justify-end' : 'justify-start']">
-              <div
-                :class="['flex items-start space-x-3', message.role === 'user' ? 'flex-row-reverse space-x-reverse' : '']">
-                <img v-if="message.role === 'user'" :src="userStore.avatar && userStore.avatar.trim() ? userStore.avatar : defAva"
-                  class="w-8 h-8 rounded-full flex-shrink-0 object-cover ring-2 ring-white" />
-                <div v-else
-                  class="chat-robot-avatar w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  :class="{ 'is-dark': settingsStore.isDark }">
+        <main ref="chatContainer" class="chat-main flex-1 overflow-y-auto" @click="handleRouteClick">
+          <div class="chat-content">
+            <div v-for="(message, index) in messages" :key="index" class="message-row"
+              :class="[message.role === 'user' ? 'message-row-user' : 'message-row-ai']">
+              <!-- 用户消息：右对齐气泡 + 用户头像 -->
+              <template v-if="message.role === 'user'">
+                <div class="user-bubble" :class="{ 'is-dark': settingsStore.isDark }">
+                  <div class="markdown-body" v-html="renderMessage(message)"></div>
+                </div>
+                <img class="chat-user-avatar"
+                  :src="userStore.avatar && userStore.avatar.trim() ? userStore.avatar : defAva" />
+              </template>
+              <!-- AI 消息：品牌头像 + 全宽正文，不再使用问答式气泡 -->
+              <template v-else>
+                <div class="chat-robot-avatar" :class="{ 'is-dark': settingsStore.isDark }">
                   <i class="fas fa-robot"></i>
                 </div>
-                <div
-                  :class="['msg-bubble', message.role === 'user'
-                    ? (settingsStore.isDark ? 'msg-bubble-user is-dark' : 'msg-bubble-user')
-                    : (settingsStore.isDark ? 'msg-bubble-ai is-dark' : 'msg-bubble-ai')]">
+                <div class="ai-content" :class="{ 'is-dark': settingsStore.isDark }">
                   <!-- RAG 知识库检索区块（马卡龙绿：#22c55e / 浅底 #e5f6ec） -->
-                  <div v-if="message.role === 'assistant' && message.ragRetrieve"
+                  <div v-if="message.ragRetrieve"
                        class="mb-3"
                        :class="{ 'is-dark': settingsStore.isDark }">
                     <div class="rag-title flex items-center text-xs font-medium mb-1"
@@ -97,7 +96,7 @@
                     </div>
                   </div>
                   <!-- 工具调用区块（马卡龙紫：#8b5cf6 / 浅底 #efeafc） -->
-                  <div v-if="message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0"
+                  <div v-if="message.toolCalls && message.toolCalls.length > 0"
                        class="mb-3 space-y-1.5"
                        :class="{ 'is-dark': settingsStore.isDark }">
                     <div class="tool-title flex items-center text-xs font-medium mb-1"
@@ -138,31 +137,29 @@
                     </div>
                   </div>
                   <div class="markdown-body" v-html="renderMessage(message)"></div>
-                  <div v-if="message.role === 'assistant' && message.isLoading"
-                    class="typing-dots flex space-x-1 mt-1" :class="{ 'is-dark': settingsStore.isDark }">
+                  <div v-if="message.isLoading"
+                    class="typing-dots flex space-x-1 mt-2" :class="{ 'is-dark': settingsStore.isDark }">
                     <div class="typing-dot animate-pulse"></div>
                     <div class="typing-dot animate-pulse delay-100"></div>
                     <div class="typing-dot animate-pulse delay-200"></div>
                   </div>
                 </div>
-              </div>
+              </template>
             </div>
           </div>
         </main>
         <footer class="chat-footer flex-shrink-0" :class="{ 'is-dark': settingsStore.isDark }">
-          <div class="max-w-3xl mx-auto relative">
-            <div class="flex items-center">
-              <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage"
-                @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse"
-                placeholder="输入您的问题..."
-                class="chat-input flex-1 border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 resize-none scrollbar-hide transition-all duration-200"
-                :class="{ 'is-dark': settingsStore.isDark }"
-                rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
-              <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading"
-                :class="['ml-2 h-10 w-10 flex items-center justify-center rounded-lg chat-btn', isLoading ? 'chat-btn-warning' : 'chat-btn-primary']">
-                <i :class="isLoading ? 'fas fa-stop' : 'fas fa-paper-plane'"></i>
-              </button>
-            </div>
+          <div class="chat-input-wrap" :class="{ 'is-dark': settingsStore.isDark }">
+            <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage"
+              @keydown.ctrl.enter.exact.prevent="sendMessage" @keydown.esc.exact="stopResponse"
+              placeholder="给假维斯发送消息…（Enter 发送 / Shift+Enter 换行）"
+              class="chat-input"
+              :class="{ 'is-dark': settingsStore.isDark }"
+              rows="1" ref="textarea" @input="adjustTextareaHeight"></textarea>
+            <button @click="isLoading ? stopResponse() : sendMessage()" :disabled="!userInput.trim() && !isLoading"
+              :class="['chat-send-btn', isLoading ? 'chat-btn-warning' : 'chat-btn-primary']">
+              <i :class="isLoading ? 'fas fa-stop' : 'fas fa-paper-plane'"></i>
+            </button>
           </div>
         </footer>
       </div>
@@ -195,9 +192,9 @@ import {
 import {getChatMemoryListByConversationId} from '@/api/ai/aichat/history';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
-import useUserStore from '@/store/modules/user';
 import useSettingsStore from '@/store/modules/settings';
 import useTagsViewStore from '@/store/modules/tagsView';
+import useUserStore from '@/store/modules/user';
 import {md, mdUser} from '@/utils/markdown';
 import {createEventStream} from '@/utils/chatStream';
 import * as echarts from 'echarts';
@@ -1326,7 +1323,7 @@ textarea {
   padding: 12px 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   z-index: 10;
   backdrop-filter: blur(12px);
   background: rgba(251, 251, 253, 0.85);
@@ -1340,9 +1337,15 @@ textarea {
 
 .chat-header-title {
   color: #262336;
+  font-size: 16px;
+  font-weight: 600;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   &.is-dark {
-    color: #f0436e;
+    color: #f3f4f6;
   }
 }
 
@@ -1355,8 +1358,95 @@ textarea {
   }
 }
 
+/* 消息内容容器：居中、限制阅读宽度（GLM / DeepSeek 阅读宽度） */
+.chat-content {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 28px 16px 16px;
+}
+
+/* 单条消息行 */
+.message-row {
+  margin-bottom: 28px;
+}
+
+/* 用户消息：整体右对齐（气泡 + 头像） */
+.message-row-user {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* AI 消息：左头像 + 正文 */
+.message-row-ai {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* 用户头像 */
+.chat-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+/* 用户气泡：浅色圆角块、无尾巴（贴近 DeepSeek / GLM） */
+.user-bubble {
+  max-width: 78%;
+  background: rgba(240, 67, 110, 0.08);
+  border: 1px solid rgba(240, 67, 110, 0.14);
+  color: #262336;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border-top-right-radius: 4px;
+  font-size: 15px;
+  line-height: 1.7;
+  word-break: break-word;
+
+  &.is-dark {
+    background: rgba(240, 67, 110, 0.18);
+    border-color: rgba(240, 67, 110, 0.30);
+    color: #f3f4f6;
+  }
+}
+
+/* AI 正文：带背景框的卡片（保留气泡背景） */
+.ai-content {
+  flex: 1;
+  min-width: 0;
+  color: #262336;
+  font-size: 15px;
+  line-height: 1.75;
+  word-break: break-word;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #eceaf4;
+  border-radius: 14px;
+  border-top-left-radius: 4px;
+  padding: 12px 16px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(124, 116, 160, 0.10);
+
+  &.is-dark {
+    background: rgba(40, 38, 54, 0.85);
+    border-color: #3a3850;
+    color: #e8e6f0;
+  }
+}
+
 /* AI 机器人头像 */
 .chat-robot-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
   background: rgba(240, 67, 110, 0.15);
   color: #f0436e;
 
@@ -1484,7 +1574,7 @@ textarea {
 /* 底部输入区 */
 .chat-footer {
   border-top: 1px solid rgba(38, 35, 54, 0.05);
-  padding: 16px;
+  padding: 12px 16px 16px;
   backdrop-filter: blur(12px);
   background: rgba(251, 251, 253, 0.85);
 
@@ -1494,24 +1584,77 @@ textarea {
   }
 }
 
-/* 输入框：聚焦玫红光环（design.md 4.6） */
+/* 输入容器：圆角卡片 + 聚焦光环（GLM / DeepSeek 输入条） */
+.chat-input-wrap {
+  max-width: 46rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  background: #ffffff;
+  border: 1px solid #eceaf4;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(124, 116, 160, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus-within {
+    border-color: #f0436e;
+    box-shadow: 0 2px 16px rgba(240, 67, 110, 0.18);
+  }
+
+  &.is-dark {
+    background: rgba(40, 38, 54, 0.9);
+    border-color: #3a3850;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.30);
+
+    &:focus-within {
+      border-color: #f0436e;
+    }
+  }
+}
+
+/* 发送按钮 */
+.chat-send-btn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* 输入框：无边框，由外层容器统一控制聚焦态 */
 .chat-input {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: #eceaf4;
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
   color: #262336;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: none;
+  padding: 6px 4px;
 
   &::placeholder {
     color: #b6b3c2;
   }
 
-  &:focus {
-    border-color: #f0436e;
-    --tw-ring-color: rgba(240, 67, 110, 0.35);
-  }
-
   &.is-dark {
-    background: rgba(40, 38, 54, 0.6);
-    border-color: #3a3850;
     color: #f3f4f6;
 
     &::placeholder {
@@ -1605,40 +1748,7 @@ textarea {
   }
 }
 
-/* 消息气泡公共样式（替代失效的 Tailwind 任意值 class） */
-.msg-bubble {
-  padding: 12px;
-  border-radius: 8px;
-  max-width: 32rem;
-}
-
-/* 用户气泡：玫红底白字（design.md 主按钮同款配色）；暗色用明显加深的玫红 + 白色描边，切换差异清晰可感知 */
-.msg-bubble-user {
-  background: #f0436e;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
-
-  &.is-dark {
-    background: #b0254e;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-  }
-}
-
-/* AI 气泡：亮色毛玻璃白卡 / 暗色深紫 */
-.msg-bubble-ai {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #eceaf4;
-  color: #4b4861;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px rgba(124, 116, 160, 0.10);
-
-  &.is-dark {
-    background: rgba(40, 38, 54, 0.85);
-    border-color: #3a3850;
-    color: #f3f4f6;
-  }
-}
+/* 旧的 .msg-bubble 问答式气泡样式已移除，改为 .message-row / .user-bubble / .ai-content */
 
 .chat-btn {
   border: none;
@@ -1697,79 +1807,29 @@ textarea {
   overflow: hidden;
 }
 
-/* ===== 用户气泡内 Markdown 元素配色适配 =====
-   用户消息现走 Markdown 渲染（mdUser），v-html 注入的子元素无 scoped 属性，
-   故本块样式必须放在非 scoped 样式中才能命中；玫红底上需覆盖全局
-   .markdown-body 的深色文字/浅色底，保证白字可读性 */
-.msg-bubble-user .markdown-body {
-  font-size: 14px;
+/* ===== 用户气泡内 Markdown 元素适配 =====
+   用户消息走 Markdown 渲染（mdUser），v-html 注入的子元素无 scoped 属性，
+   故本块样式需放在非 scoped 样式中才能命中 */
+.user-bubble .markdown-body {
+  font-size: 15px;
 }
 
-.msg-bubble-user .markdown-body p:last-child,
-.msg-bubble-user .markdown-body ul:last-child,
-.msg-bubble-user .markdown-body ol:last-child,
-.msg-bubble-user .markdown-body pre:last-child,
-.msg-bubble-user .markdown-body blockquote:last-child {
+.user-bubble .markdown-body p:last-child,
+.user-bubble .markdown-body ul:last-child,
+.user-bubble .markdown-body ol:last-child,
+.user-bubble .markdown-body pre:last-child,
+.user-bubble .markdown-body blockquote:last-child {
   margin-bottom: 0;
 }
 
-.msg-bubble-user .markdown-body h1,
-.msg-bubble-user .markdown-body h2,
-.msg-bubble-user .markdown-body h3,
-.msg-bubble-user .markdown-body h4,
-.msg-bubble-user .markdown-body h5,
-.msg-bubble-user .markdown-body h6,
-.msg-bubble-user .markdown-body strong {
-  color: #ffffff;
+.user-bubble .markdown-body p:first-child,
+.user-bubble .markdown-body ul:first-child,
+.user-bubble .markdown-body ol:first-child {
+  margin-top: 0;
 }
 
-.msg-bubble-user .markdown-body a {
-  color: #ffe0ea;
+.user-bubble .markdown-body a {
+  color: #d9305c;
   text-decoration: underline;
 }
-
-.msg-bubble-user .markdown-body a:hover {
-  color: #ffffff;
-}
-
-/* 行内代码：白色半透明底，与玫红气泡区分 */
-.msg-bubble-user .markdown-body code {
-  background: rgba(255, 255, 255, 0.20);
-  color: #ffffff;
-}
-
-/* 代码块：加深背景保持代码可读，highlight.js 高亮色在深底上仍可见 */
-.msg-bubble-user .markdown-body pre {
-  background: rgba(0, 0, 0, 0.28);
-}
-
-.msg-bubble-user .markdown-body pre code {
-  background: none;
-  color: #f8f8f2;
-}
-
-.msg-bubble-user .markdown-body blockquote {
-  border-left-color: rgba(255, 255, 255, 0.55);
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.msg-bubble-user .markdown-body th,
-.msg-bubble-user .markdown-body td {
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
-.msg-bubble-user .markdown-body th {
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-}
-
-.msg-bubble-user .markdown-body td {
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.msg-bubble-user .markdown-body hr {
-  border-top-color: rgba(255, 255, 255, 0.35);
-}
-
-/* 暗色模式下用户气泡为更深的玫红（#b0254e），上述半透明白叠加同样可读，无需重复定义 */
 </style>

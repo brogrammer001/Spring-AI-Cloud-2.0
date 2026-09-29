@@ -96,7 +96,7 @@
       <el-table-column label="所属表名" align="center" prop="tableName" />
       <el-table-column label="所属列名" align="center" prop="columnName" />
       <el-table-column label="同义词，逗号分隔" align="center" prop="synonyms" />
-      <el-table-column label="合法枚举值及含义：[{"value":"0","meaning":"待支付"},{"value":"1","meaning":"已支付"}]" align="center" prop="dimValues" />
+      <el-table-column label='合法枚举值及含义：[{"value":"0","meaning":"待支付"},{"value":"1","meaning":"已支付"}]' align="center" prop="dimValues" />
       <el-table-column label="是否启用" align="center" prop="enabled" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">

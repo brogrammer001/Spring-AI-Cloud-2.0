@@ -17,8 +17,8 @@ spring:
         transport-mode: http            # 可选，强制走 HTTP（默认 gRPC）
         prompt-cache-update-interval: 60000  # Prompt 缓存更新轮询间隔（毫秒），默认 60 秒，避免频繁请求 Nacos
         bindings:
-          system-prompt:
-            key: system-prompt
+          SystemPrompt:
+            key: SystemPrompt
             label: latest
           VectorStoreChatMemoryPrompt:
             key: VectorStoreChatMemoryPrompt
@@ -139,7 +139,7 @@ smallmodel:
 #  model: deepseek-ai/DeepSeek-V4-Pro-0813
 
 vectorstore:
-  enabled: true #开启全局向量功能
+  enabled: false #开启全局向量功能
   chat-memory-default-topk: 1
   weaviate:
     knowledge-object-class: KnowledgeBase

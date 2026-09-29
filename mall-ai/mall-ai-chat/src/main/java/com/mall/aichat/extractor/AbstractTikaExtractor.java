@@ -323,7 +323,7 @@ public abstract class AbstractTikaExtractor implements Extractor {
                     }
                     String t = clean(buf);
                     if (!t.isBlank()) {
-                        md.append(LIST_INDENT_UNIT.repeat(Math.min(Math.max(listDepth - 1, 0), 5)))
+                        md.repeat(LIST_INDENT_UNIT, Math.clamp(listDepth - 1, 0, 5))
                             .append("- ").append(t).append('\n');
                     }
                     buf.setLength(0);
