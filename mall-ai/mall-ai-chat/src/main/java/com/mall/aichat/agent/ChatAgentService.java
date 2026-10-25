@@ -1,8 +1,7 @@
-package com.mall.aichat.service.impl;
+package com.mall.aichat.agent;
 
 import com.mall.aichat.config.AgentEventSinkManager;
 import com.mall.aichat.config.NacosPromptRegistry;
-import com.mall.aichat.constant.ChatConstants;
 import com.mall.aichat.domain.ChatRequest;
 import com.mall.aichat.domain.ChatStreamEvent;
 import com.mall.common.core.utils.StringUtils;
@@ -13,12 +12,12 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -51,8 +50,10 @@ public class ChatAgentService {
      *
      * @return 流水线订阅句柄，客户端断连时用于取消后台任务
      */
-    public Disposable process(Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink, ChatRequest request) {
+    public Disposable process(Sinks.Many<ChatStreamEvent> sink, ChatRequest request) {
         String conversationId = request.getConversationId();
+        //开始
+        sink.tryEmitNext(ChatStreamEvent.start(conversationId, request.getMessageId(), 0));
         return llmPhase(request)
             .subscribe(
                 sink::tryEmitNext,
@@ -67,7 +68,7 @@ public class ChatAgentService {
     /**
      * LLM 流式阶段：增量响应转 message 事件，并记录最后一次有效的 usage 统计
      */
-    private Flux<ServerSentEvent<ChatStreamEvent>> llmPhase(ChatRequest request) {
+    private Flux<ChatStreamEvent> llmPhase(ChatRequest request) {
         String conversationId = request.getConversationId();
         AtomicInteger idx = new AtomicInteger(0);
 
@@ -89,15 +90,12 @@ public class ChatAgentService {
                 if (usage.getTotalTokens() > 0) {
                     request.getUsageRef().set(usage);
                 }
-                AssistantMessage output = r.getResult().getOutput();
+                AssistantMessage output = Objects.requireNonNull(r.getResult()).getOutput();
                 String text = output.getText();
                 if (StringUtils.isEmpty(text)) {
                     return Flux.empty();
                 }
-                return Flux.just(ServerSentEvent.<ChatStreamEvent>builder()
-                    .event(ChatConstants.EVENT_MESSAGE)
-                    .data(ChatStreamEvent.chunk(conversationId, text, idx.getAndIncrement()))
-                    .build());
+                return Flux.just(ChatStreamEvent.chunk(conversationId, text, idx.getAndIncrement()));
             });
     }
 }

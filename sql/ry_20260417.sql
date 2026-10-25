@@ -721,3 +721,74 @@ create table gen_table_column (
   update_time       datetime                                   comment '更新时间',
   primary key (column_id)
 ) engine=innodb auto_increment=1 comment = '代码生成业务表字段';
+
+
+CREATE TABLE ai_memory_fact (
+    -- 主键，自增；同时作为 Weaviate 中 Document 的业务 id（写入向量库时 id = String.valueOf(id)），
+    -- 保证 MySQL 与 Weaviate 通过同 id 对齐，UPDATE 覆写/补偿重推都以此为准
+                                id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键，自增；同时作为Weaviate文档id，双存储对齐依据',
+
+    -- 记忆归属用户；来源于 context 的 CTX_USER_ID；
+    -- 业务约定：匿名用户（空/anonymous）不读写，本表不应存在匿名数据
+    -- 使用方：idx_hash 去重、裁决候选 filter、读路径回表校验、管理页按用户查询
+                                user_id VARCHAR(64) NOT NULL COMMENT '归属用户ID(来自CTX_USER_ID)；匿名用户不落库；去重/隔离/管理页查询键',
+
+    -- 多 Agent 隔离：同一用户对不同客服 Agent 的记忆互相独立（如售前 vs 售后）；
+    -- 与 Weaviate metadata 的 agentId 保持一致；默认 'default' 兼容未接入多 Agent 的场景
+                                agent_id VARCHAR(50) NOT NULL DEFAULT 'default' COMMENT 'Agent标识，多Agent记忆隔离；与Weaviate metadata.agentId一致；默认default',
+
+    -- 记忆首次产生的会话，仅溯源用（"这条记忆是哪次对话产生的"）；
+    -- 不参与检索与去重，允许为 NULL（历史数据/管理页手动录入可空）
+                                conversation_id VARCHAR(64) NULL COMMENT '首次产生该记忆的会话ID，仅溯源用，不参与检索；可空',
+
+    -- 抽取 prompt 输出的 type 归一化小写：profile/preference/entity/event/skill/fact；
+    -- 使用方：管理页分类筛选、读路径画像类常驻（importance 高的 profile 类）；
+    -- 校验：非法值落库时兜底为 'fact'
+                                fact_type VARCHAR(30) NOT NULL DEFAULT 'fact' COMMENT '事实分类: profile身份/preference偏好/entity关系/event事件/skill技能/fact兜底；非法值归一为fact',
+
+    -- 记忆正文；已在写库前经 SensitiveDataMasker 脱敏（手机号/身份证/银行卡→***）；
+    -- 上限 512 字节：prompt 约束 ≤100 字 + 裁决合并后可能加长，留余量；
+    -- 注意 utf8mb4 下 VARCHAR(512) 为 512 字符，中文足够
+                                content VARCHAR(512) NOT NULL COMMENT '记忆正文；入库前已脱敏(手机号/身份证/银行卡→***)；prompt约束单条≤100字，合并更新留余量',
+
+    -- 抽取 prompt 输出的重要性分：显式要求记住=1.0，身份/过敏/安全=0.9，偏好=0.7，一般=0.3；
+    -- 使用方：①读路径高重要性常驻（importance>=0.9 直查，不依赖 query）
+    --        ②排序第三分量（0.1 权重）③淘汰策略（<0.5 且长期未 touch → 过期）
+                                importance DECIMAL(3,2) NOT NULL DEFAULT 0.3 COMMENT '重要性0.00~1.00：显式要求1.0/身份安全0.9/偏好0.7/一般0.3；用于画像常驻、排序加权、低分淘汰',
+
+    -- 精确去重指纹 = SHA256(user_id + "|" + 脱敏后 content)；
+    -- 命中即短路：免一次向量检索 + 免一次裁决 LLM 调用，直接 touch 续期；
+    -- 不加 UNIQUE：MySQL 唯一索引不含 agent_id 维度且历史数据可能有重复，靠应用层查询去重即可
+                                hash CHAR(64) NOT NULL COMMENT '去重指纹SHA256(userId|脱敏content)；命中即跳过向量检索+裁决直接续期；应用层查询去重(未加唯一约束以兼容多agent)',
+
+    -- 生命周期状态：active 有效 / deleted 用户或裁决删除 / expired 淘汰任务归档；
+    -- 软删设计：DELETE 裁决、管理页删除都只改状态，物理删除向量文档后 MySQL 保留记录可追溯；
+    -- 读路径回表校验只认 active
+                                status VARCHAR(10) NOT NULL DEFAULT 'active' COMMENT '状态: active有效/deleted已删除(裁决或用户操作)/expired已过期(淘汰任务)；软删保留记录，回表校验仅认active',
+
+    -- 有效期截止；写入/续期(touch)/UPDATE 时刷新为 now + ttl_days；
+    -- 使用方：①淘汰任务扫描 ②读路径回表校验兜底（向量库 expireAt 过滤失效时的第二道防线）
+    -- NULL = 永不过期（预留画像类常驻场景）
+                                valid_until DATETIME NULL COMMENT '有效期截止=最后活跃时间+TTL；ADD/续期/UPDATE时刷新；淘汰任务扫描依据；NULL=永不过期',
+
+    -- 双写一致性标记：1=已同步到 Weaviate，0=待补偿（向量写失败时置0）；
+    -- ReconcileJob 每 5 分钟重推 0 的记录；idx_reconcile 支持该扫描；
+    -- 也是"重建向量索引"的依据：全量置0后由任务重放（换 embedding 模型时用）
+                                vector_synced TINYINT(1) NOT NULL DEFAULT 0 COMMENT '向量同步标记: 1已同步Weaviate/0待补偿；ReconcileJob重推依据；全量重建索引时置0重放',
+
+                                create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '首次写入时间；与update_time配合观察记忆是否被更新过',
+
+                                update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+             COMMENT '最后活跃时间；touch/UPDATE/续期时随行刷新；时间衰减排序与淘汰扫描以该字段为准',
+
+    -- 联合索引：管理页"按用户+Agent列出有效记忆（可按类型筛选）"的最左前缀覆盖
+                                INDEX idx_scope (user_id, agent_id, status, fact_type) COMMENT '管理页列表/回表校验/画像常驻查询：用户+Agent+状态+类型',
+
+    -- 去重短路查询：WHERE user_id=? AND hash=? LIMIT 1
+                                INDEX idx_hash (user_id, hash) COMMENT '精确去重短路查询；user_id前缀保证同指纹不同用户不冲突',
+
+    -- 补偿任务扫描：WHERE vector_synced=0 AND update_time>? ORDER BY update_time
+    -- （update_time 条件限定只处理最近7天，防止历史僵尸数据反复扫描）
+                                INDEX idx_reconcile (vector_synced, update_time) COMMENT '补偿Job扫描待同步记录；update_time下界防止历史数据反复重扫'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  COMMENT='AI长期记忆事实表(MySQL为权威存储，Weaviate仅为检索索引，可凭本表全量重建)';

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mall.aichat.mapper.AiMemoryFactMapper">
+    
+    <resultMap type="AiMemoryFact" id="AiMemoryFactResult">
+        <result property="id"    column="id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="agentId"    column="agent_id"    />
+        <result property="conversationId"    column="conversation_id"    />
+        <result property="factType"    column="fact_type"    />
+        <result property="content"    column="content"    />
+        <result property="importance"    column="importance"    />
+        <result property="hash"    column="hash"    />
+        <result property="status"    column="status"    />
+        <result property="validUntil"    column="valid_until"    />
+        <result property="vectorSynced"    column="vector_synced"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectAiMemoryFactVo">
+        select id, user_id, agent_id, conversation_id, fact_type, content, importance, hash, status, valid_until, vector_synced, create_time, update_time from ai_memory_fact
+    </sql>
+
+    <select id="selectAiMemoryFactList" parameterType="AiMemoryFact" resultMap="AiMemoryFactResult">
+        <include refid="selectAiMemoryFactVo"/>
+        <where>  
+            <if test="userId != null  and userId != ''"> and user_id = #{userId}</if>
+            <if test="agentId != null  and agentId != ''"> and agent_id = #{agentId}</if>
+            <if test="conversationId != null  and conversationId != ''"> and conversation_id = #{conversationId}</if>
+            <if test="factType != null  and factType != ''"> and fact_type = #{factType}</if>
+            <if test="content != null  and content != ''"> and content = #{content}</if>
+            <if test="importance != null "> and importance = #{importance}</if>
+            <if test="hash != null  and hash != ''"> and hash = #{hash}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="validUntil != null "> and valid_until = #{validUntil}</if>
+            <if test="vectorSynced != null "> and vector_synced = #{vectorSynced}</if>
+        </where>
+    </select>
+    
+    <select id="selectAiMemoryFactById" parameterType="Long" resultMap="AiMemoryFactResult">
+        <include refid="selectAiMemoryFactVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectAiMemoryFactByIds" parameterType="String" resultMap="AiMemoryFactResult">
+        <include refid="selectAiMemoryFactVo"/>
+        where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <update id="updateVectorSyncedByIds">
+        update ai_memory_fact
+        set vector_synced = #{vectorSynced}, update_time = now()
+        where id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <insert id="insertAiMemoryFact" parameterType="AiMemoryFact" useGeneratedKeys="true" keyProperty="id">
+        insert into ai_memory_fact
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null and userId != ''">user_id,</if>
+            <if test="agentId != null and agentId != ''">agent_id,</if>
+            <if test="conversationId != null">conversation_id,</if>
+            <if test="factType != null and factType != ''">fact_type,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="importance != null">importance,</if>
+            <if test="hash != null and hash != ''">hash,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="validUntil != null">valid_until,</if>
+            <if test="vectorSynced != null">vector_synced,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null and userId != ''">#{userId},</if>
+            <if test="agentId != null and agentId != ''">#{agentId},</if>
+            <if test="conversationId != null">#{conversationId},</if>
+            <if test="factType != null and factType != ''">#{factType},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="importance != null">#{importance},</if>
+            <if test="hash != null and hash != ''">#{hash},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="validUntil != null">#{validUntil},</if>
+            <if test="vectorSynced != null">#{vectorSynced},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateAiMemoryFact" parameterType="AiMemoryFact">
+        update ai_memory_fact
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null and userId != ''">user_id = #{userId},</if>
+            <if test="agentId != null and agentId != ''">agent_id = #{agentId},</if>
+            <if test="conversationId != null">conversation_id = #{conversationId},</if>
+            <if test="factType != null and factType != ''">fact_type = #{factType},</if>
+            <if test="content != null and content != ''">content = #{content},</if>
+            <if test="importance != null">importance = #{importance},</if>
+            <if test="hash != null and hash != ''">hash = #{hash},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="validUntil != null">valid_until = #{validUntil},</if>
+            <if test="vectorSynced != null">vector_synced = #{vectorSynced},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAiMemoryFactById" parameterType="Long">
+        delete from ai_memory_fact where id = #{id}
+    </delete>
+
+    <delete id="deleteAiMemoryFactByIds" parameterType="String">
+        delete from ai_memory_fact where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteAiMemoryFactByConversationIds" parameterType="String">
+        delete from ai_memory_fact where conversation_id in
+        <foreach item="conversationId" collection="array" open="(" separator="," close=")">
+            #{conversationId}
+        </foreach>
+    </delete>
+</mapper>

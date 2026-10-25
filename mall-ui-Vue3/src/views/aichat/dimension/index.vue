@@ -1,15 +1,15 @@
 <template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="维度名，如订单状态" prop="dimName">
+      <el-form-item label="维度名" prop="dimName">
         <el-input
           v-model="queryParams.dimName"
-          placeholder="请输入维度名，如订单状态"
+          placeholder="请输入维度名"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="所属表名" prop="tableName">
+      <el-form-item label="表名" prop="tableName">
         <el-input
           v-model="queryParams.tableName"
           placeholder="请输入所属表名"
@@ -17,7 +17,7 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="所属列名" prop="columnName">
+      <el-form-item label="列名" prop="columnName">
         <el-input
           v-model="queryParams.columnName"
           placeholder="请输入所属列名"
@@ -25,18 +25,18 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="同义词，逗号分隔" prop="synonyms">
+      <el-form-item label="同义词" prop="synonyms">
         <el-input
           v-model="queryParams.synonyms"
-          placeholder="请输入同义词，逗号分隔"
+          placeholder="多个用逗号分隔"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="是否启用" prop="enabled">
+      <el-form-item label="启用" prop="enabled">
         <el-input
           v-model="queryParams.enabled"
-          placeholder="请输入是否启用"
+          placeholder="1启用 / 0停用"
           clearable
           @keyup.enter="handleQuery"
         />
@@ -91,14 +91,13 @@
 
     <el-table v-loading="loading" :data="dimensionList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="维度ID" align="center" prop="id" />
-      <el-table-column label="维度名，如订单状态" align="center" prop="dimName" />
-      <el-table-column label="所属表名" align="center" prop="tableName" />
-      <el-table-column label="所属列名" align="center" prop="columnName" />
-      <el-table-column label="同义词，逗号分隔" align="center" prop="synonyms" />
-      <el-table-column label='合法枚举值及含义：[{"value":"0","meaning":"待支付"},{"value":"1","meaning":"已支付"}]' align="center" prop="dimValues" />
-      <el-table-column label="是否启用" align="center" prop="enabled" />
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="维度名" align="center" prop="dimName" min-width="140" show-overflow-tooltip />
+      <el-table-column label="表名" align="center" prop="tableName" min-width="140" show-overflow-tooltip />
+      <el-table-column label="列名" align="center" prop="columnName" min-width="140" show-overflow-tooltip />
+      <el-table-column label="同义词" align="center" prop="synonyms" min-width="160" show-overflow-tooltip />
+      <el-table-column label="枚举值" align="center" prop="dimValues" min-width="220" show-overflow-tooltip />
+      <el-table-column label="启用" align="center" prop="enabled" width="90" />
+      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width" fixed="right">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['aichat:dimension:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['aichat:dimension:remove']">删除</el-button>
@@ -116,31 +115,31 @@
 
     <!-- 添加或修改NL2SQL维度定义对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="dimensionRef" :model="form" :rules="rules" label-width="100px">
+      <el-form ref="dimensionRef" :model="form" :rules="rules" label-width="90px">
         <el-row>
           <el-col :span="24">
-            <el-form-item label="维度名，如订单状态" prop="dimName">
-              <el-input v-model="form.dimName" placeholder="请输入维度名，如订单状态" />
+            <el-form-item label="维度名" prop="dimName">
+              <el-input v-model="form.dimName" placeholder="请输入维度名" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="所属表名" prop="tableName">
+            <el-form-item label="表名" prop="tableName">
               <el-input v-model="form.tableName" placeholder="请输入所属表名" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="所属列名" prop="columnName">
+            <el-form-item label="列名" prop="columnName">
               <el-input v-model="form.columnName" placeholder="请输入所属列名" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="同义词，逗号分隔" prop="synonyms">
-              <el-input v-model="form.synonyms" placeholder="请输入同义词，逗号分隔" />
+            <el-form-item label="同义词" prop="synonyms">
+              <el-input v-model="form.synonyms" placeholder="多个用逗号分隔" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="是否启用" prop="enabled">
-              <el-input v-model="form.enabled" placeholder="请输入是否启用" />
+            <el-form-item label="启用" prop="enabled">
+              <el-input v-model="form.enabled" placeholder="1启用 / 0停用" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -184,13 +183,13 @@ const data = reactive({
   },
   rules: {
     dimName: [
-      { required: true, message: "维度名，如订单状态不能为空", trigger: "blur" }
+      { required: true, message: "维度名不能为空", trigger: "blur" }
     ],
     tableName: [
-      { required: true, message: "所属表名不能为空", trigger: "blur" }
+      { required: true, message: "表名不能为空", trigger: "blur" }
     ],
     columnName: [
-      { required: true, message: "所属列名不能为空", trigger: "blur" }
+      { required: true, message: "列名不能为空", trigger: "blur" }
     ],
   }
 })

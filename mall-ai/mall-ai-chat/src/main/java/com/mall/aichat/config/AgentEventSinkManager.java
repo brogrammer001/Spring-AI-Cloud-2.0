@@ -1,8 +1,6 @@
 package com.mall.aichat.config;
 
-import com.mall.aichat.constant.ChatConstants;
 import com.mall.aichat.domain.ChatStreamEvent;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Sinks;
 
@@ -13,44 +11,44 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AgentEventSinkManager {
 
     // 每个会话一个独立的 Sink 通道（主流事件与 tool_call 旁路事件共用）
-    private final Map<String, Sinks.Many<ServerSentEvent<ChatStreamEvent>>> sinks = new ConcurrentHashMap<>();
+    private final Map<String, Sinks.Many<ChatStreamEvent>> sinks = new ConcurrentHashMap<>();
 
     /**
      * 注册会话的 Sink 通道，供 advisor 等组件按 conversationId 推送旁路事件
      */
-    public Sinks.Many<ServerSentEvent<ChatStreamEvent>> register(String conversationId,
-                                                                 Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink) {
+    public Sinks.Many<ChatStreamEvent> register(String conversationId,
+                                                Sinks.Many<ChatStreamEvent> sink) {
         sinks.put(conversationId, sink);
         return sink;
     }
 
+    /**
+     * 获取会话的 Sink 通道，供 {@code AgentEventPublisher} 等组件统一推送事件；
+     * 返回 null 表示通道已关闭（断连/完成）
+     */
+    public Sinks.Many<ChatStreamEvent> get(String conversationId) {
+        return conversationId != null ? sinks.get(conversationId) : null;
+    }
+
     // 推送结构化的思考事件
     public void emitThought(String conversationId, String toolName) {
-        Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.get(conversationId);
+        Sinks.Many<ChatStreamEvent> sink = sinks.get(conversationId);
         if (sink != null) {
-            ServerSentEvent<ChatStreamEvent> sse = ServerSentEvent.<ChatStreamEvent>builder()
-                .event(ChatConstants.EVENT_TOOL_CALL)
-                .data(ChatStreamEvent.toolCall(conversationId, toolName, 0))
-                .build();
-            sink.tryEmitNext(sse);
+            sink.tryEmitNext(ChatStreamEvent.toolCall(conversationId, toolName, 0));
         }
     }
 
     // 推送 RAG 检索状态事件（start / success / empty）
     public void emitRagRetrieve(String conversationId, String stage) {
-        Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.get(conversationId);
+        Sinks.Many<ChatStreamEvent> sink = sinks.get(conversationId);
         if (sink != null) {
-            ServerSentEvent<ChatStreamEvent> sse = ServerSentEvent.<ChatStreamEvent>builder()
-                .event(ChatConstants.EVENT_RAG_RETRIEVE)
-                .data(ChatStreamEvent.ragRetrieve(conversationId, stage, 0))
-                .build();
-            sink.tryEmitNext(sse);
+            sink.tryEmitNext(ChatStreamEvent.ragRetrieve(conversationId, stage, 0));
         }
     }
 
     // 结束时清理通道（幂等：重复调用或通道已移除时为 no-op）
     public void complete(String conversationId) {
-        Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.remove(conversationId);
+        Sinks.Many<ChatStreamEvent> sink = sinks.remove(conversationId);
         if (sink != null) {
             sink.tryEmitComplete();
         }
@@ -58,7 +56,7 @@ public class AgentEventSinkManager {
 
     // 异常时清理通道，并向下游传播错误（由调用方的 onErrorResume 转成脱敏的 error 事件）
     public void completeWithError(String conversationId, Throwable error) {
-        Sinks.Many<ServerSentEvent<ChatStreamEvent>> sink = sinks.remove(conversationId);
+        Sinks.Many<ChatStreamEvent> sink = sinks.remove(conversationId);
         if (sink != null) {
             sink.tryEmitError(error);
         }

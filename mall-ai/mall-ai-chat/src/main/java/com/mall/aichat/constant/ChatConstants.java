@@ -20,6 +20,8 @@ public class ChatConstants
      * 记忆状态枚举值（Schema 用 text 存，避免 Weaviate boolean 过滤问题）
      */
     public static final String STATUS_ACTIVE = "active";
+    /** 记忆状态：软删除（裁决 DELETE / 用户显式删除），MySQL 权威记录保留 */
+    public static final String STATUS_DELETED = "deleted";
     /** 记忆状态：active / archived / superseded / expired（用字符串而非 boolean） */
     public static final String CHAT_MEMORY_STATUS = "status";
     /** 记忆写入时间戳（毫秒），用于排序与增量同步 */
@@ -31,6 +33,15 @@ public class ChatConstants
 
     /** 记忆类型元数据键：profile（用户画像）/ fact（对话事实） */
     public static final String CHAT_MEMORY_TYPE = "memory_type";
+
+    /** 记忆重要性元数据键（0~1），检索排序时参与加权 */
+    public static final String CHAT_MEMORY_IMPORTANCE = "importance";
+
+    /** 永不过期记忆在向量库 expireAt 上的偏移量（100 年），与 MySQL valid_until IS NULL 语义对齐 */
+    public static final long CHAT_MEMORY_NEVER_EXPIRE_DURATION_MS = 100L * 365 * 24 * 60 * 60 * 1000;
+
+    /** 记忆重要性缺省值，MySQL importance 为空时使用 */
+    public static final double CHAT_MEMORY_DEFAULT_IMPORTANCE = 0.3;
 
     // =====================================================================
     // ② 知识库—— RAG 写入方 / 检索方读写
@@ -87,6 +98,11 @@ public class ChatConstants
      * SSE 事件名：消息结束
      */
     public static final String EVENT_MESSAGE_END = "message_end";
+
+    /**
+     * SSE 事件名：消息开始
+     */
+    public static final String EVENT_MESSAGE_START = "message_start";
 
     /**
      * SSE 事件名：错误

@@ -9,18 +9,18 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="适用关键词，逗号分隔，为空则全局生效" prop="appliesTo">
+      <el-form-item label="适用关键词" prop="appliesTo">
         <el-input
           v-model="queryParams.appliesTo"
-          placeholder="请输入适用关键词，逗号分隔，为空则全局生效"
+          placeholder="逗号分隔，留空为全局"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="是否启用" prop="enabled">
+      <el-form-item label="启用" prop="enabled">
         <el-input
           v-model="queryParams.enabled"
-          placeholder="请输入是否启用"
+          placeholder="1启用 / 0停用"
           clearable
           @keyup.enter="handleQuery"
         />
@@ -75,12 +75,11 @@
 
     <el-table v-loading="loading" :data="ruleList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="规则ID" align="center" prop="id" />
-      <el-table-column label="规则名" align="center" prop="ruleName" />
-      <el-table-column label='有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今' align="center" prop="ruleContent" />
-      <el-table-column label="适用关键词，逗号分隔，为空则全局生效" align="center" prop="appliesTo" />
-      <el-table-column label="是否启用" align="center" prop="enabled" />
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="规则名" align="center" prop="ruleName" min-width="140" show-overflow-tooltip />
+      <el-table-column label="规则内容" align="center" prop="ruleContent" min-width="260" show-overflow-tooltip />
+      <el-table-column label="适用关键词" align="center" prop="appliesTo" min-width="180" show-overflow-tooltip />
+      <el-table-column label="启用" align="center" prop="enabled" width="90" />
+      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width" fixed="right">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['aichat:rule:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['aichat:rule:remove']">删除</el-button>
@@ -98,7 +97,7 @@
 
     <!-- 添加或修改NL2SQL业务规则对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="ruleRef" :model="form" :rules="rules" label-width="100px">
+      <el-form ref="ruleRef" :model="form" :rules="rules" label-width="90px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="规则名" prop="ruleName">
@@ -106,18 +105,18 @@
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label='有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今'>
+            <el-form-item label="规则内容">
               <editor v-model="form.ruleContent" :min-height="192"/>
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="适用关键词，逗号分隔，为空则全局生效" prop="appliesTo">
-              <el-input v-model="form.appliesTo" placeholder="请输入适用关键词，逗号分隔，为空则全局生效" />
+            <el-form-item label="适用关键词" prop="appliesTo">
+              <el-input v-model="form.appliesTo" placeholder="逗号分隔，留空为全局" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="是否启用" prop="enabled">
-              <el-input v-model="form.enabled" placeholder="请输入是否启用" />
+            <el-form-item label="启用" prop="enabled">
+              <el-input v-model="form.enabled" placeholder="1启用 / 0停用" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -162,7 +161,7 @@ const data = reactive({
       { required: true, message: "规则名不能为空", trigger: "blur" }
     ],
     ruleContent: [
-      { required: true, message: '有效用户"= status=0 AND del_flag=0；"本月"= 本月1日至今不能为空', trigger: "blur" }
+      { required: true, message: "规则内容不能为空", trigger: "blur" }
     ],
   }
 })

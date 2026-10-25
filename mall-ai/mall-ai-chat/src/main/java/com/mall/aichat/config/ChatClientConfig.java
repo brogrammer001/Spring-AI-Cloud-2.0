@@ -2,6 +2,7 @@ package com.mall.aichat.config;
 
 import com.mall.aichat.advisor.*;
 import com.mall.aichat.service.IAiAgentToolCallLogService;
+import com.mall.aichat.service.IAiMemoryFactService;
 import com.mall.aichat.service.IKbDocumentService;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.aichat.service.impl.RerankerService;
@@ -51,15 +52,6 @@ public class ChatClientConfig {
     @Value("${mineru.vl.model}")
     private String model;
 
-    @Value("${smallmodel.base-url}")
-    private String smallModelBaseUrl;
-
-    @Value("${smallmodel.api-key}")
-    private String smallModelApiKey;
-
-    @Value("${smallmodel.model}")
-    private String smallModelName;
-
     @Value("${vectorstore.enabled}")
     private boolean vectorStoreEnabled;
 
@@ -91,7 +83,7 @@ public class ChatClientConfig {
     public HistoryAwareToolSearchAdvisor toolSearchAdvisor(@Qualifier("toolIndex") ToolIndex toolIndex) {
         return HistoryAwareToolSearchAdvisor.newBuilder()
             .toolIndex(toolIndex)
-            .advisorOrder(100)
+            .advisorOrder(140)
             .build();
     }
 
@@ -99,7 +91,7 @@ public class ChatClientConfig {
     public SessionMemoryAdvisor sessionMemoryAdvisor(SessionService sessionService) {
         return SessionMemoryAdvisor.builder(sessionService)
             .compactionTrigger(new TurnCountTrigger(4))
-            .order(101)
+            .order(120)
             .compactionStrategy(
                 SlidingWindowCompactionStrategy.builder()
                     .maxEvents(8)
@@ -127,6 +119,7 @@ public class ChatClientConfig {
                                      SessionService sessionService,
                                      ChatClient compressChatClient,
                                      IAiAgentToolCallLogService toolCallLogService,
+                                     IAiMemoryFactService aiMemoryFactService,
                                      NacosPromptRegistry nacosPromptRegistry,
                                      @Qualifier("mcpAsyncToolCallbacks") @Autowired(required = false) AsyncMcpToolCallbackProvider tools
     ) {
@@ -134,33 +127,34 @@ public class ChatClientConfig {
 
         // 1. 向量会话记忆 - 根据 vectorEnabled 和 conversationVectorStore 是否存在来决定
         if (vectorStoreEnabled && conversationVectorStore != null) {
-            advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore, compressChatClient, nacosPromptRegistry)
-                .order(98)
+            advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore, compressChatClient,
+                    nacosPromptRegistry, aiMemoryFactService)
+                .order(100)
                 .defaultTopK(vectorStoreChatMemoryDefaultTopK)
                 .build());
         }
 
-        // 2. 在 toolSearchAdvisor 之前执行，保存标记了 returnDirect=true 的工具结果
-        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, sessionService).order(99).build());
-
-        // 3.工具搜索顾问
-        advisors.add(toolSearchAdvisor); //100
-
-        // 4.基础会话记忆（MySQL）
-        advisors.add(sessionMemoryAdvisor); // 101
-
-        // 5. 知识库上下文查询 - 根据 vectorEnabled 和 knowledgeVectorStore 是否存在来决定
+        // 2. 知识库上下文查询 - 根据 vectorEnabled 和 knowledgeVectorStore 是否存在来决定
         if (vectorStoreEnabled && knowledgeVectorStore != null) {
             advisors.add(RagContextQueryAdvisor.builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager, vectorStoreEnabled)
-                .order(102)
+                .order(110)
                 .build());
         }
 
+        // 3.短期基础会话记忆（MySQL）
+        advisors.add(sessionMemoryAdvisor); // 120
+
+        // 4. 在 toolSearchAdvisor 之前执行，保存标记了 returnDirect=true 的工具结果
+        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, sessionService).order(130).build());
+
+        // 5.工具搜索顾问
+        advisors.add(toolSearchAdvisor); //140
+
         // 6. 保存全量消息，必须在 toolSearchAdvisor 之后，要拿到工具调用信息
-        advisors.add(HistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, agentEventSinkManager, toolCallLogService, mcpEnabled).order(103).build());
+        advisors.add(HistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, agentEventSinkManager, toolCallLogService, mcpEnabled).order(150).build());
 
         // 7. 观测日志
-        advisors.add(new SimpleLoggerAdvisor(104));
+        advisors.add(new SimpleLoggerAdvisor(160));
 
         // 系统提示词已迁移至 Nacos Prompt Registry（NacosPromptRegistry），
         // 由调用侧每次请求时动态注入，支持控制台发布后热更新
@@ -176,36 +170,15 @@ public class ChatClientConfig {
     }
 
     /**
-     * 概述小模型，专门用于概述总结
-     *
+     * 向量压缩会话
+     * @param model
      * @return
      */
-    @Bean("smallChatClient")
-    public ChatClient smallChatClient() {
-        // 1) 构造同步客户端
-        OpenAIClient client = OpenAIOkHttpClient.builder()
-            .baseUrl(smallModelBaseUrl)
-            .apiKey(smallModelApiKey)
-            .timeout(Duration.ofMinutes(5)) // 设置超时时间为 5 分钟
+    @Bean(name = "compressChatClient")
+    public ChatClient compressChatClient(OpenAiChatModel model) {
+        return ChatClient
+            .builder(model)
             .build();
-
-        // 2) 选项中补全 apiKey 和 baseUrl，供 build() 内部创建 async client 使用
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
-            .model(smallModelName)
-            .apiKey(smallModelApiKey)     // 关键：补上 apiKey
-            .baseUrl(smallModelBaseUrl)     // 关键：补上 baseUrl
-            .temperature(0.0)
-            .maxTokens(4096)
-            .build();
-
-        // 3) 构造 OpenAiChatModel
-        OpenAiChatModel smallChatModel = OpenAiChatModel.builder()
-            .openAiClient(client)
-            .options(options)
-            .build();
-
-        // 4) 包装成 ChatClient
-        return ChatClient.builder(smallChatModel).build();
     }
 
     /**
@@ -213,8 +186,8 @@ public class ChatClientConfig {
      * @param model
      * @return
      */
-    @Bean(name = "compressChatClient")
-    public ChatClient compressChatClient(OpenAiChatModel model) {
+    @Bean(name = "titleChatClient")
+    public ChatClient titleChatClient(OpenAiChatModel model) {
         return ChatClient
             .builder(model)
             .build();

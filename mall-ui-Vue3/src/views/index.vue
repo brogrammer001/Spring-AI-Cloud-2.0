@@ -26,7 +26,11 @@
             <div class="flex-1 truncate text-sm font-medium conv-item-title">
               {{ conv.title }}
             </div>
-            <button @click.stop="deleteConversation(conv.id)" class="conv-item-delete p-1 rounded">
+            <button @click.stop="deleteConversation(conv.id)"
+                    :disabled="isLoading"
+                    :title="isLoading ? '正在回答中，暂不能删除会话' : '删除会话'"
+                    class="conv-item-delete p-1 rounded"
+                    :class="{ 'conv-item-delete-disabled': isLoading }">
               <i class="fas fa-trash-alt text-xs"></i>
             </button>
           </div>
@@ -43,7 +47,8 @@
             {{ currentConversationTitle }}
           </div>
         </header>
-        <main ref="chatContainer" class="chat-main flex-1 overflow-y-auto" @click="handleRouteClick">
+        <main ref="chatContainer" class="chat-main flex-1 overflow-y-auto"
+              :class="{ 'is-dark': settingsStore.isDark }" @click="handleRouteClick" @scroll="handleChatScroll">
           <div class="chat-content">
             <div v-for="(message, index) in messages" :key="index" class="message-row"
               :class="[message.role === 'user' ? 'message-row-user' : 'message-row-ai']">
@@ -95,43 +100,68 @@
                       </span>
                     </div>
                   </div>
-                  <!-- 工具调用区块（马卡龙紫：#8b5cf6 / 浅底 #efeafc） -->
+                  <!-- 工具调用区块（马卡龙紫：#8b5cf6 / 浅底 #efeafc）：默认仅展示调用次数，点击图标展开/收起详情 -->
                   <div v-if="message.toolCalls && message.toolCalls.length > 0"
-                       class="mb-3 space-y-1.5"
+                       class="mb-3"
                        :class="{ 'is-dark': settingsStore.isDark }">
-                    <div class="tool-title flex items-center text-xs font-medium mb-1"
-                         :class="{ 'is-dark': settingsStore.isDark }">
-                      <i class="fas fa-wand-magic-sparkles mr-1.5"></i> 已调用工具
-                    </div>
-                    <div v-for="(tc, tcIdx) in message.toolCalls" :key="tcIdx"
-                         class="tool-box flex items-start gap-2.5 px-2.5 py-2 rounded-md text-xs"
-                         :class="{ 'is-dark': settingsStore.isDark }">
-                      <span class="flex-shrink-0 mt-0.5">
-                        <!-- 工具图标 -->
-                        <i class="fas"
-                           :class="tc.toolName.toLowerCase().includes('search') ? 'fa-magnifying-glass'
-                                  : tc.toolName.toLowerCase().includes('menu') ? 'fa-bars'
-                                  : tc.toolName.toLowerCase().includes('sql') || tc.toolName.toLowerCase().includes('query') ? 'fa-database'
-                                  : 'fa-plug'"></i>
+                    <!-- 汇总条：调用次数 + 状态 + 展开图标 -->
+                    <div class="tool-summary flex items-center gap-2 px-2.5 py-2 rounded-md text-xs cursor-pointer select-none"
+                         :class="{ 'is-dark': settingsStore.isDark }"
+                         title="点击查看/收起工具调用详情"
+                         @click="toggleToolDetail(message)">
+                      <i class="fas fa-wand-magic-sparkles tool-title flex-shrink-0"
+                         :class="{ 'is-dark': settingsStore.isDark }"></i>
+                      <span class="font-medium tool-summary-text"
+                            :class="{ 'is-dark': settingsStore.isDark }">已调用工具</span>
+                      <span class="tool-count-badge inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-full text-[10px] font-bold"
+                            :class="{ 'is-dark': settingsStore.isDark }">{{ message.toolCalls.length }}</span>
+                      <span v-if="message.toolCalls.some(t => t.status === 'running')"
+                            class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="{ 'is-dark': settingsStore.isDark }">
+                        <i class="fas fa-circle-notch fa-spin"></i> 调用中
                       </span>
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                          <span class="font-semibold font-mono">{{ tc.toolName }}</span>
-                          <span v-if="tc.status === 'running'"
-                                class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                                :class="{ 'is-dark': settingsStore.isDark }">
-                            <i class="fas fa-circle-notch fa-spin"></i> 调用中
-                          </span>
-                          <span v-else-if="tc.status === 'done'"
-                                class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
-                                :class="{ 'is-dark': settingsStore.isDark }">
-                            <i class="fas fa-check"></i> 完成
-                          </span>
-                        </div>
-                        <div class="tool-desc mt-0.5 truncate"
-                             :class="{ 'is-dark': settingsStore.isDark }"
-                             :title="tc.description">
-                          {{ tc.description }}
+                      <span v-else
+                            class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            :class="{ 'is-dark': settingsStore.isDark }">
+                        <i class="fas fa-check"></i> 完成
+                      </span>
+                      <span class="tool-toggle-icon ml-auto flex-shrink-0"
+                            :class="{ 'is-expanded': message.toolDetailVisible, 'is-dark': settingsStore.isDark }">
+                        <i class="fas fa-chevron-down"></i>
+                      </span>
+                    </div>
+                    <!-- 详情列表：工具名称逐条展示（点击汇总条展开/收起） -->
+                    <div v-show="message.toolDetailVisible" class="mt-1.5 space-y-1.5">
+                      <div v-for="(tc, tcIdx) in message.toolCalls" :key="tcIdx"
+                           class="tool-box flex items-start gap-2.5 px-2.5 py-2 rounded-md text-xs"
+                           :class="{ 'is-dark': settingsStore.isDark }">
+                        <span class="flex-shrink-0 mt-0.5">
+                          <!-- 工具图标 -->
+                          <i class="fas"
+                             :class="tc.toolName.toLowerCase().includes('search') ? 'fa-magnifying-glass'
+                                    : tc.toolName.toLowerCase().includes('menu') ? 'fa-bars'
+                                    : tc.toolName.toLowerCase().includes('sql') || tc.toolName.toLowerCase().includes('query') ? 'fa-database'
+                                    : 'fa-plug'"></i>
+                        </span>
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-semibold font-mono">{{ tc.toolName }}</span>
+                            <span v-if="tc.status === 'running'"
+                                  class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                                  :class="{ 'is-dark': settingsStore.isDark }">
+                              <i class="fas fa-circle-notch fa-spin"></i> 调用中
+                            </span>
+                            <span v-else-if="tc.status === 'done'"
+                                  class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                                  :class="{ 'is-dark': settingsStore.isDark }">
+                              <i class="fas fa-check"></i> 完成
+                            </span>
+                          </div>
+                          <div class="tool-desc mt-0.5 truncate"
+                               :class="{ 'is-dark': settingsStore.isDark }"
+                               :title="tc.description">
+                            {{ tc.description }}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -480,8 +510,20 @@ const adjustTextareaHeight = () => {
   }
 };
 
+/** 用户是否停留在滚动底部（距底 < 80px 视为在底部）。流式输出时仅当用户在底部才自动跟随，用户上翻阅读时不打断 */
+const userAtBottom = ref(true);
+const handleChatScroll = () => {
+  const container = chatContainer.value;
+  if (!container) return;
+  userAtBottom.value = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+};
+
 let scrollTimeout = null;
-const scrollToBottom = () => {
+const scrollToBottom = (force = false) => {
+  // 非强制滚动时，用户不在底部则跳过，避免打断用户阅读历史内容
+  if (!force && !userAtBottom.value) return;
+  // 强制滚动（发送消息/切换会话）时同步标记为在底部，保证后续流式内容持续跟随
+  if (force) userAtBottom.value = true;
   if (scrollTimeout) clearTimeout(scrollTimeout);
   scrollTimeout = setTimeout(() => {
     nextTick(() => {
@@ -491,6 +533,11 @@ const scrollToBottom = () => {
       container.scrollTop = scrollHeight;
     });
   }, 30);
+};
+
+/** 切换工具调用详情列表展开/收起（默认收起，仅显示调用次数汇总条） */
+const toggleToolDetail = (message) => {
+  message.toolDetailVisible = !message.toolDetailVisible;
 };
 
 const switchConversation = async (id) => {
@@ -622,12 +669,18 @@ const switchConversation = async (id) => {
         messages.value = [{ role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: welcomeMessageContent.length, isStreaming: false, toolCalls: [], ragRetrieve: null }];
       }
     }
-    scrollToBottom();
+    // 切换会话强制回到底部
+    scrollToBottom(true);
     nextTick(() => { if (textarea.value) textarea.value.focus(); });
   }
 };
 
 const deleteConversation = async (id) => {
+  // 正在回答（流式输出中）时不允许删除会话，避免中断回答后状态错乱
+  if (isLoading.value) {
+    ElMessage.warning('正在回答中，请等待回答完成后再删除会话');
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       '确定要删除该会话吗？此操作不可恢复。',
@@ -668,7 +721,8 @@ const startNewConversation = () => {
   nextTick(() => {
     if (messages.value[0]) messages.value[0].visibleChars = messages.value[0].content.length;
   });
-  scrollToBottom();
+  // 新会话强制回到底部
+  scrollToBottom(true);
   nextTick(() => { if (textarea.value) textarea.value.focus(); });
 };
 
@@ -766,7 +820,7 @@ const sendMessage = async () => {
 
   userInput.value = '';
   adjustTextareaHeight();
-  scrollToBottom();
+  scrollToBottom(true);
 
   isLoading.value = true;
   controller = new AbortController();
@@ -807,8 +861,36 @@ const sendMessage = async () => {
       }
     };
 
-    /** 流结束统一收尾（complete 与 start 返回后各执行一次，逻辑幂等） */
+    // ---- 正文合批提交 ----
+    // 后端按极短分片推送正文（如 "```bash"、"\nE"、":\\ll"、"ama-b"，单条仅 1~10 字符），
+    // 若每片都直接写响应式数据，会触发整篇 Markdown 反复重渲染（含代码高亮），
+    // 造成明显卡顿与代码块闪烁。此处先写入本地缓冲，按动画帧合并提交，
+    // 既保证逐字输出的实时观感，又把渲染频率收敛到每帧最多一次。
+    let pendingText = '';
+    let flushScheduled = false;
+
+    /** 立即把缓冲中的分片合并进消息正文（供收尾/错误等需要同步读取正文的场景调用） */
+    const flushText = () => {
+      flushScheduled = false;
+      if (!pendingText) return;
+      messages.value[messageIndex].content += pendingText;
+      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      pendingText = '';
+    };
+
+    const scheduleFlush = () => {
+      if (flushScheduled) return;
+      flushScheduled = true;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(flushText);
+      } else {
+        setTimeout(flushText, 16);
+      }
+    };
+
+    /** 流结束统一收尾（message_end / complete / start 返回后均可能触发，逻辑幂等） */
     const finalize = () => {
+      flushText();
       if (messages.value[messageIndex].content === '') {
         messages.value[messageIndex].content = '(无返回内容)';
         messages.value[messageIndex].visibleChars = 6;
@@ -816,13 +898,14 @@ const sendMessage = async () => {
       finishPendingTools();
       messages.value[messageIndex].isLoading = false;
       messages.value[messageIndex].isStreaming = false;
+      scrollToBottom();
     };
 
-    /** 追加正文并滚动到底部 */
+    /** 追加正文（写入缓冲，按帧合并提交）并滚动到底部 */
     const appendText = (text) => {
       if (!text) return;
-      messages.value[messageIndex].content += text;
-      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
+      pendingText += text;
+      scheduleFlush();
       scrollToBottom();
     };
 
@@ -830,15 +913,21 @@ const sendMessage = async () => {
     //   event: message      + data: {"event":"message","content":"分片文本","conversationId":"..."}
     //   event: message_end  + data: {"event":"message_end","messageId":"...","conversationId":"..."}
     // 旧协议兼容：data: {"text":"..."} / {"code":...,"msg":...} / 纯文本
+    let contentStarted = false;
     es.addEventListener('message', (e) => {
-      // 正文开始输出：上一轮仍"调用中"的工具/RAG 检索标记完成
-      finishPendingTools();
-
       const json = e.json;
+      // 正文开始输出：仅首次分片时把上一轮仍"调用中"的工具/RAG 检索标记完成
+      // （原实现每片都遍历一次，高频碎片下属于无效开销）
+      if (!contentStarted) {
+        contentStarted = true;
+        finishPendingTools();
+      }
       // 新协议：分片文本在 content 字段（仅追加字符串，忽略 messageId/index 等其他字段）
       if (json && typeof json.content === 'string') {
-        // 尝试解析嵌套 JSON（工具返回 code 8001/9999 等结构化数据）
-        const nested = parseNestedJson(json.content);
+        // 结构化数据（code 8001/9999）才会以 { 或 [ 开头；
+        // 纯文本分片先做首字符判断，避免高频碎片每次都 JSON.parse 抛异常
+        const head = json.content.trimStart().charAt(0);
+        const nested = (head === '{' || head === '[') ? parseNestedJson(json.content) : null;
         if (nested && nested.code !== undefined) {
           // 结构化协议：展示 msg 文本 + 处理业务码
           appendText(nested.msg || '');
@@ -997,6 +1086,8 @@ const sendMessage = async () => {
     });
 
     // 流结束（data 可能是 {"state":"rag_start"} 等任意载荷）：携带 messageId/conversationId 时回填
+    // message_end 即代表本轮正文已输出完毕，可能不再发送 complete：
+    // 立即冲刷缓冲并收尾，避免连接保活导致界面一直停留在"生成中"
     es.addEventListener('message_end', (e) => {
       const json = e.json || {};
       if (json.messageId) {
@@ -1004,6 +1095,14 @@ const sendMessage = async () => {
       }
       if (json.conversationId) {
         messages.value[messageIndex].conversationId = json.conversationId;
+      }
+      // 兼容旧后端把状态载荷（如 {"state":"rag_start"}）也塞进 message_end 的情况：
+      // 仅当是真正的结束载荷（带 messageId / metadata，或不带 state）时才收尾
+      const isTerminal = !!json.messageId || json.metadata !== undefined || !json.state;
+      if (isTerminal) {
+        finalize();
+        // 正文已结束：主动结束 SSE 读取，避免服务端 keep-alive 让按钮长期停在"生成中"
+        es.close();
       }
     });
 
@@ -1016,6 +1115,8 @@ const sendMessage = async () => {
 
     // 传输层错误（网络中断 / 用户中止）
     es.addEventListener('stream_error', (e) => {
+      // 先合批落地已收到的分片，保证下面的"是否有正文"判断准确
+      flushText();
       if (e.error && e.error.name === 'AbortError') {
         console.log('请求被用户中止');
         if (messages.value[messageIndex].content === '') {
@@ -1349,9 +1450,10 @@ textarea {
   }
 }
 
-/* 消息主区域：亮色淡紫 / 暗色深底 */
+/* 消息主区域：亮色白底 / 暗色深底 */
 .chat-main {
-  background: #f4f2f9;
+  background: #ffffff;
+  transition: background-color 0.3s ease;
 
   &.is-dark {
     background: rgba(20, 18, 30, 0.6);
@@ -1557,6 +1659,72 @@ textarea {
   }
 }
 
+/* 工具调用汇总条：默认仅显示调用次数，点击展开详情 */
+.tool-summary {
+  background: #efeafc;
+  border: 1px solid rgba(139, 92, 246, 0.30);
+  color: #8b5cf6;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    border-color: rgba(139, 92, 246, 0.55);
+    background: #e7e1fb;
+  }
+
+  &.is-dark {
+    background: rgba(139, 92, 246, 0.10);
+    color: #a78bfa;
+
+    &:hover {
+      background: rgba(139, 92, 246, 0.18);
+      border-color: rgba(167, 139, 250, 0.45);
+    }
+  }
+}
+
+.tool-summary-text {
+  color: #8b5cf6;
+
+  &.is-dark {
+    color: #a78bfa;
+  }
+}
+
+/* 调用次数徽章（马卡龙紫饱和底 + 白字） */
+.tool-count-badge {
+  background: #8b5cf6;
+  color: #ffffff;
+  line-height: 1;
+
+  &.is-dark {
+    background: #7c3aed;
+    color: #ffffff;
+  }
+}
+
+/* 展开/收起箭头图标：展开时旋转 180° */
+.tool-toggle-icon {
+  color: #8b5cf6;
+  font-size: 10px;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+
+  &:hover {
+    color: #7c3aed;
+  }
+
+  &.is-expanded {
+    transform: rotate(180deg);
+  }
+
+  &.is-dark {
+    color: #a78bfa;
+
+    &:hover {
+      color: #c4b5fd;
+    }
+  }
+}
+
 /* 输入中动画圆点 */
 .typing-dots {
   .typing-dot {
@@ -1731,6 +1899,16 @@ textarea {
 
     &:hover {
       color: #f0436e;
+    }
+
+    /* 回答中禁用：置灰且不可点击 */
+    &.conv-item-delete-disabled {
+      cursor: not-allowed;
+      color: #d4d0de;
+
+      &:hover {
+        color: #d4d0de;
+      }
     }
   }
 

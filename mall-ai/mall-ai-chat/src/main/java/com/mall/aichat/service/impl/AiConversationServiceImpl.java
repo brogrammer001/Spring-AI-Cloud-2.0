@@ -1,13 +1,14 @@
 package com.mall.aichat.service.impl;
 
 import com.mall.aichat.config.NacosPromptRegistry;
+import com.mall.aichat.constant.ChatConstants;
 import com.mall.aichat.domain.AiConversation;
 import com.mall.aichat.mapper.AiConversationMapper;
 import com.mall.aichat.service.IAiAgentToolCallLogService;
 import com.mall.aichat.service.IAiConversationService;
+import com.mall.aichat.service.IAiMemoryFactService;
 import com.mall.aichat.service.ISysChatHistoryService;
 import com.mall.common.core.constant.Constants;
-import com.mall.common.core.exception.ServiceException;
 import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
@@ -57,6 +58,9 @@ public class AiConversationServiceImpl implements IAiConversationService {
     private IAiAgentToolCallLogService aiAgentToolCallLogService;
 
     @Autowired
+    private IAiMemoryFactService aiMemoryFactService;
+
+    @Autowired
     private SessionService sessionService;
 
     @Autowired(required = false)
@@ -67,7 +71,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
     @Qualifier("toolVectorStore")
     private VectorStore toolVectorStore;
 
-    @Resource(name = "qwenChatClient")
+    @Resource(name = "titleChatClient")
     public ChatClient titleChatClient;
 
     @Resource(name = "taskExecutor")
@@ -157,7 +161,6 @@ public class AiConversationServiceImpl implements IAiConversationService {
         String sessionId = session.id();
 
         // 保存到数据库
-
         AiConversation entity = new AiConversation();
         entity.setId(IdUtils.fastUUID());
         entity.setUserId(userId);
@@ -175,7 +178,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
                 try {
                     // 二次检查：如果会话已有标题则不再生成（避免重复调用）
                     AiConversation existing = this.selectAiConversationById(entity.getId());
-                    if (existing != null && StringUtils.isNotEmpty(existing.getTitle())) {
+                    if (existing != null && StringUtils.isEmpty(existing.getTitle())) {
                         return;
                     }
 
@@ -232,6 +235,9 @@ public class AiConversationServiceImpl implements IAiConversationService {
         //删除工具调用信息
         int a = aiAgentToolCallLogService.deleteAiAgentToolCallLogByConversationIds(conversationIds);
 
+        //删除该会话产生的长期记忆事实（MySQL 权威存储）
+        aiMemoryFactService.deleteAiMemoryFactByConversationIds(conversationIds);
+
         //用户与会话id关联缓存
         List<String> chatConversationKey = Arrays.stream(conversationIds).map(conversationId -> Constants.CHAT_CONVERSATION_KEY + conversationId).collect(Collectors.toList());
         //保存全量会话新增顺序号缓存
@@ -243,15 +249,12 @@ public class AiConversationServiceImpl implements IAiConversationService {
         if (vectorStoreEnabled) {
             //删除向量库会话
             FilterExpressionBuilder b = new FilterExpressionBuilder();
-            //删除会话向量
-            conversationVectorStore.delete(b.in("conversationId", conversationIds).build());
+            //删除会话向量（会话语义记忆与长期记忆的 metadata 均带 conversationId，一并清理）
+            conversationVectorStore.delete(b.in(ChatConstants.CHAT_MEMORY_CONVERSATION_ID, conversationIds).build());
             //删除工具搜索向量
             toolVectorStore.delete(b.in("sessionId", conversationIds).build());
         }
 
-        if (i == 0 || z == 0 || a == 0) {
-            throw new ServiceException("删除会话失败");
-        }
         return i;
     }
 

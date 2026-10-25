@@ -70,8 +70,9 @@ spring:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${aliQwen-api}
       chat:
-        model: qwen3.7-flash
-#      base-url: https://api-inference.modelscope.cn/v1
+        model: qwen3.8-max
+        timeout: 600s
+      #      base-url: https://api-inference.modelscope.cn/v1
 #      api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
 #      chat:
 #        model: deepseek-ai/DeepSeek-V4-Pro-0813
@@ -84,6 +85,9 @@ spring:
         host: 114.132.102.8:18080
         scheme: http
         api-key: b251055070805a857b31dd014d40b727dd6a23714ea1bf66
+    tools:
+      limits:
+        max-total-tool-calls: 30 #每轮对话中所有工具的调用总次数上限，可以看做ReAct循环次数，当循环调用工具达到次数就不会再次进入循环，只要计数达到上限，循环就会按 on-limit-exceeded 的策略终止（抛异常或返回错误响应让模型自己处理）
   profiles:
     # 环境配置
     active: dev
@@ -127,19 +131,8 @@ reranker:
   base-url: http://127.0.0.1:8887
   top-n: 3
 
-smallmodel:
-  base-url: http://114.132.102.8:8888/v1
-  api-key: 123456
-  model: MiniCPM5-1B-Q8_0
-#  base-url: https://apihub.agnes-ai.com/v1
-#  api-key: sk-8liWySJNPd8Znk0Z7Fk3iOl7MfjE9MIgdLLRME3fp8HYdBKV
-#  model: agnes-2.5-flash
-#  base-url: https://api-inference.modelscope.cn/v1
-#  api-key: ms-3089c12b-0add-4ecb-b3c4-eb369df5d7ea
-#  model: deepseek-ai/DeepSeek-V4-Pro-0813
-
 vectorstore:
-  enabled: false #开启全局向量功能
+  enabled: true #开启全局向量功能
   chat-memory-default-topk: 1
   weaviate:
     knowledge-object-class: KnowledgeBase

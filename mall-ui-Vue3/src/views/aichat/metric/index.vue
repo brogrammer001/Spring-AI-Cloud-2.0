@@ -1,23 +1,23 @@
 <template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="指标名，如复购率" prop="metricName">
+      <el-form-item label="指标名" prop="metricName">
         <el-input
           v-model="queryParams.metricName"
-          placeholder="请输入指标名，如复购率"
+          placeholder="请输入指标名"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="同义词，逗号分隔：回购率,重复购买率" prop="synonyms">
+      <el-form-item label="同义词" prop="synonyms">
         <el-input
           v-model="queryParams.synonyms"
-          placeholder="请输入同义词，逗号分隔：回购率,重复购买率"
+          placeholder="多个用逗号分隔"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="默认聚合方式" prop="aggDefault">
+      <el-form-item label="聚合方式" prop="aggDefault">
         <el-input
           v-model="queryParams.aggDefault"
           placeholder="请输入默认聚合方式"
@@ -25,18 +25,18 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="单位：% / 元 / 人" prop="unit">
+      <el-form-item label="单位" prop="unit">
         <el-input
           v-model="queryParams.unit"
-          placeholder="请输入单位：% / 元 / 人"
+          placeholder="如 % / 元 / 人"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="是否启用" prop="enabled">
+      <el-form-item label="启用" prop="enabled">
         <el-input
           v-model="queryParams.enabled"
-          placeholder="请输入是否启用"
+          placeholder="1启用 / 0停用"
           clearable
           @keyup.enter="handleQuery"
         />
@@ -91,14 +91,13 @@
 
     <el-table v-loading="loading" :data="metricList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="指标ID" align="center" prop="id" />
-      <el-table-column label="指标名，如复购率" align="center" prop="metricName" />
-      <el-table-column label="同义词，逗号分隔：回购率,重复购买率" align="center" prop="synonyms" />
-      <el-table-column label="SQL表达式模板：COUNT(DISTINCT CASE WHEN 下单次数>=2 THEN user_id END) / COUNT(DISTINCT user_id)" align="center" prop="metricExpr" />
-      <el-table-column label="默认聚合方式" align="center" prop="aggDefault" />
-      <el-table-column label="单位：% / 元 / 人" align="center" prop="unit" />
-      <el-table-column label="是否启用" align="center" prop="enabled" />
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="指标名" align="center" prop="metricName" min-width="140" show-overflow-tooltip />
+      <el-table-column label="同义词" align="center" prop="synonyms" min-width="160" show-overflow-tooltip />
+      <el-table-column label="SQL表达式" align="center" prop="metricExpr" min-width="280" show-overflow-tooltip />
+      <el-table-column label="聚合方式" align="center" prop="aggDefault" width="110" />
+      <el-table-column label="单位" align="center" prop="unit" width="90" />
+      <el-table-column label="启用" align="center" prop="enabled" width="90" />
+      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width" fixed="right">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['aichat:metric:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['aichat:metric:remove']">删除</el-button>
@@ -116,36 +115,36 @@
 
     <!-- 添加或修改NL2SQL指标定义对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="metricRef" :model="form" :rules="rules" label-width="100px">
+      <el-form ref="metricRef" :model="form" :rules="rules" label-width="90px">
         <el-row>
           <el-col :span="24">
-            <el-form-item label="指标名，如复购率" prop="metricName">
-              <el-input v-model="form.metricName" placeholder="请输入指标名，如复购率" />
+            <el-form-item label="指标名" prop="metricName">
+              <el-input v-model="form.metricName" placeholder="请输入指标名" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="同义词，逗号分隔：回购率,重复购买率" prop="synonyms">
-              <el-input v-model="form.synonyms" placeholder="请输入同义词，逗号分隔：回购率,重复购买率" />
+            <el-form-item label="同义词" prop="synonyms">
+              <el-input v-model="form.synonyms" placeholder="多个用逗号分隔" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="SQL表达式模板：COUNT(DISTINCT CASE WHEN 下单次数>=2 THEN user_id END) / COUNT(DISTINCT user_id)" prop="metricExpr">
-              <el-input v-model="form.metricExpr" type="textarea" placeholder="请输入内容" />
+            <el-form-item label="SQL表达式" prop="metricExpr">
+              <el-input v-model="form.metricExpr" type="textarea" placeholder="请输入SQL表达式模板" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="默认聚合方式" prop="aggDefault">
+            <el-form-item label="聚合方式" prop="aggDefault">
               <el-input v-model="form.aggDefault" placeholder="请输入默认聚合方式" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="单位：% / 元 / 人" prop="unit">
-              <el-input v-model="form.unit" placeholder="请输入单位：% / 元 / 人" />
+            <el-form-item label="单位" prop="unit">
+              <el-input v-model="form.unit" placeholder="如 % / 元 / 人" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="是否启用" prop="enabled">
-              <el-input v-model="form.enabled" placeholder="请输入是否启用" />
+            <el-form-item label="启用" prop="enabled">
+              <el-input v-model="form.enabled" placeholder="1启用 / 0停用" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -189,10 +188,10 @@ const data = reactive({
   },
   rules: {
     metricName: [
-      { required: true, message: "指标名，如复购率不能为空", trigger: "blur" }
+      { required: true, message: "指标名不能为空", trigger: "blur" }
     ],
     metricExpr: [
-      { required: true, message: "SQL表达式模板：COUNT(DISTINCT CASE WHEN 下单次数>=2 THEN user_id END) / COUNT(DISTINCT user_id)不能为空", trigger: "blur" }
+      { required: true, message: "SQL表达式不能为空", trigger: "blur" }
     ],
   }
 })

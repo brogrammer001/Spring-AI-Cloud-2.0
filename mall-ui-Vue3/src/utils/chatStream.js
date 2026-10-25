@@ -135,6 +135,16 @@ export function createEventStream(response) {
     buffer = buffer.slice(i);
   }
 
+  let closed = false;
+
+  /** 主动结束读取（用于收到 message_end 后关闭 keep-alive 连接）；
+   *  cancel 会让挂起的 read() 以 done=true 返回，随后正常派发 complete */
+  function close() {
+    if (closed) return;
+    closed = true;
+    try { reader.cancel(); } catch (_) { /* reader 已释放时忽略 */ }
+  }
+
   /** 消费整个流；流自然关闭时冲刷残留块并派发 complete */
   async function start() {
     try {
@@ -161,6 +171,7 @@ export function createEventStream(response) {
   return {
     addEventListener: target.addEventListener.bind(target),
     removeEventListener: target.removeEventListener.bind(target),
+    close,
     start
   };
 }

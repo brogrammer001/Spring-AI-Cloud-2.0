@@ -1970,3 +1970,88 @@ MCP 工具调用存在**多层超时**，需逐层配置避免"上层先超时"�
 *   **渲染告警**：渲染后残留 `{{xxx}}` 占位符会输出告警日志，用于排查漏传变量。
 *   **轮询频率**：SDK 默认每 10 秒轮询一次 Nacos（`DEFAULT_AI_CACHE_UPDATE_INTERVAL=10000ms`），即使 Prompt 未修改（304）也会持续请求。通过 `prompt-cache-update-interval`（默认 60000ms）调低频率，避免日志刷屏与无效请求。
 *   **配置迁移**：mall-ai-mcp-server / mall-ai-mcp-gateway 的 `spring.ai.*` 配置已迁移至 Nacos 配置中心（`{服务名}-dev.yml`），修改配置需在 Nacos 控制台操作并发布。
+
+
+# 整个响应式流程（纯流程版）
+## 阶段一：请求接入
+```
+1. POST /ai/chat 到达 → Netty EventLoop 接收（非阻塞）
+2. Controller 校验 question → 生成/复用 conversationId
+```
+## 阶段二：建立 Sink 通道
+```
+3. 创建 Sinks.many().unicast().onBackpressureBuffer()
+4. register(convId, sink) → 存入 ConcurrentHashMap 注册表
+```
+## 阶段三：后台流水线启动（Service 侧）
+```
+5. llmPhase() 组装流水线：
+   qwenChatClient.prompt()
+     .system(prompt)                    ← Nacos 缓存读取
+     .user(question)
+     .advisors(param: sessionId/userId) ← 上下文随 Reactor Context 传递
+     .stream().chatResponse()           ← 非阻塞发起 LLM 请求，EventLoop 立即释放
+     .filter(result != null)            ← 剔除空包
+     .flatMap(转 chunk 事件 + 记录 usage)
+6. task = llmPhase().subscribe(
+       sink::tryEmitNext,               ← 主流事件注入 sink
+       err → completeWithError,
+       ()  → complete
+   )
+   返回 Disposable 句柄
+```
+## 阶段四：旁路事件注入（Advisor 侧）
+```
+7. LLM 请求链路内 Advisor 执行：
+   emitThought(convId, toolName)        → 查注册表 → tryEmitNext
+   emitRagRetrieve(convId, stage)       → 查注册表 → tryEmitNext
+   【此时无订阅者 → 事件进入 sink 缓冲区，不丢失】
+```
+## 阶段五：订阅出口（Controller 侧）
+```
+8. Controller return decorate(sink.asFlux(), ...) → WebFlux 订阅 → SSE 连接建立
+9. 缓冲区中的旁路事件重放 → 前端先收到 rag_retrieve:start
+```
+## 阶段六：流式传输（核心循环）
+```
+10. LLM 分片到达内核 socket 缓冲区 → epoll 通知 → 任意空闲 EventLoop 接力处理
+11. 每个 chunk：flatMap 转 message 事件 → tryEmitNext 进 sink
+    → asFlux → 装饰链五步：
+       filter(isValidEvent)      终止事件必达 / 空分片拦截 / 状态事件放行
+       → timeout(600s)           相邻信号间隔超时保护
+       → concatWith(defer(end))  流结束时才读 usage，推 message_end
+       → doFinally               四种终局统一清理
+       → onErrorResume           异常脱敏为 error 事件
+    → SSE 推送前端
+12. 分片间隙 EventLoop 服务其他连接，无线程等待
+```
+## 阶段七：终局与清理
+```
+13a. 正常完成：LLM onComplete → sink.tryEmitComplete → defer 求值推 end 事件
+     → doFinally(ON_COMPLETE) → task.dispose()（no-op）→ complete 移除注册
+13b. LLM 异常：onError → completeWithError → sink.tryEmitError
+     → onErrorResume 转脱敏 error 事件 → doFinally 清理
+13c. 超时：timeout 抛 TimeoutException → onErrorResume → "回答超时" → doFinally 清理
+13d. 客户端断连：WebFlux 发 cancel → doFinally(CANCEL)
+     → task.dispose() 取消后台 LLM 流水线（停止消耗 token）→ complete 清理注册表
+```
+## 流程图总览
+```
+Controller                    Service                     Advisor(旁路)
+    │                            │                            │
+    ├─ register(sink) ──────────→│ 注册表                      │
+    ├─ process() ───────────────→│ llmPhase().subscribe       │
+    │                            │   (sink::tryEmitNext)      │
+    │                            ├─ 发起 LLM 请求(非阻塞) ────→│
+    │                            │                            ├─ emitRagRetrieve
+    │                            │                            │   → tryEmitNext
+    │   ┌── sink ──────────────────────────────────────────────┘
+    │   │    [缓冲: 订阅前事件]                                     
+    ├─ return asFlux → decorate → WebFlux 订阅                 
+    │                ↓                                         
+    │   filter→timeout→concatWith→doFinally→onErrorResume      
+    │                ↓                                         
+    ←─ SSE 输出 ←── 分片循环(epoll 接力, 无线程等待)              
+    │                                                         
+    └─ 终局: complete/error/timeout/cancel → doFinally 清理 ────→ dispose + 移除注册
+```
