@@ -24,27 +24,21 @@ public class DeptToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "部门数据的新增、修改、删除。参数包含 operationType(add/update/delete)和部门实体。")
+    @Tool(description = "部门数据的新增、修改、删除。参数包含 operationType(add/update/delete)和部门实体。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult deptCrud(SysDeptBo deptBo) {
-        String operationType = deptBo.getOperationType();
-        if (operationType == null || operationType.isEmpty()) {
-            return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
+        AjaxResult gate = crudGate(deptBo, "deptCrud", "部门", OPS_CRUD, "deptName");
+        if (gate != null) {
+            return gate;
         }
-
-        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
+        return executeWithErrorHandling(() -> switch (deptBo.getOperationType().toLowerCase()) {
             case "add" -> handleDeptAdd(deptBo);
             case "update" -> handleDeptUpdate(deptBo);
             case "delete" -> handleDeptDelete(deptBo);
-            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+            default -> AjaxResult.error("不支持的操作类型：" + deptBo.getOperationType() + "，请使用：add、update、delete");
         }, "部门操作");
     }
 
     private AjaxResult handleDeptAdd(SysDeptBo deptBo) {
-        AjaxResult validateResult = validate(deptBo, "sysDeptBo");
-        if (validateResult != null) {
-            return validateResult;
-        }
-
         SysDept sysDept = new SysDept();
         BeanUtils.copyProperties(deptBo, sysDept);
 
@@ -54,7 +48,7 @@ public class DeptToolServiceImpl extends BaseToolServiceImpl {
                 return AjaxResult.error("父部门不存在：" + deptBo.getParentName());
             }
             if (parentDepts.size() > 1) {
-                return AjaxResult.error(buildMultipleDeptMessage("查询到多个父部门，请补充更多信息后重试：", parentDepts));
+                return formMissing("查询到多个父部门，请补充以下信息以精确定位：" + buildMultipleDeptMessage("", parentDepts), deptBo);
             }
             sysDept.setParentId(parentDepts.getFirst().getDeptId());
         } else {
@@ -107,14 +101,14 @@ public class DeptToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleDeptUpdate(SysDeptBo deptBo) {
         if (deptBo.getDeptName() == null || deptBo.getDeptName().isEmpty()) {
-            return AjaxResult.error("修改操作必须传入部门名称");
+            return formMissing("修改操作必须传入部门名称，请补充", deptBo, "deptName");
         }
         List<SysDept> depts = getDeptsByConditions(deptBo);
         if (depts.isEmpty()) {
             return AjaxResult.error("部门不存在：" + deptBo.getDeptName());
         }
         if (depts.size() > 1) {
-            return AjaxResult.error(buildMultipleDeptMessage("查询到多个部门，请补充更多信息（如负责人、联系电话等）后重试：", depts));
+            return formMissing("查询到多个部门，请补充以下信息以精确定位：" + buildMultipleDeptMessage("", depts), deptBo);
         }
 
         SysDept sysDept = new SysDept();
@@ -127,7 +121,7 @@ public class DeptToolServiceImpl extends BaseToolServiceImpl {
                 return AjaxResult.error("父部门不存在：" + deptBo.getParentName());
             }
             if (parentDepts.size() > 1) {
-                return AjaxResult.error(buildMultipleDeptMessage("查询到多个父部门，请补充更多信息后重试：", parentDepts));
+                return formMissing("查询到多个父部门，请补充以下信息以精确定位：" + buildMultipleDeptMessage("", parentDepts), deptBo);
             }
             sysDept.setParentId(parentDepts.getFirst().getDeptId());
         }
@@ -138,7 +132,7 @@ public class DeptToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleDeptDelete(SysDeptBo deptBo) {
         if (deptBo.getDeptName() == null || deptBo.getDeptName().isEmpty()) {
-            return AjaxResult.error("删除操作必须传入部门名称");
+            return formMissing("删除操作必须传入部门名称，请补充", deptBo, "deptName");
         }
 
         List<SysDept> depts = getDeptsByConditions(deptBo);
@@ -146,7 +140,7 @@ public class DeptToolServiceImpl extends BaseToolServiceImpl {
             return AjaxResult.error("部门不存在：" + deptBo.getDeptName());
         }
         if (depts.size() > 1) {
-            return AjaxResult.error(buildMultipleDeptMessage("查询到多个部门，请补充更多信息（如负责人、联系电话等）后重试：", depts));
+            return formMissing("查询到多个部门，请补充以下信息以精确定位：" + buildMultipleDeptMessage("", depts), deptBo);
         }
 
         R<Boolean> result = remoteDeptService.deleteDept(depts.getFirst().getDeptId());

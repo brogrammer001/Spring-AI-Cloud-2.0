@@ -3,7 +3,7 @@ package com.mall.chatmcp.bo;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import jakarta.validation.constraints.NotBlank;
 
-public class UserRoleBo {
+public class UserRoleBo extends BaseConfirmBo {
 
     @NotBlank(message = "用户账号不能为空")
     @JsonPropertyDescription("用户账号，例如 zhangsan")

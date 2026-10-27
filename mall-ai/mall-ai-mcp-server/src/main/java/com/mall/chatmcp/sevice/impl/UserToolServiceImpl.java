@@ -15,12 +15,15 @@ import com.mall.system.api.domain.SysPost;
 import com.mall.system.api.domain.SysRole;
 import com.mall.system.api.domain.SysUser;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.Validator;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class UserToolServiceImpl extends BaseToolServiceImpl {
@@ -42,27 +45,21 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "用户数据的新增、修改、删除。参数包含 operationType(add/update/delete)和用户实体。")
+    @Tool(description = "用户数据的新增、修改、删除。参数包含 operationType(add/update/delete)和用户实体。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult userCrud(SysUserBo userBo) {
-        String operationType = userBo.getOperationType();
-        if (operationType == null || operationType.isEmpty()) {
-            return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
+        AjaxResult gate = crudGate(userBo, "userCrud", "用户", OPS_CRUD, "userName");
+        if (gate != null) {
+            return gate;
         }
-
-        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
+        return executeWithErrorHandling(() -> switch (userBo.getOperationType().toLowerCase()) {
             case "add" -> handleAdd(userBo);
             case "update" -> handleUpdate(userBo);
             case "delete" -> handleDelete(userBo);
-            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+            default -> AjaxResult.error("不支持的操作类型：" + userBo.getOperationType() + "，请使用：add、update、delete");
         }, "用户操作");
     }
 
     private AjaxResult handleAdd(SysUserBo userBo) {
-        AjaxResult validateResult = validate(userBo, "sysUserBo");
-        if (validateResult != null) {
-            return validateResult;
-        }
-
         SysUser sysUser = new SysUser();
         BeanUtils.copyProperties(userBo, sysUser);
 
@@ -72,7 +69,7 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
                 return AjaxResult.error("部门不存在：" + userBo.getDeptName());
             }
             if (depts.size() > 1) {
-                return AjaxResult.error("查询到多个部门，请补充更多信息：" + formatDeptList(depts));
+                return formMissing("查询到多个部门，请补充以下信息以精确定位：" + formatDeptList(depts), userBo);
             }
             sysUser.setDeptId(depts.getFirst().getDeptId());
         }
@@ -95,14 +92,14 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleUpdate(SysUserBo userBo) {
         if (userBo.getUserName() == null || userBo.getUserName().isEmpty()) {
-            return AjaxResult.error("修改操作必须传入用户名");
+            return formMissing("修改操作必须传入用户名，请补充", userBo, "userName");
         }
         List<SysUser> users = getUsersByConditions(userBo);
         if (users.isEmpty()) {
             return AjaxResult.error("用户不存在：" + userBo.getUserName());
         }
         if (users.size() > 1) {
-            return AjaxResult.error("查询到多个用户，请补充更多信息（如昵称、手机号、邮箱等）后重试：" + formatUserList(users));
+            return formMissing("查询到多个用户，请补充以下信息以精确定位：" + formatUserList(users), userBo);
         }
 
         SysUser sysUser = new SysUser();
@@ -115,7 +112,7 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
                 return AjaxResult.error("部门不存在：" + userBo.getDeptName());
             }
             if (depts.size() > 1) {
-                return AjaxResult.error("查询到多个部门，请补充更多信息：" + formatDeptList(depts));
+                return formMissing("查询到多个部门，请补充以下信息以精确定位：" + formatDeptList(depts), userBo);
             }
             sysUser.setDeptId(depts.getFirst().getDeptId());
         }
@@ -132,7 +129,7 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
             } else if ("无效".equals(userBo.getStatus()) || "停用".equals(userBo.getStatus())) {
                 sysUser.setStatus("1");
             } else {
-                return AjaxResult.error("状态值不正确，请传入'有效'或'无效'");
+                return formMissing("状态值不正确，请传入'有效'或'无效'", userBo, "status");
             }
         }
 
@@ -142,106 +139,129 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleDelete(SysUserBo userBo) {
         if (userBo.getUserName() == null || userBo.getUserName().isEmpty()) {
-            return AjaxResult.error("删除操作必须传入用户名");
+            return formMissing("删除操作必须传入用户名，请补充", userBo, "userName");
         }
         List<SysUser> users = getUsersByConditions(userBo);
         if (users.isEmpty()) {
             return AjaxResult.error("用户不存在：" + userBo.getUserName());
         }
         if (users.size() > 1) {
-            return AjaxResult.error("查询到多个用户，请补充更多信息（如昵称、手机号、邮箱等）后重试：" + formatUserList(users));
+            return formMissing("查询到多个用户，请补充以下信息以精确定位：" + formatUserList(users), userBo);
         }
 
         R<Boolean> result = remoteUserService.deleteUser(users.getFirst().getUserId());
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());
     }
 
-    @Tool(description = "为用户分配角色。 ")
+    @Tool(description = "为用户分配角色。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult userRoleAuth(UserRoleBo userRoleBo) {
+        AjaxResult validateResult = validate(userRoleBo);
+        if (validateResult != null) {
+            return validateResult;
+        }
+        if (userRoleBo.getRoleNames() == null || userRoleBo.getRoleNames().length == 0) {
+            return formMissing("请传入角色名称列表", userRoleBo, "roleNames");
+        }
+        if (!isConfirmed(userRoleBo)) {
+            return confirmResult("userRoleAuth", "auth", "确认用户角色分配",
+                "即将为用户「" + userRoleBo.getUserName() + "」分配角色，请确认是否继续。", toMap(userRoleBo));
+        }
         return executeWithErrorHandling(() -> {
             List<SysUser> users = getUsersByName(userRoleBo.getUserName());
             if (users.isEmpty()) {
                 return AjaxResult.error("用户不存在：" + userRoleBo.getUserName());
             }
             if (users.size() > 1) {
-                return AjaxResult.error("查询到多个用户，请补充更多信息：" + formatUserList(users));
+                return formMissing("查询到多个用户，请补充以下信息以精确定位：" + formatUserList(users), userRoleBo);
             }
             Long userId = users.getFirst().getUserId();
 
-            if (userRoleBo.getRoleNames() != null && userRoleBo.getRoleNames().length > 0) {
-                Long[] roleIds = new Long[userRoleBo.getRoleNames().length];
-                for (int i = 0; i < userRoleBo.getRoleNames().length; i++) {
-                    List<SysRole> roles = getRolesByName(userRoleBo.getRoleNames()[i]);
-                    if (roles.isEmpty()) {
-                        return AjaxResult.error("角色不存在：" + userRoleBo.getRoleNames()[i]);
-                    }
-                    if (roles.size() > 1) {
-                        return AjaxResult.error("查询到多个角色，请补充更多信息：" + formatRoleList(roles));
-                    }
-                    roleIds[i] = roles.getFirst().getRoleId();
+            Long[] roleIds = new Long[userRoleBo.getRoleNames().length];
+            for (int i = 0; i < userRoleBo.getRoleNames().length; i++) {
+                List<SysRole> roles = getRolesByName(userRoleBo.getRoleNames()[i]);
+                if (roles.isEmpty()) {
+                    return AjaxResult.error("角色不存在：" + userRoleBo.getRoleNames()[i]);
                 }
-                R<Boolean> result = remoteUserService.authRole(userId, roleIds);
-                return result.getCode() == 200 && result.getData() ? AjaxResult.success("用户角色分配成功") : AjaxResult.error(result.getMsg());
-            } else {
-                return AjaxResult.error("请传入角色名称列表");
+                if (roles.size() > 1) {
+                    return formMissing("查询到多个角色，请补充以下信息以精确定位：" + formatRoleList(roles), userRoleBo);
+                }
+                roleIds[i] = roles.getFirst().getRoleId();
             }
+            R<Boolean> result = remoteUserService.authRole(userId, roleIds);
+            return result.getCode() == 200 && result.getData() ? AjaxResult.success("用户角色分配成功") : AjaxResult.error(result.getMsg());
         }, "用户角色分配");
     }
 
-    @Tool(description = "为用户分配岗位。 ")
+    @Tool(description = "为用户分配岗位。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult userPostAuth(UserPostBo userPostBo) {
+        AjaxResult validateResult = validate(userPostBo);
+        if (validateResult != null) {
+            return validateResult;
+        }
+        if (userPostBo.getPostNames() == null || userPostBo.getPostNames().length == 0) {
+            return formMissing("请传入岗位名称列表", userPostBo, "postNames");
+        }
+        if (!isConfirmed(userPostBo)) {
+            return confirmResult("userPostAuth", "auth", "确认用户岗位分配",
+                "即将为用户「" + userPostBo.getUserName() + "」分配岗位，请确认是否继续。", toMap(userPostBo));
+        }
         return executeWithErrorHandling(() -> {
             List<SysUser> users = getUsersByName(userPostBo.getUserName());
             if (users.isEmpty()) {
                 return AjaxResult.error("用户不存在：" + userPostBo.getUserName());
             }
             if (users.size() > 1) {
-                return AjaxResult.error("查询到多个用户，请补充更多信息：" + formatUserList(users));
+                return formMissing("查询到多个用户，请补充以下信息以精确定位：" + formatUserList(users), userPostBo);
             }
 
-            if (userPostBo.getPostNames() != null && userPostBo.getPostNames().length > 0) {
-                StringBuilder errorMsg = new StringBuilder();
-                for (String postName : userPostBo.getPostNames()) {
-                    List<SysPost> posts = getPostsByName(postName);
-                    if (posts.isEmpty()) {
-                        if (!errorMsg.isEmpty()) {
-                            errorMsg.append("；");
-                        }
-                        errorMsg.append("岗位不存在：").append(postName);
-                    } else if (posts.size() > 1) {
-                        if (!errorMsg.isEmpty()) {
-                            errorMsg.append("；");
-                        }
-                        errorMsg.append("查询到多个岗位，请补充更多信息：").append(formatPostList(posts));
+            StringBuilder errorMsg = new StringBuilder();
+            for (String postName : userPostBo.getPostNames()) {
+                List<SysPost> posts = getPostsByName(postName);
+                if (posts.isEmpty()) {
+                    if (!errorMsg.isEmpty()) {
+                        errorMsg.append("；");
                     }
+                    errorMsg.append("岗位不存在：").append(postName);
+                } else if (posts.size() > 1) {
+                    if (!errorMsg.isEmpty()) {
+                        errorMsg.append("；");
+                    }
+                    errorMsg.append("查询到多个岗位，请补充更精确的岗位名称：").append(formatPostList(posts));
                 }
-                if (!errorMsg.isEmpty()) {
-                    return AjaxResult.error(errorMsg.toString());
-                }
-                return AjaxResult.success("用户岗位分配成功（注：岗位分配需要在用户编辑页面操作）");
-            } else {
-                return AjaxResult.error("请传入岗位名称列表");
             }
+            if (!errorMsg.isEmpty()) {
+                return AjaxResult.error(errorMsg.toString());
+            }
+            // 岗位分配需在用户编辑页面完成，当前对话渠道无法执行，不能向用户反馈成功
+            return AjaxResult.error("岗位分配需在系统用户编辑页面操作，当前对话暂不支持直接分配");
         }, "用户岗位分配");
     }
 
-    @Tool(description = "重置用户密码。参数：用户名(userName)和新密码(password)。")
+    @Tool(description = "重置用户密码。参数：用户名(userName)和新密码(password)。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult resetUserPassword(
-            @org.springframework.ai.tool.annotation.ToolParam(description = "用户名") String userName,
-            @org.springframework.ai.tool.annotation.ToolParam(description = "新密码") String password) {
+            @ToolParam(description = "用户名") String userName,
+            @ToolParam(description = "新密码") String password,
+            @ToolParam(description = "用户确认标志，用户在前端点击同意按钮后为true，AI不要自行设置该值") Boolean confirmed) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("userName", userName);
+        values.put("password", password);
+        if (userName == null || userName.isEmpty()) {
+            return formMissing("用户名不能为空，请补充", values, "userName");
+        }
+        if (password == null || password.isEmpty()) {
+            return formMissing("新密码不能为空，请补充", values, "password");
+        }
+        if (!Boolean.TRUE.equals(confirmed)) {
+            return confirmResult("resetUserPassword", "update", "确认重置用户密码",
+                "即将重置用户「" + userName + "」的密码，请确认是否继续。", values);
+        }
         return executeWithErrorHandling(() -> {
-            if (userName == null || userName.isEmpty()) {
-                return AjaxResult.error("用户名不能为空");
-            }
-            if (password == null || password.isEmpty()) {
-                return AjaxResult.error("新密码不能为空");
-            }
             List<SysUser> users = getUsersByName(userName);
             if (users.isEmpty()) {
                 return AjaxResult.error("用户不存在：" + userName);
             }
             if (users.size() > 1) {
-                return AjaxResult.error("查询到多个用户，请补充更多信息：" + formatUserList(users));
+                return formMissing("查询到多个用户，请补充以下信息以精确定位用户：" + formatUserList(users), values, "userName");
             }
             SysUser sysUser = new SysUser();
             sysUser.setUserId(users.getFirst().getUserId());
@@ -251,66 +271,82 @@ public class UserToolServiceImpl extends BaseToolServiceImpl {
         }, "重置用户密码");
     }
 
-    @Tool(description = "修改用户状态（启用/停用）。参数：用户名(userName)和状态(status: 有效/启用 或 无效/停用)。")
+    @Tool(description = "修改用户状态（启用/停用）。参数：用户名(userName)和状态(status: 有效/启用 或 无效/停用)。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult changeUserStatus(
-            @org.springframework.ai.tool.annotation.ToolParam(description = "用户名") String userName,
-            @org.springframework.ai.tool.annotation.ToolParam(description = "状态：有效/启用 或 无效/停用") String status) {
+            @ToolParam(description = "用户名") String userName,
+            @ToolParam(description = "状态：有效/启用 或 无效/停用") String status,
+            @ToolParam(description = "用户确认标志，用户在前端点击同意按钮后为true，AI不要自行设置该值") Boolean confirmed) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("userName", userName);
+        values.put("status", status);
+        if (userName == null || userName.isEmpty()) {
+            return formMissing("用户名不能为空，请补充", values, "userName");
+        }
+        if (status == null || status.isEmpty()) {
+            return formMissing("状态不能为空，请传入'有效'或'无效'", values, "status");
+        }
+        if (!"有效".equals(status) && !"启用".equals(status) && !"无效".equals(status) && !"停用".equals(status)) {
+            return formMissing("状态值不正确，请传入'有效'或'无效'", values, "status");
+        }
+        if (!Boolean.TRUE.equals(confirmed)) {
+            return confirmResult("changeUserStatus", "update", "确认修改用户状态",
+                "即将" + ("有效".equals(status) || "启用".equals(status) ? "启用" : "停用") + "用户「" + userName + "」，请确认是否继续。", values);
+        }
         return executeWithErrorHandling(() -> {
-            if (userName == null || userName.isEmpty()) {
-                return AjaxResult.error("用户名不能为空");
-            }
-            if (status == null || status.isEmpty()) {
-                return AjaxResult.error("状态不能为空");
-            }
             List<SysUser> users = getUsersByName(userName);
             if (users.isEmpty()) {
                 return AjaxResult.error("用户不存在：" + userName);
             }
             if (users.size() > 1) {
-                return AjaxResult.error("查询到多个用户，请补充更多信息：" + formatUserList(users));
+                return formMissing("查询到多个用户，请补充以下信息以精确定位用户：" + formatUserList(users), values, "userName");
             }
             SysUser sysUser = new SysUser();
             sysUser.setUserId(users.getFirst().getUserId());
             if ("有效".equals(status) || "启用".equals(status)) {
                 sysUser.setStatus("0");
-            } else if ("无效".equals(status) || "停用".equals(status)) {
-                sysUser.setStatus("1");
             } else {
-                return AjaxResult.error("状态值不正确，请传入'有效'或'无效'");
+                sysUser.setStatus("1");
             }
             R<Boolean> result = remoteUserService.changeStatus(sysUser);
             return result.getCode() == 200 && result.getData() ? AjaxResult.success("用户状态修改成功") : AjaxResult.error(result.getMsg());
         }, "修改用户状态");
     }
 
-    @Tool(description = "修改用户所属部门。 ")
+    @Tool(description = "修改用户所属部门。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult userDeptAuth(UserDeptBo userDeptBo) {
+        AjaxResult validateResult = validate(userDeptBo);
+        if (validateResult != null) {
+            return validateResult;
+        }
+        if (userDeptBo.getDeptName() == null || userDeptBo.getDeptName().isEmpty()) {
+            return formMissing("请传入部门名称", userDeptBo, "deptName");
+        }
+        if (!isConfirmed(userDeptBo)) {
+            return confirmResult("userDeptAuth", "update", "确认修改用户所属部门",
+                "即将把用户「" + userDeptBo.getUserName() + "」调整到部门「" + userDeptBo.getDeptName() + "」，请确认是否继续。", toMap(userDeptBo));
+        }
         return executeWithErrorHandling(() -> {
             List<SysUser> users = getUsersByName(userDeptBo.getUserName());
             if (users.isEmpty()) {
                 return AjaxResult.error("用户不存在：" + userDeptBo.getUserName());
             }
             if (users.size() > 1) {
-                return AjaxResult.error("查询到多个用户，请补充更多信息：" + formatUserList(users));
+                return formMissing("查询到多个用户，请补充以下信息以精确定位：" + formatUserList(users), userDeptBo);
             }
             Long userId = users.getFirst().getUserId();
 
-            if (userDeptBo.getDeptName() != null && !userDeptBo.getDeptName().isEmpty()) {
-                List<SysDept> depts = getDeptsByName(userDeptBo.getDeptName());
-                if (depts.isEmpty()) {
-                    return AjaxResult.error("部门不存在：" + userDeptBo.getDeptName());
-                }
-                if (depts.size() > 1) {
-                    return AjaxResult.error("查询到多个部门，请补充更多信息：" + formatDeptList(depts));
-                }
-                SysUser sysUser = new SysUser();
-                sysUser.setUserId(userId);
-                sysUser.setDeptId(depts.getFirst().getDeptId());
-                R<Boolean> result = remoteUserService.updateUser(sysUser);
-                return result.getCode() == 200 && result.getData() ? AjaxResult.success("用户部门修改成功") : AjaxResult.error(result.getMsg());
-            } else {
-                return AjaxResult.error("请传入部门名称");
+            List<SysDept> depts = getDeptsByName(userDeptBo.getDeptName());
+            if (depts.isEmpty()) {
+                return AjaxResult.error("部门不存在：" + userDeptBo.getDeptName());
             }
+            if (depts.size() > 1) {
+                return formMissing("查询到多个部门，请补充以下信息以精确定位：" + formatDeptList(depts), userDeptBo);
+            }
+            SysUser sysUser = new SysUser();
+            sysUser.setUserId(userId);
+            sysUser.setDeptId(depts.getFirst().getDeptId());
+            R<Boolean> result = remoteUserService.updateUser(sysUser);
+            return result.getCode() == 200 && result.getData() ? AjaxResult.success("用户部门修改成功") : AjaxResult.error(result.getMsg());
         }, "用户部门修改");
     }
 

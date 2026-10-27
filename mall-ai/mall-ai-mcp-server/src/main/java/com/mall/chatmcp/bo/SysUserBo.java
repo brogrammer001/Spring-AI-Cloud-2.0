@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-public class SysUserBo {
+public class SysUserBo extends BaseConfirmBo {
 
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
     private String operationType;

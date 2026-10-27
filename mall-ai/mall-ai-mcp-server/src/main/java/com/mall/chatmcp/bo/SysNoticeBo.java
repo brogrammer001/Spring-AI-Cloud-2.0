@@ -5,7 +5,7 @@ import com.mall.common.core.xss.Xss;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public class SysNoticeBo {
+public class SysNoticeBo extends BaseConfirmBo {
 
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
     private String operationType;

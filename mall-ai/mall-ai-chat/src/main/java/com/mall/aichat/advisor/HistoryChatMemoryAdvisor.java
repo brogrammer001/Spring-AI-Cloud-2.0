@@ -115,6 +115,8 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
         List<Message> assistantMessages = new ArrayList<>();
         if (chatClientResponse.chatResponse() != null) {
+            // 本 Advisor 位于工具调用内循环（order 150 > ToolCallingAdvisor 的 HIGHEST_PRECEDENCE+300），
+            // 只处理各轮迭代的模型响应；returnDirect 结果由外层的 ReturnDirectChatMemoryAdvisor 单独落库
             assistantMessages = chatClientResponse.chatResponse().getResults().stream()
                 .map(g -> (Message) g.getOutput())
                 .toList();

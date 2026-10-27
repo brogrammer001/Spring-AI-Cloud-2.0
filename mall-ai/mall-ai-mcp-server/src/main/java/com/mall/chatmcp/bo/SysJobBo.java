@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public class SysJobBo {
+public class SysJobBo extends BaseConfirmBo {
 
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除，changeStatus-修改状态，run-立即执行")
     private String operationType;

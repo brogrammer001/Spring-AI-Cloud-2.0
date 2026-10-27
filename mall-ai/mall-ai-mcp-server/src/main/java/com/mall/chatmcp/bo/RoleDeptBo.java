@@ -3,7 +3,7 @@ package com.mall.chatmcp.bo;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import jakarta.validation.constraints.NotBlank;
 
-public class RoleDeptBo {
+public class RoleDeptBo extends BaseConfirmBo {
 
     @NotBlank(message = "角色名称不能为空")
     @JsonPropertyDescription("角色名称，例如 管理员")

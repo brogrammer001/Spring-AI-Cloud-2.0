@@ -166,6 +166,125 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- 交互卡片（马卡龙蓝：#3b82f6 / 浅底 #eef4ff）：后端 code=8003 确认 / code=8002 表单补全 -->
+                  <div v-if="message.interaction"
+                       class="interaction-card mb-3"
+                       :class="{
+                         'interaction-card-resolved': message.interaction.resolved,
+                         'interaction-card-cancelled': message.interaction.cancelled,
+                         'is-dark': settingsStore.isDark
+                       }">
+                    <!-- 标题行 -->
+                    <div class="interaction-header flex items-center gap-2 mb-2">
+                      <i class="fas"
+                         :class="message.interaction.type === 'confirm' ? 'fa-shield-alt' : 'fa-edit'"></i>
+                      <span class="font-medium text-sm">{{ message.interaction.title }}</span>
+                      <span v-if="message.interaction.tool"
+                            class="interaction-tool-tag ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono opacity-70">
+                        {{ message.interaction.tool }}
+                      </span>
+                    </div>
+
+                    <!-- 提示正文（支持换行） -->
+                    <div v-if="message.interaction.message"
+                         class="interaction-message text-xs mb-2 whitespace-pre-wrap leading-relaxed"
+                         :class="{ 'is-dark': settingsStore.isDark }">
+                      {{ message.interaction.message }}
+                    </div>
+
+                    <!-- 类型 1：确认卡片（type=confirm） -->
+                    <template v-if="message.interaction.type === 'confirm'">
+                      <div class="interaction-actions flex gap-2 pt-1"
+                           :class="{ 'interaction-actions-disabled': message.interaction.resolved }">
+                        <button
+                          class="interaction-btn interaction-btn-primary flex-1 h-9 rounded-md text-sm font-medium"
+                          :disabled="message.interaction.resolved || isLoading"
+                          @click="handleConfirmAction(index, true)">
+                          <i class="fas fa-check mr-1.5"></i>
+                          {{ message.interaction.confirmText || '同意' }}
+                        </button>
+                        <button
+                          class="interaction-btn interaction-btn-ghost flex-1 h-9 rounded-md text-sm font-medium"
+                          :disabled="message.interaction.resolved || isLoading"
+                          @click="handleConfirmAction(index, false)">
+                          <i class="fas fa-times mr-1.5"></i>
+                          {{ message.interaction.cancelText || '取消' }}
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- 类型 2：表单补全卡片（type=form） -->
+                    <template v-else-if="message.interaction.type === 'form'">
+                      <div class="interaction-form space-y-2 pt-1"
+                           :class="{ 'interaction-form-disabled': message.interaction.resolved }">
+                        <div v-for="field in message.interaction.fields"
+                             :key="field.name"
+                             class="interaction-field">
+                          <label class="interaction-field-label block text-xs mb-1">
+                            {{ field.label || field.name }}
+                            <span v-if="field.required" class="interaction-field-required">*</span>
+                          </label>
+                          <input
+                            v-if="field.inputType === 'text' || !field.inputType"
+                            type="text"
+                            class="interaction-input w-full h-9 px-2.5 text-sm rounded-md border transition-colors"
+                            :class="{ 'is-dark': settingsStore.isDark }"
+                            :placeholder="field.placeholder || ''"
+                            :disabled="message.interaction.resolved"
+                            v-model="ensureFormData(index)[field.name]" />
+                          <input
+                            v-else-if="field.inputType === 'number'"
+                            type="number"
+                            class="interaction-input w-full h-9 px-2.5 text-sm rounded-md border transition-colors"
+                            :class="{ 'is-dark': settingsStore.isDark }"
+                            :placeholder="field.placeholder || ''"
+                            :disabled="message.interaction.resolved"
+                            v-model.number="ensureFormData(index)[field.name]" />
+                          <textarea
+                            v-else-if="field.inputType === 'textarea'"
+                            class="interaction-input interaction-textarea w-full px-2.5 py-1.5 text-sm rounded-md border transition-colors resize-y min-h-[64px]"
+                            :class="{ 'is-dark': settingsStore.isDark }"
+                            :placeholder="field.placeholder || ''"
+                            :disabled="message.interaction.resolved"
+                            v-model="ensureFormData(index)[field.name]"></textarea>
+                          <span v-if="field.message"
+                                class="interaction-field-message text-[11px] mt-0.5 block">
+                            {{ field.message }}
+                          </span>
+                        </div>
+                        <div class="interaction-actions flex gap-2 pt-2">
+                          <button
+                            class="interaction-btn interaction-btn-primary flex-1 h-9 rounded-md text-sm font-medium"
+                            :disabled="message.interaction.resolved || isLoading"
+                            @click="handleFormSubmit(index)">
+                            <i class="fas fa-paper-plane mr-1.5"></i>
+                            {{ message.interaction.submitText || '提交' }}
+                          </button>
+                          <button
+                            class="interaction-btn interaction-btn-ghost flex-1 h-9 rounded-md text-sm font-medium"
+                            :disabled="message.interaction.resolved || isLoading"
+                            @click="handleFormCancel(index)">
+                            <i class="fas fa-times mr-1.5"></i>
+                            取消
+                          </button>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- 已处理 / 已取消的状态提示 -->
+                    <div v-if="message.interaction.resolved"
+                         class="interaction-resolved-hint text-xs mt-2 pt-1.5"
+                         :class="{
+                           'is-cancelled': message.interaction.cancelled,
+                           'is-dark': settingsStore.isDark
+                         }">
+                      <i class="fas"
+                         :class="message.interaction.cancelled ? 'fa-ban' : 'fa-check-circle'"></i>
+                      {{ message.interaction.cancelled ? '已取消' : '已处理' }}
+                    </div>
+                  </div>
+
                   <div class="markdown-body" v-html="renderMessage(message)"></div>
                   <div v-if="message.isLoading"
                     class="typing-dots flex space-x-1 mt-2" :class="{ 'is-dark': settingsStore.isDark }">
@@ -211,9 +330,9 @@
 </template>
 
 <script setup>
-import {computed, defineAsyncComponent, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch} from 'vue';
+import {computed, defineAsyncComponent, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch} from 'vue';
 import {ElMessage, ElMessageBox} from 'element-plus';
-import {sendChatMessage} from '@/api/ai/aichat/chat';
+import {sendChatMessage, replayToolCall} from '@/api/ai/aichat/chat';
 import {
   create as createConversationApi,
   deleteByConversationId,
@@ -243,6 +362,35 @@ const isLoading = ref(false);
 const chatContainer = ref(null);
 const textarea = ref(null);
 let controller = null;
+
+// 交互卡片表单数据：key = 消息在 messages 数组中的索引，value = { fieldName: inputValue }
+// 使用 reactive 保证模板中 v-model 双向绑定能正确追踪
+const interactionFormData = reactive({});
+
+/** 安全获取/初始化指定消息索引下的表单数据。模板里 v-model 应通过此方法间接访问，
+ * 避免历史回放时 interactionFormData[index] 缺失导致 "Cannot read properties of undefined" */
+const ensureFormData = (idx) => {
+  if (!interactionFormData[idx]) {
+    interactionFormData[idx] = {};
+  }
+  return interactionFormData[idx];
+};
+
+/** 合并 arguments 与用户表单值，保留原始结构但用用户输入覆盖/补充同名字段 */
+const mergeInteractionArguments = (interaction, formValues) => {
+  const base = interaction.arguments && typeof interaction.arguments === 'object'
+    ? { ...interaction.arguments }
+    : {};
+  if (formValues && typeof formValues === 'object') {
+    for (const k of Object.keys(formValues)) {
+      const v = formValues[k];
+      if (v !== '' && v !== null && v !== undefined) {
+        base[k] = v;
+      }
+    }
+  }
+  return base;
+};
 
 // 路由弹窗状态
 const routeDialogVisible = ref(false);
@@ -544,6 +692,8 @@ const switchConversation = async (id) => {
   if (activeId.value === id) return;
   // 切换前销毁旧 ECharts 实例，避免 DOM 已替换但实例残留导致内存泄漏
   destroyAllEchartsInstances();
+  // 清理交互卡片表单缓存（旧会话的消息索引不匹配新会话）
+  Object.keys(interactionFormData).forEach(k => delete interactionFormData[k]);
   activeId.value = id;
   const conv = conversations.value.find(c => c.id === id);
   if (conv) {
@@ -575,7 +725,9 @@ const switchConversation = async (id) => {
           let toolCalls = [];
           let ragRetrieve = null;
 
-          // 从历史记录还原 toolCalls 和 ragRetrieve（优先独立字段，其次 metadata 内）
+          let interaction = null;
+
+          // 从历史记录还原 toolCalls、ragRetrieve、interaction（优先独立字段，其次 metadata 内）
           if (role === 'assistant') {
             if (Array.isArray(item.toolCalls) && item.toolCalls.length > 0) {
               toolCalls = item.toolCalls.map(tc => ({
@@ -639,6 +791,37 @@ const switchConversation = async (id) => {
                   displayContent = (displayContent || '') + '\n\n' + parsed.data.summary;
                 }
               }
+              // 恢复交互卡片（历史回放时统一标记为 resolved，防止用户点击旧按钮）
+              if (parsed.code === 8003 && parsed.data && typeof parsed.data === 'object') {
+                const d = parsed.data;
+                interaction = {
+                  type: 'confirm',
+                  title: d.title || '请确认',
+                  message: d.message || parsed.msg || '',
+                  confirmText: d.confirmText || '同意',
+                  cancelText: d.cancelText || '取消',
+                  tool: d.tool,
+                  arguments: d.arguments || {},
+                  values: d.values || {},
+                  resolved: true,
+                  cancelled: false
+                };
+              }
+              if (parsed.code === 8002 && parsed.data && typeof parsed.data === 'object') {
+                const d = parsed.data;
+                interaction = {
+                  type: 'form',
+                  title: d.title || '请补充信息',
+                  message: d.message || parsed.msg || '',
+                  fields: Array.isArray(d.fields) ? d.fields : [],
+                  values: d.values || {},
+                  tool: d.tool,
+                  arguments: d.arguments || {},
+                  submitText: d.submitText || '提交',
+                  resolved: true,
+                  cancelled: false
+                };
+              }
               break;
             }
           }
@@ -650,6 +833,7 @@ const switchConversation = async (id) => {
             dataRowCount: dataRowCount,
             toolCalls: toolCalls,
             ragRetrieve: ragRetrieve,
+            interaction: interaction,
             isLoading: false,
             visibleChars: displayContent.length,
             isStreaming: false
@@ -714,6 +898,8 @@ const startNewConversation = () => {
   if (activeId.value) {
     removeDraftFromStorage(activeId.value);
   }
+  // 清理交互卡片表单缓存
+  Object.keys(interactionFormData).forEach(k => delete interactionFormData[k]);
   activeId.value = null;
   userInput.value = '';
   const initialMsg = { role: 'assistant', content: welcomeMessageContent, isLoading: false, visibleChars: 0, isStreaming: false, toolCalls: [], ragRetrieve: null };
@@ -774,6 +960,358 @@ const handleAction = (chunk, messageIndex) => {
       messages.value[messageIndex].isLoading = false;
       scrollToBottom();
       break;
+  }
+};
+
+// ============ 交互卡片（confirm / form）处理 ============
+
+/**
+ * 确认按钮回调：把 data.arguments（含 confirmed=true）原样重放 data.tool
+ * 或取消则标记为 cancelled
+ */
+const handleConfirmAction = async (messageIndex, approved) => {
+  const msg = messages.value[messageIndex];
+  if (!msg || !msg.interaction || msg.interaction.resolved) return;
+
+  if (!approved) {
+    // 用户取消：标记已解决，不再重放
+    msg.interaction.resolved = true;
+    msg.interaction.cancelled = true;
+    msg.interaction.message = (msg.interaction.message || '') + '\n\n（用户已取消）';
+    scrollToBottom();
+    return;
+  }
+
+  const interaction = msg.interaction;
+  const toolName = interaction.tool;
+  // arguments 已在后端返回时自动注入 confirmed=true，直接用
+  const args = interaction.arguments || {};
+
+  if (!toolName) {
+    ElMessage.error('工具名称缺失，无法重放');
+    return;
+  }
+
+  await replayInteractionTool(messageIndex, toolName, args);
+};
+
+/**
+ * 表单提交回调：把用户填写的表单值合并进 interaction.arguments，然后重放
+ */
+const handleFormSubmit = async (messageIndex) => {
+  const msg = messages.value[messageIndex];
+  if (!msg || !msg.interaction || msg.interaction.resolved) return;
+
+  const interaction = msg.interaction;
+  const formValues = ensureFormData(messageIndex);
+
+  // 必填校验
+  for (const field of interaction.fields || []) {
+    if (field.required) {
+      const v = formValues[field.name];
+      if (v === undefined || v === null || String(v).trim() === '') {
+        ElMessage.warning(`请填写：${field.label || field.name}`);
+        return;
+      }
+    }
+  }
+
+  const mergedArgs = mergeInteractionArguments(interaction, formValues);
+  await replayInteractionTool(messageIndex, interaction.tool, mergedArgs);
+};
+
+/**
+ * 表单取消回调：标记 cancelled
+ */
+const handleFormCancel = (messageIndex) => {
+  const msg = messages.value[messageIndex];
+  if (!msg || !msg.interaction || msg.interaction.resolved) return;
+  msg.interaction.resolved = true;
+  msg.interaction.cancelled = true;
+  msg.interaction.message = (msg.interaction.message || '') + '\n\n（用户已取消）';
+  scrollToBottom();
+};
+
+/**
+ * 通用重放方法：调用 replayToolCall → 消费 SSE 流 → 新增 assistant 消息承接后续回复
+ * 新消息自动追加到 messages 末尾，由 SSE 事件处理逻辑填充内容
+ */
+const replayInteractionTool = async (messageIndex, toolName, argsObj) => {
+  const sourceMsg = messages.value[messageIndex];
+  if (!sourceMsg) return;
+
+  // 标记当前交互卡片已处理完成（防止双击重放）
+  sourceMsg.interaction.resolved = true;
+
+  if (isLoading.value) {
+    ElMessage.warning('正在处理中，请稍候');
+    return;
+  }
+
+  let currentConversationId = activeId.value;
+  if (!currentConversationId) {
+    ElMessage.error('会话 ID 丢失，请刷新页面重试');
+    return;
+  }
+
+  // 先在当前 assistant 消息正文里追加一行提示，再新起一个 assistant 消息承接 SSE 输出
+  sourceMsg.content += `\n\n✅ 已确认，正在执行「${toolName}」...`;
+  sourceMsg.isLoading = false;
+  sourceMsg.visibleChars = sourceMsg.content.length;
+
+  const assistantMessage = {
+    role: 'assistant',
+    content: '',
+    isLoading: true,
+    visibleChars: 0,
+    isStreaming: true,
+    toolCalls: [],
+    ragRetrieve: null
+  };
+  messages.value.push(assistantMessage);
+  scrollToBottom(true);
+
+  isLoading.value = true;
+  controller = new AbortController();
+  const newMsgIndex = messages.value.length - 1;
+
+  try {
+    const response = await replayToolCall(toolName, argsObj, currentConversationId, controller.signal);
+
+    if (!response.ok) {
+      let errorMsg = `请求失败 (状态码: ${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.msg) errorMsg = errorData.msg;
+      } catch (_) { /* 忽略 */ }
+      throw new Error(errorMsg);
+    }
+
+    // 复用 sendMessage 中同样的 SSE 事件监听逻辑
+    const es = createEventStream(response);
+    let pendingText = '';
+    let flushScheduled = false;
+    let contentStarted = false;
+
+    const flushText = () => {
+      flushScheduled = false;
+      if (!pendingText) return;
+      messages.value[newMsgIndex].content += pendingText;
+      messages.value[newMsgIndex].visibleChars = messages.value[newMsgIndex].content.length;
+      pendingText = '';
+    };
+    const scheduleFlush = () => {
+      if (flushScheduled) return;
+      flushScheduled = true;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(flushText);
+      } else {
+        setTimeout(flushText, 16);
+      }
+    };
+    const appendText = (text) => {
+      if (!text) return;
+      pendingText += text;
+      scheduleFlush();
+      scrollToBottom();
+    };
+    const finishPendingTools = () => {
+      if (messages.value[newMsgIndex].toolCalls) {
+        messages.value[newMsgIndex].toolCalls.forEach(t => {
+          if (t.status === 'running') { t.status = 'done'; t.endTime = Date.now(); }
+        });
+      }
+    };
+    const finalize = () => {
+      flushText();
+      if (messages.value[newMsgIndex].content === '') {
+        messages.value[newMsgIndex].content = '(无返回内容)';
+        messages.value[newMsgIndex].visibleChars = 6;
+      }
+      finishPendingTools();
+      messages.value[newMsgIndex].isLoading = false;
+      messages.value[newMsgIndex].isStreaming = false;
+      scrollToBottom();
+    };
+
+    // 正文事件：与 sendMessage 里的 message 事件处理保持一致
+    es.addEventListener('message', (e) => {
+      const json = e.json;
+      if (!contentStarted) { contentStarted = true; finishPendingTools(); }
+
+      if (json && typeof json.content === 'string') {
+        const head = json.content.trimStart().charAt(0);
+        const nested = (head === '{' || head === '[') ? parseNestedJson(json.content) : null;
+        if (nested && nested.code !== undefined) {
+          appendText(nested.msg || '');
+          handleStructuredCode(nested, newMsgIndex);
+          messages.value[newMsgIndex].isLoading = false;
+          scrollToBottom();
+        } else {
+          appendText(json.content);
+        }
+        if (json.conversationId) messages.value[newMsgIndex].conversationId = json.conversationId;
+        return;
+      }
+      if (json && typeof json.text === 'string') { appendText(json.text); return; }
+      if (json && json.code !== undefined) {
+        appendText(json.msg || '');
+        handleStructuredCode(json, newMsgIndex);
+        messages.value[newMsgIndex].isLoading = false;
+        scrollToBottom();
+        return;
+      }
+      if (e.data && !json) appendText(e.data);
+    });
+
+    // tool_call / rag_retrieve 事件（复用 sendMessage 的简化版）
+    es.addEventListener('tool_call', (e) => {
+      const json = e.json;
+      const rawText = (json && typeof json.content === 'string') ? json.content : (e.data || '');
+      const toolMatch = rawText.match(/\[([^\]]+)\]/);
+      let toolName2 = '';
+      let desc = '';
+      if (toolMatch) {
+        toolName2 = toolMatch[1];
+        desc = rawText.replace(/^\s*正在为您调用工具[:：]\s*/, '').replace(/[，,]\s*请稍候\s*$/, '').trim();
+      } else {
+        toolName2 = rawText.trim();
+      }
+      if (!toolName2) toolName2 = '未知工具';
+      if (!messages.value[newMsgIndex].toolCalls) messages.value[newMsgIndex].toolCalls = [];
+      const exists = messages.value[newMsgIndex].toolCalls.some(t => t.toolName === toolName2);
+      if (!exists) {
+        messages.value[newMsgIndex].toolCalls.forEach(t => {
+          if (t.status === 'running') { t.status = 'done'; t.endTime = Date.now(); }
+        });
+        messages.value[newMsgIndex].toolCalls.push({
+          toolName: toolName2, description: desc, status: 'running', startTime: Date.now()
+        });
+      }
+      scrollToBottom();
+    });
+
+    es.addEventListener('rag_retrieve', (e) => {
+      const json = e.json;
+      const phase = (json && typeof json.content === 'string') ? json.content : (e.data || '');
+      if (phase === 'start' || phase === 'rag_retrieval') {
+        messages.value[newMsgIndex].ragRetrieve = { status: 'running', result: 'pending', startTime: Date.now() };
+      } else if (phase === 'success' || phase === 'rag_retrieved') {
+        messages.value[newMsgIndex].ragRetrieve = messages.value[newMsgIndex].ragRetrieve || { status: 'done', result: 'success', startTime: Date.now(), endTime: Date.now() };
+        messages.value[newMsgIndex].ragRetrieve.status = 'done';
+        messages.value[newMsgIndex].ragRetrieve.result = 'success';
+        messages.value[newMsgIndex].ragRetrieve.endTime = Date.now();
+      } else if (phase === 'empty') {
+        messages.value[newMsgIndex].ragRetrieve = messages.value[newMsgIndex].ragRetrieve || { status: 'done', result: 'empty', startTime: Date.now(), endTime: Date.now() };
+        messages.value[newMsgIndex].ragRetrieve.status = 'done';
+        messages.value[newMsgIndex].ragRetrieve.result = 'empty';
+        messages.value[newMsgIndex].ragRetrieve.endTime = Date.now();
+      }
+      scrollToBottom();
+    });
+
+    es.addEventListener('message_end', (e) => {
+      const json = e.json || {};
+      if (json.messageId) messages.value[newMsgIndex].messageId = json.messageId;
+      if (json.conversationId) messages.value[newMsgIndex].conversationId = json.conversationId;
+      const isTerminal = !!json.messageId || json.metadata !== undefined || !json.state;
+      if (isTerminal) { finalize(); es.close(); }
+    });
+    es.addEventListener('error', (e) => {
+      const state = (e.json && e.json.state) || '';
+      const errMsg = (e.json && (e.json.msg || e.json.message)) || '服务异常，请稍后重试';
+      appendText((messages.value[newMsgIndex].content ? '\n\n' : '') + (state ? `[错误 ${state}] ` : '') + errMsg);
+    });
+    es.addEventListener('stream_error', (e) => {
+      flushText();
+      if (e.error && e.error.name === 'AbortError') {
+        if (messages.value[newMsgIndex].content === '') {
+          messages.value[newMsgIndex].content = '已停止';
+          messages.value[newMsgIndex].visibleChars = 4;
+        }
+      } else {
+        messages.value[newMsgIndex].content = (e.error && e.error.message) || '连接中断';
+        messages.value[newMsgIndex].visibleChars = messages.value[newMsgIndex].content.length;
+      }
+    });
+    es.addEventListener('complete', finalize);
+
+    await es.start();
+    finalize();
+  } catch (error) {
+    const lastMessage = messages.value[messages.value.length - 1];
+    if (error.name === 'AbortError') {
+      if (lastMessage.content === '') {
+        lastMessage.content = '已停止';
+        lastMessage.visibleChars = 4;
+      }
+    } else {
+      console.error('工具重放请求出错:', error);
+      lastMessage.content = error.message;
+      lastMessage.visibleChars = lastMessage.content.length;
+    }
+  } finally {
+    const lastMessage = messages.value[messages.value.length - 1];
+    lastMessage.isLoading = false;
+    lastMessage.isStreaming = false;
+    if (lastMessage.visibleChars < lastMessage.content.length) {
+      lastMessage.visibleChars = lastMessage.content.length;
+    }
+    isLoading.value = false;
+    controller = null;
+    const currentConv = conversations.value.find(c => c.id === currentConversationId);
+    if (currentConv) {
+      currentConv.messages = JSON.parse(JSON.stringify(messages.value));
+    }
+    scrollToBottom();
+  }
+};
+
+/**
+ * 结构化业务码统一处理（code=8001/8002/8003/9999 等）
+ * 抽成独立函数避免 sendMessage 和 replayInteractionTool 里重复写判断
+ */
+const handleStructuredCode = (json, messageIndex) => {
+  if (!json || json.code === undefined) return;
+  const msgRef = messages.value[messageIndex];
+
+  if (json.code === 8001 && json.data && typeof json.data === 'string' && json.data.trim()) {
+    msgRef.routeUrl = json.data;
+    setTimeout(() => { openRouteDialog(json.data.trim()); }, 500);
+  } else if (json.code === 9999 && json.data && typeof json.data === 'object') {
+    msgRef.dataTable = Array.isArray(json.data.result) ? json.data.result : [];
+    msgRef.dataRowCount = json.data.rowCount;
+    if (json.data.summary) {
+      msgRef.content += '\n\n' + json.data.summary;
+      msgRef.visibleChars = msgRef.content.length;
+    }
+  } else if (json.code === 8003 && json.data && typeof json.data === 'object') {
+    const d = json.data;
+    msgRef.interaction = {
+      type: 'confirm',
+      title: d.title || '请确认',
+      message: d.message || json.msg || '',
+      confirmText: d.confirmText || '同意',
+      cancelText: d.cancelText || '取消',
+      tool: d.tool,
+      arguments: d.arguments || {},
+      values: d.values || {},
+      resolved: false
+    };
+  } else if (json.code === 8002 && json.data && typeof json.data === 'object') {
+    const d = json.data;
+    msgRef.interaction = {
+      type: 'form',
+      title: d.title || '请补充信息',
+      message: d.message || json.msg || '',
+      fields: Array.isArray(d.fields) ? d.fields : [],
+      values: d.values || {},
+      tool: d.tool,
+      arguments: d.arguments || {},
+      submitText: d.submitText || '提交',
+      resolved: false
+    };
+    interactionFormData[messageIndex] = { ...(d.values || {}) };
   }
 };
 
@@ -942,6 +1480,36 @@ const sendMessage = async () => {
             if (nested.data.summary) {
               appendText('\n\n' + nested.data.summary);
             }
+          } else if (nested.code === 8003 && nested.data && typeof nested.data === 'object') {
+            // 确认卡片（type=confirm）：存结构化数据，模板原生渲染按钮
+            const d = nested.data;
+            messages.value[messageIndex].interaction = {
+              type: 'confirm',
+              title: d.title || '请确认',
+              message: d.message || nested.msg || '',
+              confirmText: d.confirmText || '同意',
+              cancelText: d.cancelText || '取消',
+              tool: d.tool,
+              arguments: d.arguments || {},
+              values: d.values || {},
+              resolved: false
+            };
+          } else if (nested.code === 8002 && nested.data && typeof nested.data === 'object') {
+            // 表单补全卡片（type=form）：存结构化数据，模板原生渲染表单
+            const d = nested.data;
+            messages.value[messageIndex].interaction = {
+              type: 'form',
+              title: d.title || '请补充信息',
+              message: d.message || nested.msg || '',
+              fields: Array.isArray(d.fields) ? d.fields : [],
+              values: d.values || {},
+              tool: d.tool,
+              arguments: d.arguments || {},
+              submitText: d.submitText || '提交',
+              resolved: false
+            };
+            // 初始化该消息索引下的表单数据（用 values 回填已有值）
+            interactionFormData[messageIndex] = { ...(d.values || {}) };
           }
           messages.value[messageIndex].isLoading = false;
           scrollToBottom();
@@ -959,7 +1527,7 @@ const sendMessage = async () => {
         return;
       }
       if (json && json.code !== undefined) {
-        // 旧协议 JSON 分片（code 8000/8001/9999/500）
+        // 旧协议 JSON 分片（code 8000/8001/8002/8003/9999/500）
         appendText(json.msg || '');
         if (json.code === 8001 && json.data && typeof json.data === 'string' && json.data.trim()) {
           messages.value[messageIndex].routeUrl = json.data;
@@ -973,6 +1541,35 @@ const sendMessage = async () => {
           if (json.data.summary) {
             appendText('\n\n' + json.data.summary);
           }
+        } else if (json.code === 8003 && json.data && typeof json.data === 'object') {
+          // 确认卡片（type=confirm）
+          const d = json.data;
+          messages.value[messageIndex].interaction = {
+            type: 'confirm',
+            title: d.title || '请确认',
+            message: d.message || json.msg || '',
+            confirmText: d.confirmText || '同意',
+            cancelText: d.cancelText || '取消',
+            tool: d.tool,
+            arguments: d.arguments || {},
+            values: d.values || {},
+            resolved: false
+          };
+        } else if (json.code === 8002 && json.data && typeof json.data === 'object') {
+          // 表单补全卡片（type=form）
+          const d = json.data;
+          messages.value[messageIndex].interaction = {
+            type: 'form',
+            title: d.title || '请补充信息',
+            message: d.message || json.msg || '',
+            fields: Array.isArray(d.fields) ? d.fields : [],
+            values: d.values || {},
+            tool: d.tool,
+            arguments: d.arguments || {},
+            submitText: d.submitText || '提交',
+            resolved: false
+          };
+          interactionFormData[messageIndex] = { ...(d.values || {}) };
         }
         messages.value[messageIndex].isLoading = false;
         scrollToBottom();
@@ -1496,11 +2093,10 @@ textarea {
   object-fit: cover;
 }
 
-/* 用户气泡：浅色圆角块、无尾巴（贴近 DeepSeek / GLM） */
+/* 用户气泡：浅色圆角块、无尾巴、无边框（贴近 DeepSeek：仅背景色） */
 .user-bubble {
   max-width: 78%;
   background: rgba(240, 67, 110, 0.08);
-  border: 1px solid rgba(240, 67, 110, 0.14);
   color: #262336;
   padding: 10px 16px;
   border-radius: 14px;
@@ -1511,30 +2107,20 @@ textarea {
 
   &.is-dark {
     background: rgba(240, 67, 110, 0.18);
-    border-color: rgba(240, 67, 110, 0.30);
     color: #f3f4f6;
   }
 }
 
-/* AI 正文：带背景框的卡片（保留气泡背景） */
+/* AI 正文：纯文本无卡片（贴近 DeepSeek：无边框/无背景/无阴影，直铺页面底色；16px / 1.7） */
 .ai-content {
   flex: 1;
   min-width: 0;
   color: #262336;
-  font-size: 15px;
-  line-height: 1.75;
+  font-size: 16px;
+  line-height: 1.7;
   word-break: break-word;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #eceaf4;
-  border-radius: 14px;
-  border-top-left-radius: 4px;
-  padding: 12px 16px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px rgba(124, 116, 160, 0.10);
 
   &.is-dark {
-    background: rgba(40, 38, 54, 0.85);
-    border-color: #3a3850;
     color: #e8e6f0;
   }
 }
@@ -1723,6 +2309,148 @@ textarea {
       color: #c4b5fd;
     }
   }
+}
+
+/* ===== 交互卡片（马卡龙蓝：#3b82f6 / 浅底 #eef4ff）===== */
+.interaction-card {
+  background: #eef4ff;
+  border: 1px solid rgba(59, 130, 246, 0.30);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #2563eb;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.25s ease;
+
+  &.is-dark {
+    background: rgba(59, 130, 246, 0.10);
+    border-color: rgba(96, 165, 250, 0.35);
+    color: #60a5fa;
+  }
+
+  &.interaction-card-resolved {
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  &.interaction-card-cancelled {
+    background: #fdf2f8;
+    border-color: rgba(240, 67, 110, 0.25);
+    color: #f0436e;
+
+    &.is-dark {
+      background: rgba(240, 67, 110, 0.10);
+      border-color: rgba(240, 67, 110, 0.30);
+      color: #fb7185;
+    }
+  }
+}
+
+.interaction-header {
+  color: #3b82f6;
+
+  .is-dark & { color: #60a5fa; }
+  .interaction-card-cancelled & { color: #be123c; .is-dark & { color: #fb7185; } }
+}
+
+.interaction-tool-tag {
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+  padding: 2px 6px;
+
+  .interaction-card-cancelled & { background: rgba(240, 67, 110, 0.12); color: #f0436e; }
+  .is-dark & { background: rgba(96, 165, 250, 0.20); color: #93c5fd; }
+  .is-dark .interaction-card-cancelled & { background: rgba(240, 67, 110, 0.18); color: #fb7185; }
+}
+
+.interaction-message {
+  color: #4b5563;
+
+  .is-dark & { color: #cbd5e1; }
+  .interaction-card-cancelled & { color: #be123c; .is-dark & { color: #fb7185; } }
+}
+
+.interaction-actions {
+  opacity: 1;
+  transition: opacity 0.25s ease;
+
+  &.interaction-actions-disabled {
+    opacity: 0.72;
+    pointer-events: none;
+  }
+}
+
+.interaction-btn {
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  &:not(:disabled):hover { transform: translateY(-1px); }
+
+  &.interaction-btn-primary {
+    background: #3b82f6;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
+
+    &:not(:disabled):hover { background: #2563eb; }
+  }
+
+  &.interaction-btn-ghost {
+    background: rgba(255, 255, 255, 0.7);
+    color: #4b5563;
+    border: 1px solid rgba(156, 163, 175, 0.4);
+
+    &:not(:disabled):hover {
+      background: rgba(255, 255, 255, 0.95);
+      border-color: rgba(107, 114, 128, 0.6);
+    }
+
+    .is-dark & {
+      background: rgba(55, 65, 81, 0.6);
+      color: #cbd5e1;
+      border-color: rgba(107, 114, 128, 0.4);
+
+      &:not(:disabled):hover {
+        background: rgba(55, 65, 81, 0.85);
+        border-color: rgba(148, 163, 184, 0.5);
+      }
+    }
+  }
+}
+
+.interaction-field-label { color: #374151; .is-dark & { color: #cbd5e1; } }
+.interaction-field-required { color: #f0436e; margin-left: 2px; }
+.interaction-field-message { color: #f59e0b; .is-dark & { color: #fbbf24; } }
+
+.interaction-input {
+  border: 1px solid rgba(156, 163, 175, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  color: #1f2937;
+  outline: none;
+
+  &::placeholder { color: #9ca3af; }
+  &:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .is-dark & {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(100, 116, 139, 0.5);
+    color: #e2e8f0;
+
+    &::placeholder { color: #64748b; }
+    &:focus { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.25); }
+  }
+}
+
+.interaction-textarea { font-family: inherit; }
+.interaction-form-disabled { pointer-events: none; opacity: 0.72; }
+
+.interaction-resolved-hint {
+  border-top: 1px dashed rgba(59, 130, 246, 0.30);
+  color: #2563eb;
+  opacity: 0.75;
+
+  &.is-cancelled { border-top-color: rgba(240, 67, 110, 0.30); color: #be123c; .is-dark & { color: #fb7185; } }
+  .is-dark & { border-top-color: rgba(96, 165, 250, 0.30); color: #93c5fd; }
 }
 
 /* 输入中动画圆点 */
@@ -1990,6 +2718,19 @@ textarea {
    故本块样式需放在非 scoped 样式中才能命中 */
 .user-bubble .markdown-body {
   font-size: 15px;
+}
+
+/* AI 消息 Markdown 排版（贴近 DeepSeek：16px / 1.7）
+   all.scss 的 .markdown-body(15px/1.6) 会覆盖容器继承值，这里按 AI 场景覆盖回来 */
+.ai-content .markdown-body {
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+/* 代码块对齐 DeepSeek 官方 token --dsw-font-markdown-code-block（13px / 22px） */
+.ai-content .markdown-body pre code {
+  font-size: 13px;
+  line-height: 22px;
 }
 
 .user-bubble .markdown-body p:last-child,

@@ -6,7 +6,6 @@ import com.mall.common.core.web.domain.AjaxResult;
 import com.mall.system.api.RemoteConfigService;
 import com.mall.system.api.domain.SysConfig;
 import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,57 +24,21 @@ public class ConfigToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "系统参数配置的新增、修改、删除。参数包含 operationType(add/update/delete)和参数配置实体。")
+    @Tool(description = "系统参数配置的新增、修改、删除。参数包含 operationType(add/update/delete)和参数配置实体。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult configCrud(SysConfigBo configBo) {
-        String operationType = configBo.getOperationType();
-        if (operationType == null || operationType.isEmpty()) {
-            return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
+        AjaxResult gate = crudGate(configBo, "configCrud", "参数配置", OPS_CRUD, "configKey");
+        if (gate != null) {
+            return gate;
         }
-
-        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
+        return executeWithErrorHandling(() -> switch (configBo.getOperationType().toLowerCase()) {
             case "add" -> handleConfigAdd(configBo);
             case "update" -> handleConfigUpdate(configBo);
             case "delete" -> handleConfigDelete(configBo);
-            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+            default -> AjaxResult.error("不支持的操作类型：" + configBo.getOperationType() + "，请使用：add、update、delete");
         }, "参数配置操作");
     }
 
-    @Tool(description = "查询系统参数配置。参数：参数名称(configName)或参数键名(configKey)，可选。")
-    public AjaxResult configQuery(
-            @ToolParam(description = "参数名称，可选") String configName,
-            @ToolParam(description = "参数键名，可选") String configKey) {
-        return executeWithErrorHandling(() -> {
-            SysConfig query = new SysConfig();
-            if (configName != null && !configName.isEmpty()) {
-                query.setConfigName(configName);
-            }
-            if (configKey != null && !configKey.isEmpty()) {
-                query.setConfigKey(configKey);
-            }
-            R<List<SysConfig>> result = remoteConfigService.getConfigList(query);
-            if (result.getCode() == 200 && result.getData() != null) {
-                if (result.getData().isEmpty()) {
-                    return AjaxResult.error("未查询到相关参数配置");
-                }
-                StringBuilder sb = new StringBuilder("查询到 " + result.getData().size() + " 个参数配置：\n");
-                for (SysConfig c : result.getData()) {
-                    sb.append("- 参数名称：").append(c.getConfigName())
-                      .append("，键名：").append(c.getConfigKey())
-                      .append("，键值：").append(c.getConfigValue())
-                      .append("，内置：").append("Y".equals(c.getConfigType()) ? "是" : "否")
-                      .append("\n");
-                }
-                return AjaxResult.success(sb.toString());
-            }
-            return AjaxResult.error(result.getMsg());
-        }, "查询参数配置");
-    }
-
     private AjaxResult handleConfigAdd(SysConfigBo configBo) {
-        AjaxResult validateResult = validate(configBo, "sysConfigBo");
-        if (validateResult != null) {
-            return validateResult;
-        }
         SysConfig sysConfig = new SysConfig();
         BeanUtils.copyProperties(configBo, sysConfig);
         if (sysConfig.getConfigType() == null || sysConfig.getConfigType().isEmpty()) {
@@ -87,14 +50,14 @@ public class ConfigToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleConfigUpdate(SysConfigBo configBo) {
         if (configBo.getConfigKey() == null || configBo.getConfigKey().isEmpty()) {
-            return AjaxResult.error("修改操作必须传入参数键名");
+            return formMissing("修改操作必须传入参数键名，请补充", configBo, "configKey");
         }
         List<SysConfig> configs = getConfigsByConditions(configBo);
         if (configs.isEmpty()) {
             return AjaxResult.error("参数配置不存在：" + configBo.getConfigKey());
         }
         if (configs.size() > 1) {
-            return AjaxResult.error("查询到多个参数配置，请补充更多信息后重试：" + formatConfigList(configs));
+            return formMissing("查询到多个参数配置，请补充以下信息以精确定位：" + formatConfigList(configs), configBo);
         }
         SysConfig sysConfig = new SysConfig();
         BeanUtils.copyProperties(configBo, sysConfig);
@@ -105,14 +68,14 @@ public class ConfigToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleConfigDelete(SysConfigBo configBo) {
         if (configBo.getConfigKey() == null || configBo.getConfigKey().isEmpty()) {
-            return AjaxResult.error("删除操作必须传入参数键名");
+            return formMissing("删除操作必须传入参数键名，请补充", configBo, "configKey");
         }
         List<SysConfig> configs = getConfigsByConditions(configBo);
         if (configs.isEmpty()) {
             return AjaxResult.error("参数配置不存在：" + configBo.getConfigKey());
         }
         if (configs.size() > 1) {
-            return AjaxResult.error("查询到多个参数配置，请补充更多信息后重试：" + formatConfigList(configs));
+            return formMissing("查询到多个参数配置，请补充以下信息以精确定位：" + formatConfigList(configs), configBo);
         }
         R<Boolean> result = remoteConfigService.deleteConfig(configs.getFirst().getConfigId());
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());

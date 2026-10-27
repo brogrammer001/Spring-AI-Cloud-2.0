@@ -144,8 +144,11 @@ public class ChatClientConfig {
         // 3.短期基础会话记忆（MySQL）
         advisors.add(sessionMemoryAdvisor); // 120
 
-        // 4. 在 toolSearchAdvisor 之前执行，保存标记了 returnDirect=true 的工具结果
-        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, sessionService).order(130).build());
+        // 4. returnDirect 工具结果存储：必须注册在 ToolCallingAdvisor（HIGHEST_PRECEDENCE+300）外层，
+        //    该结果由链头直接返回、不流经任何正数 order 的内层 Advisor；此处一份落 MySQL（含 tool/arguments
+        //    完整工具调用信息，前端渲染表单/确认卡片），一份 appendEvent 进 session（内层 SessionMemoryAdvisor
+        //    拦不到，下一轮 LLM 上下文靠这里补齐续接依据）
+        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, sessionService).build());
 
         // 5.工具搜索顾问
         advisors.add(toolSearchAdvisor); //140

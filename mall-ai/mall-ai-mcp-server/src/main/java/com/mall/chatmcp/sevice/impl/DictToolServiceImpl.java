@@ -27,103 +27,36 @@ public class DictToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "字典类型的新增、修改、删除。参数包含 operationType(add/update/delete)和字典类型实体。")
+    @Tool(description = "字典类型的新增、修改、删除。参数包含 operationType(add/update/delete)和字典类型实体。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult dictTypeCrud(SysDictTypeBo dictTypeBo) {
-        String operationType = dictTypeBo.getOperationType();
-        if (operationType == null || operationType.isEmpty()) {
-            return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
+        AjaxResult gate = crudGate(dictTypeBo, "dictTypeCrud", "字典类型", OPS_CRUD, "dictType");
+        if (gate != null) {
+            return gate;
         }
-
-        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
+        return executeWithErrorHandling(() -> switch (dictTypeBo.getOperationType().toLowerCase()) {
             case "add" -> handleDictTypeAdd(dictTypeBo);
             case "update" -> handleDictTypeUpdate(dictTypeBo);
             case "delete" -> handleDictTypeDelete(dictTypeBo);
-            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+            default -> AjaxResult.error("不支持的操作类型：" + dictTypeBo.getOperationType() + "，请使用：add、update、delete");
         }, "字典类型操作");
     }
 
-    @Tool(description = "查询字典类型列表。参数：字典名称(dictName)或字典类型编码(dictType)，可选。")
-    public AjaxResult dictTypeQuery(
-            @ToolParam(description = "字典名称，可选") String dictName,
-            @ToolParam(description = "字典类型编码，可选") String dictType) {
-        return executeWithErrorHandling(() -> {
-            SysDictType query = new SysDictType();
-            if (dictName != null && !dictName.isEmpty()) {
-                query.setDictName(dictName);
-            }
-            if (dictType != null && !dictType.isEmpty()) {
-                query.setDictType(dictType);
-            }
-            R<List<SysDictType>> result = remoteDictService.getDictTypeList(query);
-            if (result.getCode() == 200 && result.getData() != null) {
-                if (result.getData().isEmpty()) {
-                    return AjaxResult.error("未查询到相关字典类型");
-                }
-                StringBuilder sb = new StringBuilder("查询到 " + result.getData().size() + " 个字典类型：\n");
-                for (SysDictType d : result.getData()) {
-                    sb.append("- 字典名称：").append(d.getDictName())
-                      .append("，字典类型：").append(d.getDictType())
-                      .append("，状态：").append("0".equals(d.getStatus()) ? "正常" : "停用")
-                      .append("\n");
-                }
-                return AjaxResult.success(sb.toString());
-            }
-            return AjaxResult.error(result.getMsg());
-        }, "查询字典类型");
-    }
 
-    @Tool(description = "字典数据的新增、修改、删除。参数包含 operationType(add/update/delete)和字典数据实体。")
+    @Tool(description = "字典数据的新增、修改、删除。参数包含 operationType(add/update/delete)和字典数据实体。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult dictDataCrud(SysDictDataBo dictDataBo) {
-        String operationType = dictDataBo.getOperationType();
-        if (operationType == null || operationType.isEmpty()) {
-            return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
+        AjaxResult gate = crudGate(dictDataBo, "dictDataCrud", "字典数据", OPS_CRUD, "dictType", "dictLabel");
+        if (gate != null) {
+            return gate;
         }
-
-        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
+        return executeWithErrorHandling(() -> switch (dictDataBo.getOperationType().toLowerCase()) {
             case "add" -> handleDictDataAdd(dictDataBo);
             case "update" -> handleDictDataUpdate(dictDataBo);
             case "delete" -> handleDictDataDelete(dictDataBo);
-            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+            default -> AjaxResult.error("不支持的操作类型：" + dictDataBo.getOperationType() + "，请使用：add、update、delete");
         }, "字典数据操作");
     }
 
-    @Tool(description = "查询字典数据列表。参数：字典类型编码(dictType)必填，字典标签(dictLabel)可选。")
-    public AjaxResult dictDataQuery(
-            @ToolParam(description = "字典类型编码，例如 sys_user_sex") String dictType,
-            @ToolParam(description = "字典标签，可选") String dictLabel) {
-        return executeWithErrorHandling(() -> {
-            if (dictType == null || dictType.isEmpty()) {
-                return AjaxResult.error("字典类型编码不能为空");
-            }
-            SysDictData query = new SysDictData();
-            query.setDictType(dictType);
-            if (dictLabel != null && !dictLabel.isEmpty()) {
-                query.setDictLabel(dictLabel);
-            }
-            R<List<SysDictData>> result = remoteDictService.getDictDataList(query);
-            if (result.getCode() == 200 && result.getData() != null) {
-                if (result.getData().isEmpty()) {
-                    return AjaxResult.error("未查询到字典类型为 " + dictType + " 的字典数据");
-                }
-                StringBuilder sb = new StringBuilder("字典类型 " + dictType + " 的字典项（共 " + result.getData().size() + " 个）：\n");
-                for (SysDictData d : result.getData()) {
-                    sb.append("- 标签：").append(d.getDictLabel())
-                      .append("，值：").append(d.getDictValue())
-                      .append("，排序：").append(d.getDictSort() != null ? d.getDictSort() : 0)
-                      .append("，状态：").append("0".equals(d.getStatus()) ? "正常" : "停用")
-                      .append("\n");
-                }
-                return AjaxResult.success(sb.toString());
-            }
-            return AjaxResult.error(result.getMsg());
-        }, "查询字典数据");
-    }
-
     private AjaxResult handleDictTypeAdd(SysDictTypeBo dictTypeBo) {
-        AjaxResult validateResult = validate(dictTypeBo, "sysDictTypeBo");
-        if (validateResult != null) {
-            return validateResult;
-        }
         SysDictType sysDictType = new SysDictType();
         BeanUtils.copyProperties(dictTypeBo, sysDictType);
         if (sysDictType.getStatus() == null || sysDictType.getStatus().isEmpty()) {
@@ -135,14 +68,14 @@ public class DictToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleDictTypeUpdate(SysDictTypeBo dictTypeBo) {
         if (dictTypeBo.getDictType() == null || dictTypeBo.getDictType().isEmpty()) {
-            return AjaxResult.error("修改操作必须传入字典类型编码");
+            return formMissing("修改操作必须传入字典类型编码，请补充", dictTypeBo, "dictType");
         }
         List<SysDictType> dictTypes = getDictTypesByConditions(dictTypeBo);
         if (dictTypes.isEmpty()) {
             return AjaxResult.error("字典类型不存在：" + dictTypeBo.getDictType());
         }
         if (dictTypes.size() > 1) {
-            return AjaxResult.error("查询到多个字典类型，请补充更多信息后重试：" + formatDictTypeList(dictTypes));
+            return formMissing("查询到多个字典类型，请补充以下信息以精确定位：" + formatDictTypeList(dictTypes), dictTypeBo);
         }
         SysDictType sysDictType = new SysDictType();
         BeanUtils.copyProperties(dictTypeBo, sysDictType);
@@ -153,24 +86,20 @@ public class DictToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleDictTypeDelete(SysDictTypeBo dictTypeBo) {
         if (dictTypeBo.getDictType() == null || dictTypeBo.getDictType().isEmpty()) {
-            return AjaxResult.error("删除操作必须传入字典类型编码");
+            return formMissing("删除操作必须传入字典类型编码，请补充", dictTypeBo, "dictType");
         }
         List<SysDictType> dictTypes = getDictTypesByConditions(dictTypeBo);
         if (dictTypes.isEmpty()) {
             return AjaxResult.error("字典类型不存在：" + dictTypeBo.getDictType());
         }
         if (dictTypes.size() > 1) {
-            return AjaxResult.error("查询到多个字典类型，请补充更多信息后重试：" + formatDictTypeList(dictTypes));
+            return formMissing("查询到多个字典类型，请补充以下信息以精确定位：" + formatDictTypeList(dictTypes), dictTypeBo);
         }
         R<Boolean> result = remoteDictService.deleteDictType(dictTypes.getFirst().getDictId());
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());
     }
 
     private AjaxResult handleDictDataAdd(SysDictDataBo dictDataBo) {
-        AjaxResult validateResult = validate(dictDataBo, "sysDictDataBo");
-        if (validateResult != null) {
-            return validateResult;
-        }
         SysDictData sysDictData = new SysDictData();
         BeanUtils.copyProperties(dictDataBo, sysDictData);
         if (sysDictData.getStatus() == null || sysDictData.getStatus().isEmpty()) {
@@ -185,17 +114,17 @@ public class DictToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleDictDataUpdate(SysDictDataBo dictDataBo) {
         if (dictDataBo.getDictType() == null || dictDataBo.getDictType().isEmpty()) {
-            return AjaxResult.error("修改操作必须传入字典类型编码");
+            return formMissing("修改操作必须传入字典类型编码，请补充", dictDataBo, "dictType");
         }
         if (dictDataBo.getDictLabel() == null || dictDataBo.getDictLabel().isEmpty()) {
-            return AjaxResult.error("修改操作必须传入字典标签");
+            return formMissing("修改操作必须传入字典标签，请补充", dictDataBo, "dictLabel");
         }
         List<SysDictData> dictDatas = getDictDatasByConditions(dictDataBo);
         if (dictDatas.isEmpty()) {
             return AjaxResult.error("字典数据不存在");
         }
         if (dictDatas.size() > 1) {
-            return AjaxResult.error("查询到多个字典数据，请补充更多信息后重试：" + formatDictDataList(dictDatas));
+            return formMissing("查询到多个字典数据，请补充以下信息以精确定位：" + formatDictDataList(dictDatas), dictDataBo);
         }
         SysDictData sysDictData = new SysDictData();
         BeanUtils.copyProperties(dictDataBo, sysDictData);
@@ -206,17 +135,17 @@ public class DictToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleDictDataDelete(SysDictDataBo dictDataBo) {
         if (dictDataBo.getDictType() == null || dictDataBo.getDictType().isEmpty()) {
-            return AjaxResult.error("删除操作必须传入字典类型编码");
+            return formMissing("删除操作必须传入字典类型编码，请补充", dictDataBo, "dictType");
         }
         if (dictDataBo.getDictLabel() == null || dictDataBo.getDictLabel().isEmpty()) {
-            return AjaxResult.error("删除操作必须传入字典标签");
+            return formMissing("删除操作必须传入字典标签，请补充", dictDataBo, "dictLabel");
         }
         List<SysDictData> dictDatas = getDictDatasByConditions(dictDataBo);
         if (dictDatas.isEmpty()) {
             return AjaxResult.error("字典数据不存在");
         }
         if (dictDatas.size() > 1) {
-            return AjaxResult.error("查询到多个字典数据，请补充更多信息后重试：" + formatDictDataList(dictDatas));
+            return formMissing("查询到多个字典数据，请补充以下信息以精确定位：" + formatDictDataList(dictDatas), dictDataBo);
         }
         R<Boolean> result = remoteDictService.deleteDictData(dictDatas.getFirst().getDictCode());
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());

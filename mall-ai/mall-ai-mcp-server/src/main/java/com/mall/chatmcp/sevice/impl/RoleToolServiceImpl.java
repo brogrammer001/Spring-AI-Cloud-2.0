@@ -36,27 +36,21 @@ public class RoleToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "角色数据的新增、修改、删除。参数包含 operationType(add/update/delete)和角色实体。")
+    @Tool(description = "角色数据的新增、修改、删除。参数包含 operationType(add/update/delete)和角色实体。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult roleCrud(SysRoleBo roleBo) {
-        String operationType = roleBo.getOperationType();
-        if (operationType == null || operationType.isEmpty()) {
-            return AjaxResult.error("操作类型不能为空，请指定：add、update、delete");
+        AjaxResult gate = crudGate(roleBo, "roleCrud", "角色", OPS_CRUD, "roleName");
+        if (gate != null) {
+            return gate;
         }
-
-        return executeWithErrorHandling(() -> switch (operationType.toLowerCase()) {
+        return executeWithErrorHandling(() -> switch (roleBo.getOperationType().toLowerCase()) {
             case "add" -> handleRoleAdd(roleBo);
             case "update" -> handleRoleUpdate(roleBo);
             case "delete" -> handleRoleDelete(roleBo);
-            default -> AjaxResult.error("不支持的操作类型：" + operationType + "，请使用：add、update、delete");
+            default -> AjaxResult.error("不支持的操作类型：" + roleBo.getOperationType() + "，请使用：add、update、delete");
         }, "角色操作");
     }
 
     private AjaxResult handleRoleAdd(SysRoleBo roleBo) {
-        AjaxResult validateResult = validate(roleBo, "sysRoleBo");
-        if (validateResult != null) {
-            return validateResult;
-        }
-
         SysRole sysRole = new SysRole();
         BeanUtils.copyProperties(roleBo, sysRole);
 
@@ -70,14 +64,14 @@ public class RoleToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleRoleUpdate(SysRoleBo roleBo) {
         if (roleBo.getRoleName() == null || roleBo.getRoleName().isEmpty()) {
-            return AjaxResult.error("修改操作必须传入角色名称");
+            return formMissing("修改操作必须传入角色名称，请补充", roleBo, "roleName");
         }
         List<SysRole> roles = getRolesByConditions(roleBo);
         if (roles.isEmpty()) {
             return AjaxResult.error("角色不存在：" + roleBo.getRoleName());
         }
         if (roles.size() > 1) {
-            return AjaxResult.error("查询到多个角色，请补充更多信息（如权限字符等）后重试" + formatRoleList(roles));
+            return formMissing("查询到多个角色，请补充以下信息以精确定位：" + formatRoleList(roles), roleBo);
         }
 
         SysRole sysRole = new SysRole();
@@ -90,7 +84,7 @@ public class RoleToolServiceImpl extends BaseToolServiceImpl {
 
     private AjaxResult handleRoleDelete(SysRoleBo roleBo) {
         if (roleBo.getRoleName() == null || roleBo.getRoleName().isEmpty()) {
-            return AjaxResult.error("删除操作必须传入角色名称");
+            return formMissing("删除操作必须传入角色名称，请补充", roleBo, "roleName");
         }
 
         List<SysRole> roles = getRolesByConditions(roleBo);
@@ -98,80 +92,94 @@ public class RoleToolServiceImpl extends BaseToolServiceImpl {
             return AjaxResult.error("角色不存在：" + roleBo.getRoleName());
         }
         if (roles.size() > 1) {
-            return AjaxResult.error("查询到多个角色，请补充更多信息（如权限字符等）后重试" + formatRoleList(roles));
+            return formMissing("查询到多个角色，请补充以下信息以精确定位：" + formatRoleList(roles), roleBo);
         }
 
         R<Boolean> result = remoteRoleService.deleteRole(roles.getFirst().getRoleId());
         return result.getCode() == 200 && result.getData() ? AjaxResult.success("删除成功") : AjaxResult.error(result.getMsg());
     }
 
-    @Tool(description = "为角色分配数据权限范围（部门）。 ")
+    @Tool(description = "为角色分配数据权限范围（部门）。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult roleDeptAuth(RoleDeptBo roleDeptBo) {
+        AjaxResult validateResult = validate(roleDeptBo);
+        if (validateResult != null) {
+            return validateResult;
+        }
+        if (roleDeptBo.getDeptNames() == null || roleDeptBo.getDeptNames().length == 0) {
+            return formMissing("请传入部门名称列表", roleDeptBo, "deptNames");
+        }
+        if (!isConfirmed(roleDeptBo)) {
+            return confirmResult("roleDeptAuth", "auth", "确认角色数据权限分配",
+                "即将为角色「" + roleDeptBo.getRoleName() + "」分配数据权限，请确认是否继续。", toMap(roleDeptBo));
+        }
         return executeWithErrorHandling(() -> {
             List<SysRole> roles = getRolesByName(roleDeptBo.getRoleName());
             if (roles.isEmpty()) {
                 return AjaxResult.error("角色不存在：" + roleDeptBo.getRoleName());
             }
             if (roles.size() > 1) {
-                return AjaxResult.error("查询到多个角色，请补充更精确的角色名称后重试");
+                return formMissing("查询到多个角色，请补充以下信息以精确定位：" + formatRoleList(roles), roleDeptBo);
             }
             Long roleId = roles.getFirst().getRoleId();
 
-            if (roleDeptBo.getDeptNames() != null && roleDeptBo.getDeptNames().length > 0) {
-                Long[] deptIds = new Long[roleDeptBo.getDeptNames().length];
-                for (int i = 0; i < roleDeptBo.getDeptNames().length; i++) {
-                    List<SysDept> deptList = getDeptsByName(roleDeptBo.getDeptNames()[i]);
-                    if (deptList.isEmpty()) {
-                        return AjaxResult.error("部门不存在：" + roleDeptBo.getDeptNames()[i]);
-                    }
-                    if (deptList.size() > 1) {
-                        return AjaxResult.error("查询到多个部门，请补充更精确的部门名称后重试：" + roleDeptBo.getDeptNames()[i]);
-                    }
-                    deptIds[i] = deptList.getFirst().getDeptId();
+            Long[] deptIds = new Long[roleDeptBo.getDeptNames().length];
+            for (int i = 0; i < roleDeptBo.getDeptNames().length; i++) {
+                List<SysDept> deptList = getDeptsByName(roleDeptBo.getDeptNames()[i]);
+                if (deptList.isEmpty()) {
+                    return AjaxResult.error("部门不存在：" + roleDeptBo.getDeptNames()[i]);
                 }
-                SysRole sysRole = new SysRole();
-                sysRole.setRoleId(roleId);
-                sysRole.setDeptIds(deptIds);
-                R<Boolean> result = remoteRoleService.authDataScope(sysRole);
-                return result.getCode() == 200 && result.getData() ? AjaxResult.success("角色数据权限分配成功") : AjaxResult.error(result.getMsg());
-            } else {
-                return AjaxResult.error("请传入部门名称列表");
+                if (deptList.size() > 1) {
+                    return formMissing("查询到多个部门，请补充以下信息以精确定位：" + roleDeptBo.getDeptNames()[i], roleDeptBo);
+                }
+                deptIds[i] = deptList.getFirst().getDeptId();
             }
+            SysRole sysRole = new SysRole();
+            sysRole.setRoleId(roleId);
+            sysRole.setDeptIds(deptIds);
+            R<Boolean> result = remoteRoleService.authDataScope(sysRole);
+            return result.getCode() == 200 && result.getData() ? AjaxResult.success("角色数据权限分配成功") : AjaxResult.error(result.getMsg());
         }, "角色数据权限分配");
     }
 
-    @Tool(description = "为角色分配菜单权限。 ")
+    @Tool(description = "为角色分配菜单权限。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult roleMenuAuth(RoleMenuBo roleMenuBo) {
+        AjaxResult validateResult = validate(roleMenuBo);
+        if (validateResult != null) {
+            return validateResult;
+        }
+        if (roleMenuBo.getMenuNames() == null || roleMenuBo.getMenuNames().length == 0) {
+            return formMissing("请传入菜单名称列表", roleMenuBo, "menuNames");
+        }
+        if (!isConfirmed(roleMenuBo)) {
+            return confirmResult("roleMenuAuth", "auth", "确认角色菜单权限分配",
+                "即将为角色「" + roleMenuBo.getRoleName() + "」分配菜单权限，请确认是否继续。", toMap(roleMenuBo));
+        }
         return executeWithErrorHandling(() -> {
             List<SysRole> roles = getRolesByName(roleMenuBo.getRoleName());
             if (roles.isEmpty()) {
                 return AjaxResult.error("角色不存在：" + roleMenuBo.getRoleName());
             }
             if (roles.size() > 1) {
-                return AjaxResult.error("查询到多个角色，请补充更精确的角色名称后重试");
+                return formMissing("查询到多个角色，请补充以下信息以精确定位：" + formatRoleList(roles), roleMenuBo);
             }
             Long roleId = roles.getFirst().getRoleId();
 
-            if (roleMenuBo.getMenuNames() != null && roleMenuBo.getMenuNames().length > 0) {
-                Long[] menuIds = new Long[roleMenuBo.getMenuNames().length];
-                for (int i = 0; i < roleMenuBo.getMenuNames().length; i++) {
-                    List<SysMenuVo> menuList = getMenusByName(roleMenuBo.getMenuNames()[i]);
-                    if (menuList.isEmpty()) {
-                        return AjaxResult.error("菜单不存在：" + roleMenuBo.getMenuNames()[i]);
-                    }
-                    if (menuList.size() > 1) {
-                        return AjaxResult.error("查询到多个菜单，请补充更精确的菜单名称后重试：" + roleMenuBo.getMenuNames()[i]);
-                    }
-                    menuIds[i] = menuList.getFirst().getMenuId();
+            Long[] menuIds = new Long[roleMenuBo.getMenuNames().length];
+            for (int i = 0; i < roleMenuBo.getMenuNames().length; i++) {
+                List<SysMenuVo> menuList = getMenusByName(roleMenuBo.getMenuNames()[i]);
+                if (menuList.isEmpty()) {
+                    return AjaxResult.error("菜单不存在：" + roleMenuBo.getMenuNames()[i]);
                 }
-                SysRole sysRole = new SysRole();
-                sysRole.setRoleId(roleId);
-                sysRole.setMenuIds(menuIds);
-                R<Boolean> result = remoteRoleService.authMenu(sysRole);
-                return result.getCode() == 200 && result.getData() ? AjaxResult.success("角色菜单权限分配成功") : AjaxResult.error(result.getMsg());
-            } else {
-                return AjaxResult.error("请传入菜单名称列表");
+                if (menuList.size() > 1) {
+                    return formMissing("查询到多个菜单，请补充以下信息以精确定位：" + roleMenuBo.getMenuNames()[i], roleMenuBo);
+                }
+                menuIds[i] = menuList.getFirst().getMenuId();
             }
+            SysRole sysRole = new SysRole();
+            sysRole.setRoleId(roleId);
+            sysRole.setMenuIds(menuIds);
+            R<Boolean> result = remoteRoleService.authMenu(sysRole);
+            return result.getCode() == 200 && result.getData() ? AjaxResult.success("角色菜单权限分配成功") : AjaxResult.error(result.getMsg());
         }, "角色菜单权限分配");
     }
 

@@ -16,7 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.Validator;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
@@ -35,19 +37,30 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "创建部门并设置负责人，自动为负责人分配部门管理员角色。参数：部门信息(dept)、负责人用户名(adminUserName)。")
+    @Tool(description = "创建部门并设置负责人，自动为负责人分配部门管理员角色。参数：部门信息(dept)、负责人用户名(adminUserName)。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult createDeptWithAdmin(
             @ToolParam(description = "部门信息") SysDeptBo dept,
-            @ToolParam(description = "负责人用户名") String adminUserName) {
+            @ToolParam(description = "负责人用户名") String adminUserName,
+            @ToolParam(description = "用户确认标志，用户在前端点击同意按钮后为true，AI不要自行设置该值") Boolean confirmed) {
 
         return executeWithErrorHandling(() -> {
-            AjaxResult validateResult = validate(dept, "sysDeptBo");
+            AjaxResult validateResult = validate(dept);
             if (validateResult != null) {
                 return validateResult;
             }
 
             if (adminUserName == null || adminUserName.isEmpty()) {
-                return AjaxResult.error("负责人用户名不能为空");
+                Map<String, Object> values = new LinkedHashMap<>();
+                values.put("dept", toMap(dept));
+                return formMissing("负责人用户名不能为空，请补充", values, "adminUserName");
+            }
+
+            if (!Boolean.TRUE.equals(confirmed)) {
+                Map<String, Object> args = new LinkedHashMap<>();
+                args.put("dept", toMap(dept));
+                args.put("adminUserName", adminUserName);
+                return confirmResult("createDeptWithAdmin", "add", "确认创建部门",
+                    "即将创建部门「" + dept.getDeptName() + "」并设置负责人「" + adminUserName + "」，请确认是否继续。", args);
             }
 
             Long userId = getUserIdByUserName(adminUserName);
@@ -98,28 +111,35 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         }, "创建部门并设置负责人");
     }
 
-    @Tool(description = "批量创建部门结构。参数：部门信息列表(deptList)。按顺序创建，支持父子关系。 ")
+    @Tool(description = "批量创建部门结构。参数：部门信息列表(deptList)。按顺序创建，支持父子关系。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
     public AjaxResult batchCreateDepts(
-            @ToolParam(description = "部门信息列表") List<SysDeptBo> deptList) {
+            @ToolParam(description = "部门信息列表") List<SysDeptBo> deptList,
+            @ToolParam(description = "用户确认标志，用户在前端点击同意按钮后为true，AI不要自行设置该值") Boolean confirmed) {
 
         return executeWithErrorHandling(() -> {
             if (deptList == null || deptList.isEmpty()) {
                 return AjaxResult.error("部门列表不能为空");
             }
 
+            // 先逐项校验，缺字段直接返回表单
+            for (SysDeptBo deptBo : deptList) {
+                AjaxResult validateResult = validate(deptBo);
+                if (validateResult != null) {
+                    return validateResult;
+                }
+            }
+
+            if (!Boolean.TRUE.equals(confirmed)) {
+                Map<String, Object> args = new LinkedHashMap<>();
+                args.put("deptList", deptList.stream().map(this::toMap).toList());
+                return confirmResult("batchCreateDepts", "add", "确认批量创建部门",
+                    "即将批量创建 " + deptList.size() + " 个部门，请确认是否继续。", args);
+            }
+
             StringBuilder successMsg = new StringBuilder("成功创建以下部门：");
             StringBuilder failMsg = new StringBuilder();
 
             for (SysDeptBo deptBo : deptList) {
-                AjaxResult validateResult = validate(deptBo, "sysDeptBo");
-                if (validateResult != null) {
-                    if (!failMsg.isEmpty()) {
-                        failMsg.append("；");
-                    }
-                    failMsg.append(deptBo.getDeptName()).append("：").append(validateResult.get("msg"));
-                    continue;
-                }
-
                 SysDept sysDept = new SysDept();
                 BeanUtils.copyProperties(deptBo, sysDept);
 
