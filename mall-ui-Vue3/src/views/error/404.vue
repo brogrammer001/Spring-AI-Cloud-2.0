@@ -164,7 +164,7 @@ let message = computed(() => {
       font-size: 32px;
       font-weight: bold;
       line-height: 40px;
-      background: linear-gradient(135deg, #f0436e 0%, #a78bfa 100%);
+      background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -178,7 +178,7 @@ let message = computed(() => {
     &__headline {
       font-size: 20px;
       line-height: 24px;
-      color: #262336;
+      color: #111827;
       font-weight: bold;
       opacity: 0;
       margin-bottom: 10px;
@@ -190,7 +190,7 @@ let message = computed(() => {
     &__info {
       font-size: 13px;
       line-height: 21px;
-      color: #8b8899;
+      color: #6b7280;
       opacity: 0;
       margin-bottom: 30px;
       animation-name: slideUp;
@@ -203,7 +203,7 @@ let message = computed(() => {
       float: left;
       width: 110px;
       height: 38px;
-      background: #f0436e;
+      background: #2563eb;
       border-radius: 100px;
       text-align: center;
       color: #ffffff;
@@ -212,7 +212,7 @@ let message = computed(() => {
       font-weight: 600;
       line-height: 38px;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(240, 67, 110, 0.28);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
       transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
       animation-name: slideUp;
       animation-duration: 0.5s;
@@ -220,9 +220,9 @@ let message = computed(() => {
       animation-fill-mode: forwards;
 
       &:hover {
-        background: #d9305c;
+        background: #1d4ed8;
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(240, 67, 110, 0.36);
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.36);
       }
     }
     @keyframes slideUp {

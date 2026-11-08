@@ -16,7 +16,7 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   /* 外层深一档的灰紫底，衬托悬浮圆角容器 */
   background: #e9e7f0;
-  color: var(--text-primary, #262336);
+  color: var(--text-primary, #111827);
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
@@ -35,7 +35,7 @@ html {
   border-radius: 20px;
   overflow: hidden;
   background: var(--app-bg);
-  box-shadow: 0 24px 64px rgba(124, 116, 160, 0.18), 0 4px 16px rgba(124, 116, 160, 0.08);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 *,
@@ -109,7 +109,7 @@ div:focus {
 }
 
 aside {
-  background: var(--table-header-bg, #f4f3f8);
+  background: var(--table-header-bg, #f4f5f7);
   padding: 8px 24px;
   margin-bottom: 20px;
   border-radius: var(--radius-sm, 8px);
@@ -117,16 +117,16 @@ aside {
   line-height: 32px;
   font-size: 16px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  color: var(--text-regular, #4b4861);
+  color: var(--text-regular, #4b5563);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
   a {
-    color: var(--el-color-primary, #f0436e);
+    color: var(--el-color-primary, #2563eb);
     cursor: pointer;
 
     &:hover {
-      color: #d9305c;
+      color: #1d4ed8;
     }
   }
 }
@@ -169,7 +169,7 @@ aside {
 
 /* 柔和渐变文字（标题点缀用） */
 .text-gradient {
-  background: linear-gradient(135deg, #f0436e 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -187,11 +187,11 @@ aside {
 
 .link-type,
 .link-type:focus {
-  color: var(--el-color-primary, #f0436e);
+  color: var(--el-color-primary, #2563eb);
   cursor: pointer;
 
   &:hover {
-    color: #d9305c;
+    color: #1d4ed8;
   }
 }
 
@@ -205,7 +205,7 @@ aside {
   }
 }
 
-/* ===== 淡紫马卡龙 · 通用业务组件类（design.md 4.9 / 4.10 / 4.11） ===== */
+/* ===== 中性黑白灰蓝 · 通用业务组件类（design.md 4.9 / 4.10 / 4.11） ===== */
 
 /* 4.9 区块标题组：左标题 + 右 More 链接 */
 .section-header {
@@ -219,24 +219,24 @@ aside {
     font-size: 17px;
     font-weight: 700;
     line-height: 1.4;
-    color: var(--text-primary, #262336);
+    color: var(--text-primary, #111827);
   }
 
   &__more {
     font-size: 13px;
     font-weight: 400;
-    color: var(--el-color-primary, #f0436e);
+    color: var(--el-color-primary, #2563eb);
     cursor: pointer;
     transition: color 0.25s ease;
 
     &:hover {
-      color: #d9305c;
+      color: #1d4ed8;
       text-decoration: underline;
     }
   }
 }
 
-/* 4.10 数据统计卡网格 + 卡片（双变体：马卡龙带图标 / 浅灰无图标） */
+/* 4.10 数据统计卡网格 + 卡片（双变体：带图标 / 浅灰无图标） */
 .data-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -261,7 +261,7 @@ aside {
   padding: 20px;
   border-radius: var(--radius-md, 12px);
   border: 1px solid transparent;
-  background: var(--table-header-bg, #f4f3f8);
+  background: var(--table-header-bg, #f4f5f7);
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease;
   cursor: default;
 
@@ -272,7 +272,7 @@ aside {
 
   &__label {
     font-size: 14px;
-    color: var(--text-primary, #262336);
+    color: var(--text-primary, #111827);
   }
 
   &__value {
@@ -280,13 +280,13 @@ aside {
     font-size: 26px;
     font-weight: 700;
     line-height: 1.2;
-    color: var(--text-primary, #262336);
+    color: var(--text-primary, #111827);
     font-variant-numeric: tabular-nums;
   }
 
   &__note {
     font-size: 12px;
-    color: var(--text-secondary, #8b8899);
+    color: var(--text-secondary, #6b7280);
   }
 
   &__icon {
@@ -301,26 +301,26 @@ aside {
     color: #ffffff;
   }
 
-  /* 马卡龙五色浅底 */
+  /* 中性调五色：主蓝 → 亮蓝 → 板岩 → 深灰蓝 → 中性灰（仅黑白灰蓝） */
   &--pink {
-    background: #fce8ee;
-    .data-card__icon { background: #f0436e; box-shadow: 0 6px 14px rgba(240, 67, 110, 0.30); }
+    background: #eff6ff;
+    .data-card__icon { background: #2563eb; box-shadow: 0 6px 14px rgba(37, 99, 235, 0.30); }
   }
   &--blue {
     background: #e7effc;
     .data-card__icon { background: #3b82f6; box-shadow: 0 6px 14px rgba(59, 130, 246, 0.30); }
   }
   &--purple {
-    background: #efeafc;
-    .data-card__icon { background: #8b5cf6; box-shadow: 0 6px 14px rgba(139, 92, 246, 0.30); }
+    background: #eef2f7;
+    .data-card__icon { background: #475569; box-shadow: 0 6px 14px rgba(71, 85, 105, 0.30); }
   }
   &--green {
-    background: #e5f6ec;
-    .data-card__icon { background: #22c55e; box-shadow: 0 6px 14px rgba(34, 197, 94, 0.30); }
+    background: #e9edf2;
+    .data-card__icon { background: #334155; box-shadow: 0 6px 14px rgba(71, 85, 105, 0.30); }
   }
   &--orange {
-    background: #fdf0e3;
-    .data-card__icon { background: #f59e0b; box-shadow: 0 6px 14px rgba(245, 158, 11, 0.30); }
+    background: #f1f5f9;
+    .data-card__icon { background: #64748b; box-shadow: 0 6px 14px rgba(100, 116, 139, 0.30); }
   }
 }
 
@@ -346,13 +346,13 @@ aside {
   padding: 16px;
   border-radius: var(--radius-md, 12px);
   background: var(--card-bg, #ffffff);
-  border: 1px solid var(--card-border, #eceaf4);
+  border: 1px solid var(--card-border, #e5e7eb);
   cursor: pointer;
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.28s ease;
 
   &:hover {
     transform: translateY(-2px);
-    border-color: #dcd8ea;
+    border-color: #d1d5db;
     box-shadow: var(--shadow-md);
   }
 
@@ -370,42 +370,42 @@ aside {
   &__title {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-primary, #262336);
+    color: var(--text-primary, #111827);
     line-height: 1.4;
   }
 
   &__subtitle {
     margin-top: 2px;
     font-size: 12px;
-    color: var(--text-secondary, #8b8899);
+    color: var(--text-secondary, #6b7280);
     line-height: 1.4;
   }
 
-  /* 图标块马卡龙五色（浅底 + 饱和图标） */
-  &--pink .entry-card__icon   { background: #fce8ee; color: #f0436e; }
+  /* 图标块中性五色（浅底 + 高对比图标） */
+  &--pink .entry-card__icon   { background: #eff6ff; color: #2563eb; }
   &--blue .entry-card__icon   { background: #e7effc; color: #3b82f6; }
-  &--purple .entry-card__icon { background: #efeafc; color: #8b5cf6; }
-  &--green .entry-card__icon  { background: #e5f6ec; color: #22c55e; }
-  &--orange .entry-card__icon { background: #fdf0e3; color: #f59e0b; }
+  &--purple .entry-card__icon { background: #eef2f7; color: #475569; }
+  &--green .entry-card__icon  { background: #e9edf2; color: #334155; }
+  &--orange .entry-card__icon { background: #f1f5f9; color: #64748b; }
 }
 
-/* 暗色模式：马卡龙浅底转为深色半透彩色，图标块同步降透明度 */
+/* 暗色模式：浅底转为深色半透中性色，图标块同步降透明度 */
 html.dark {
   .data-card {
-    &--pink   { background: rgba(240, 67, 110, 0.14); }
+    &--pink   { background: rgba(37, 99, 235, 0.14); }
     &--blue   { background: rgba(59, 130, 246, 0.14); }
-    &--purple { background: rgba(139, 92, 246, 0.14); }
-    &--green  { background: rgba(34, 197, 94, 0.14); }
-    &--orange { background: rgba(245, 158, 11, 0.14); }
+    &--purple { background: rgba(71, 85, 105, 0.14); }
+    &--green  { background: rgba(71, 85, 105, 0.14); }
+    &--orange { background: rgba(100, 116, 139, 0.14); }
 
     .data-card__icon { box-shadow: none; }
   }
 
   .entry-card {
-    &--pink .entry-card__icon   { background: rgba(240, 67, 110, 0.16); color: #fb7299; }
+    &--pink .entry-card__icon   { background: rgba(37, 99, 235, 0.16); color: #93c5fd; }
     &--blue .entry-card__icon   { background: rgba(59, 130, 246, 0.16); color: #60a5fa; }
-    &--purple .entry-card__icon { background: rgba(139, 92, 246, 0.16); color: #a78bfa; }
-    &--green .entry-card__icon  { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
-    &--orange .entry-card__icon { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+    &--purple .entry-card__icon { background: rgba(71, 85, 105, 0.16); color: #cbd5e1; }
+    &--green .entry-card__icon  { background: rgba(71, 85, 105, 0.16); color: #94a3b8; }
+    &--orange .entry-card__icon { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
   }
 }

@@ -220,17 +220,18 @@ spring:
 
 ### 2.3 Advisor 链（核心拦截层）
 
-Advisor 链是 Agent 编排的核心，7 个 Advisor 按 `order` 升序（值越小越先执行 before 阶段）依次装配（见 `ChatClientConfig.qwenChatClient()`）：
+Advisor 链是 Agent 编排的核心（见 `ChatClientConfig.qwenChatClient()`）。Spring AI 2.0 链按 `order` 升序装配、请求从小到大依次经过（**order 越小越靠外层**）。框架自动注册的 `ToolCallingAdvisor`（order = `HIGHEST_PRECEDENCE + 300`）位于链头最外层，**工具调用内循环发生在它内部**——所有正数 order 的 Advisor 都处于内循环中，每轮工具迭代都会重新经过；`returnDirect` 的工具结果由链头直接返回调用方，**不流经任何内层 Advisor**。
 
-| 顺序 | Advisor | Order | 职责 |
+| 层 | Advisor | Order | 职责 |
 | :--- | :--- | :--- | :--- |
-| 1 | `VectorStoreChatMemoryAdvisor` | 98 | 长期语义记忆检索/写入（Weaviate，Mem0 两阶段）；仅 `vectorstore.enabled=true` 且 `conversationVectorStore` 存在时装配 |
-| 2 | `ReturnDirectChatMemoryAdvisor` | 99 | 拦截 `returnDirect=true` 的工具结果，单独入库（在工具搜索之前执行） |
-| 3 | `HistoryAwareToolSearchAdvisor` | 100 | 工具动态检索（渐进式披露，每次仅注入相关工具，详见 2.8.2） |
-| 4 | `SessionMemoryAdvisor` | 101 | 近期上下文窗口记忆（Spring AI 2.0 `SessionService` + JDBC 存储 + 滑动窗口压缩） |
-| 5 | `RagContextQueryAdvisor` | 102 | 知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件）；仅向量库开启时装配 |
-| 6 | `HistoryChatMemoryAdvisor` | 103 | 全量聊天记录入库 MySQL + 工具调用审计日志 + tool_call 事件推送（在工具搜索之后，才能拿到工具调用信息） |
-| 7 | `SimpleLoggerAdvisor` | 104 | 请求/响应观测日志 |
+| 最外层 | `ReturnDirectChatMemoryAdvisor` | `HIGHEST_PRECEDENCE + 200` | 拦截 `returnDirect=true` 的工具结果（form/confirm/执行 JSON），双写 MySQL + session（详见 2.3.2）；必须在 `ToolCallingAdvisor` 外层才能拦截到该结果 |
+| 工具循环 | `ToolCallingAdvisor`（框架自动注册） | `HIGHEST_PRECEDENCE + 300` | 工具调用内循环；检测到下游 memory advisor（order 更大）时自动关闭内部 conversationHistory |
+| 内层 1 | `VectorStoreChatMemoryAdvisor` | 100 | 长期语义记忆检索/写入（Weaviate，Mem0 两阶段）；仅 `vectorstore.enabled=true` 且 `conversationVectorStore` 存在时装配 |
+| 内层 2 | `RagContextQueryAdvisor` | 110 | 知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件）；仅向量库开启时装配 |
+| 内层 3 | `SessionMemoryAdvisor` | 120 | 近期上下文窗口记忆（Spring AI 2.0 `SessionService` + JDBC 存储 + 滑动窗口压缩） |
+| 内层 4 | `HistoryAwareToolSearchAdvisor` | 140 | 工具动态检索（渐进式披露，每次仅注入相关工具，详见 2.8.2） |
+| 内层 5 | `HistoryChatMemoryAdvisor` | 150 | 全量聊天记录入库 MySQL + 工具调用审计日志 + tool_call 事件推送（在工具搜索之后，才能拿到工具调用信息） |
+| 内层 6 | `SimpleLoggerAdvisor` | 160 | 请求/响应观测日志 |
 
 **事件推送开关**（2026-09 新增）：
 
@@ -266,7 +267,7 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 `order` 升序（值越
 | `userId` / `tenantId` | 触发调用的用户 / 租户隔离 |
 | `toolName` | 工具名（如 `createSupplier`） |
 | `toolParams` | 完整入参 |
-| `resultDigest` | 结果摘要（`ReturnDirectToolCallbackWrapper` 侧最大 1024 字符截断） |
+| `resultDigest` | 结果摘要 |
 | `resultRef` | 大结果外置存储 key / 工具调用与响应的 JSON |
 | `status` / `errorMsg` | 执行状态 / 错误信息 |
 | `costMs` / `bizModule` | 执行耗时(ms) / 业务模块 |
@@ -275,16 +276,18 @@ Advisor 链是 Agent 编排的核心，7 个 Advisor 按 `order` 升序（值越
 
 #### 2.3.2 ReturnDirectChatMemoryAdvisor
 
-**核心职责**：当工具标记了 `returnDirect=true`（`@Tool(returnDirect=true)`，description 以 `[JSON]` 结尾）时，工具结果不经过 LLM 处理直接返回前端；这类结果不走常规 `HistoryChatMemoryAdvisor` 的文本落库路径，需由本 Advisor（order=99，在工具搜索之前执行）单独拦截并**双写**入库。
+**核心职责**：当工具标记了 `returnDirect=true`（`@Tool(returnDirect=true)`，description 含 `[JSON]` 标记）时，工具结果不经过 LLM 处理直接返回前端；这类结果不流经内层 Advisor，需由本 Advisor 单独拦截并**双写**入库。
 
-**判断逻辑**：`before()` 为空操作，仅在 `after()` 检查 `ChatGenerationMetadata.finishReason == ToolExecutionResult.FINISH_REASON`（值为 `"returnDirect"`）时命中。
+**链路位置（2026-10 修正）**：本 Advisor 注册在 `HIGHEST_PRECEDENCE + 200`，即 `ToolCallingAdvisor`（`HIGHEST_PRECEDENCE + 300`）的**外层**、整条链最外端。此前 order=99/130 的版本落在工具调用内循环里，`after()` 永远只能看到各轮迭代的模型响应（finishReason 为 `tool_calls`/`stop`），`"returnDirect"` 从未命中——属于从未生效的死代码；正确位置必须在链头之外才能拦到直出结果。
 
-**双写落库**（对齐 0138f09 会话记忆重构）：
+**判断逻辑**：流式路径 `adviseStream` 中对 `chain.nextStream()` 的结果**逐元素检测**（`doOnNext`）——returnDirect 结果是 `ToolCallingAdvisor` 拼好的单个完整响应元素（非流式增量），当 `ChatGenerationMetadata.finishReason == ToolExecutionResult.FINISH_REASON`（值为 `"returnDirect"`）时命中；call 同步路径复用 `after()`。
+
+**双写落库**：
 
 | 目标 | 写入方式 | 用途 |
 | :--- | :--- | :--- |
-| MySQL `sys_chat_history` | `saveBatch`；`sequenceId` 由 Redis `INCR`（`SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId`）生成 | 前端历史展示 |
-| `SessionService`（JDBC 会话存储） | `appendEvent(SessionEvent)`，`sessionId = conversationId` | 使 returnDirect 结果进入模型滑动窗口记忆，后续轮次可感知 |
+| MySQL `sys_chat_history` | `saveBatch`；`sequenceId` 由 Redis `INCR`（`SEQ_CHAT_MEMORY_KEY_PREFIX + conversationId`）生成；`content` 为完整工具 JSON（含 `data.tool` / `data.arguments`） | 前端历史展示（渲染表单/确认卡片） |
+| `SessionService`（JDBC 会话存储） | `appendEvent(SessionEvent)`，`sessionId = conversationId` | 内层 `SessionMemoryAdvisor` 拦不到 returnDirect 结果，session 缺口由这里补齐，后续轮次 LLM 可感知「刚才缺了什么字段 / 在等什么确认」，续接对话才有依据 |
 
 #### 2.3.3 VectorStoreChatMemoryAdvisor（长期语义记忆）
 
@@ -1170,20 +1173,21 @@ Spring AI 2.0 提供 3 种 `ToolIndex` 实现（本项目使用前两种）：
 
 ##### Advisor 链中的位置
 
-| 顺序 | Advisor | Order | 职责 |
+| 层 | Advisor | Order | 职责 |
 | :--- | :--- | :--- | :--- |
-| 1 | VectorStoreChatMemoryAdvisor | 98 | 长期语义记忆 |
-| 2 | ReturnDirectChatMemoryAdvisor | 99 | returnDirect 工具结果拦截 |
-| **3** | **HistoryAwareToolSearchAdvisor** | **100** | **工具动态检索注入** |
-| 4 | SessionMemoryAdvisor | 101 | 近期上下文窗口记忆 |
-| 5 | RagContextQueryAdvisor | 102 | 知识库上下文查询 |
-| 6 | HistoryChatMemoryAdvisor | 103 | 全量记录 + 工具审计 + tool_call 事件推送 |
-| 7 | SimpleLoggerAdvisor | 104 | 请求/响应日志 |
+| 最外层 | ReturnDirectChatMemoryAdvisor | `HIGHEST_PRECEDENCE+200` | returnDirect 工具结果拦截入库（详见 2.3.2） |
+| 工具循环 | ToolCallingAdvisor | `HIGHEST_PRECEDENCE+300` | 工具调用内循环（框架自动注册） |
+| 内层 1 | VectorStoreChatMemoryAdvisor | 100 | 长期语义记忆 |
+| 内层 2 | RagContextQueryAdvisor | 110 | 知识库上下文查询 |
+| 内层 3 | SessionMemoryAdvisor | 120 | 近期上下文窗口记忆 |
+| **内层 4** | **HistoryAwareToolSearchAdvisor** | **140** | **工具动态检索注入** |
+| 内层 5 | HistoryChatMemoryAdvisor | 150 | 全量记录 + 工具审计 + tool_call 事件推送 |
+| 内层 6 | SimpleLoggerAdvisor | 160 | 请求/响应日志 |
 
 **顺序设计要点**：
-- 工具搜索 Advisor order=100，通过 `HistoryAwareToolSearchAdvisor.newBuilder().advisorOrder(100)` 显式指定
+- 工具搜索 Advisor order=140，通过 `HistoryAwareToolSearchAdvisor.newBuilder().advisorOrder(140)` 显式指定
 - 位于记忆 Advisor 之后：确保记忆已加载完成再搜索工具
-- 位于历史记录 Advisor（103）之前：确保 `HistoryChatMemoryAdvisor` 能拿到最终的工具调用信息写入审计日志
+- 位于历史记录 Advisor（150）之前：确保 `HistoryChatMemoryAdvisor` 能拿到最终的工具调用信息写入审计日志
 
 ##### HistoryAwareToolSearchAdvisor（工具回调丢失修复）
 
@@ -1247,11 +1251,25 @@ ai:
 
 **核心类**：`ToolDataCacheService`、`ReturnDirectToolCallbackWrapper`
 
-#### 2.8.4 returnDirect 机制
+#### 2.8.4 returnDirect 机制与结构化返回协议
 
-工具 description 以 `[JSON]` 结尾时，`ReturnDirectToolCallbackWrapper` 自动设置 `returnDirect=true`。
+工具 description 含 `[JSON]` 标记（`contains` 判断，兼容各类描述写法）时，`ReturnDirectToolCallbackWrapper` 自动设置 `returnDirect=true`；MCP 协议不传输 `returnDirect` 标志，聊天侧靠该标记识别（`@Tool` 注解上的 `returnDirect=true` 仅对同进程 ToolCallback 生效）。
 
-**效果**：工具结果不经过 LLM 处理，直接通过 SSE 返回前端。适用于图表配置等结构化数据。
+**效果**：工具结果不经过 LLM 处理，由 `ToolCallingAdvisor` 在链头直接通过 SSE 返回前端（同时被最外层 `ReturnDirectChatMemoryAdvisor` 双写入库，见 2.3.2）。
+
+**结构化返回协议**（2026-10 新增，变更类工具交互由纯文本升级为结构化 JSON，前端渲染输入框/确认按钮）：
+
+| 响应码 | data.type | 触发场景 | 前端行为 |
+| :--- | :--- | :--- | :--- |
+| `8002` | `form` | 缺 operationType / 缺必填字段 / 多条匹配需消歧 | 按 `data.fields` 渲染输入框（`values` 回填已有值），提交时把用户输入合并进 `data.arguments` 重放 `data.tool` |
+| `8003` | `confirm` | 增删改执行前的二次确认 | 渲染同意/取消按钮；点「同意」用 `data.arguments`（已含 `confirmed=true`）重放 `data.tool`，一次即执行 |
+| `200` | - | 确认后执行成功 | 渲染结果卡片 |
+
+协议要点：
+- **form 的 `data.tool` / `data.arguments` 由 `ReturnDirectToolCallbackWrapper.enrichFormResult` 注入**（原始入参剔除 `confirmed`，重放时重新走确认流程——参数变更需再次确认）
+- **confirm 的 `arguments` 强制携带 `confirmed=true`**（BO 继承 `BaseConfirmBo`，散参数工具以方法级 `Boolean confirmed` 参数承载）
+- **工具执行顺序统一**：operationType 选择（表单）→ 必填字段补齐（表单）→ 用户确认（confirm）→ 执行
+- **执行中多匹配消歧**：确认后执行阶段发现多条匹配，返回 form（字段动态推导），用户补充后需对新参数再次确认——防止「确认删 A 实际删 B」的参数漂移事故
 
 ---
 
@@ -1264,7 +1282,8 @@ com.mall.chatmcp
 ├── config/
 │   └── McpServerConfig.java            # MCP Server 配置 + ChatClient Bean
 ├── bo/
-│   # 主实体 BO（CRUD 参数）
+│   ├── BaseConfirmBo.java             # 变更类 BO 基类（confirmed 用户确认标志）
+│   # 主实体 BO（CRUD 参数，均继承 BaseConfirmBo）
 │   ├── SysUserBo.java                  # 用户工具参数
 │   ├── SysDeptBo.java                  # 部门工具参数
 │   ├── SysRoleBo.java                  # 角色工具参数
@@ -1283,27 +1302,35 @@ com.mall.chatmcp
 └── sevice/
     ├── BaseToolService.java            # 工具接口
     └── impl/
-        ├── BaseToolServiceImpl.java    # 抽象基类（校验/异常/日志）
+        ├── BaseToolServiceImpl.java    # 抽象基类（结构化返回协议 + crudGate 通用流程 + 校验/异常/日志）
         ├── DeptToolServiceImpl.java    # 部门 CRUD
-        ├── UserToolServiceImpl.java    # 用户 CRUD + 状态管理 + 密码重置
-        ├── RoleToolServiceImpl.java    # 角色 CRUD
+        ├── UserToolServiceImpl.java    # 用户 CRUD + 状态管理 + 密码重置 + 权限分配
+        ├── RoleToolServiceImpl.java    # 角色 CRUD + 数据/菜单权限
         ├── NoticePostToolServiceImpl.java # 公告+岗位 CRUD
         ├── OpenMenuToolServiceImpl.java   # 菜单导航
         ├── DeptBizToolServiceImpl.java    # 部门业务聚合工具
         ├── Nl2SqlToolServiceImpl.java     # 自然语言转 SQL
         ├── ConfigToolServiceImpl.java     # 系统参数配置 CRUD + 查询
         ├── DictToolServiceImpl.java       # 字典类型/字典数据 CRUD + 查询
-        ├── JobToolServiceImpl.java        # 定时任务 CRUD + 状态修改 + 立即执行 + 日志查询
-        └── LogToolServiceImpl.java        # 操作日志/登录日志查询 + 登录失败统计
+        └── JobToolServiceImpl.java        # 定时任务 CRUD + 状态修改 + 立即执行 + 日志查询
 ```
 
 ### 3.2 工具基类设计（模板方法模式）
 
-`BaseToolServiceImpl` 封装公共逻辑，所有工具类继承该基类：
+`BaseToolServiceImpl` 封装公共逻辑，所有工具类继承该基类（2026-10 大幅扩展：结构化返回协议 + 反射动态推导，消除逐工具手写的映射表/字段清单）：
 
 | 方法 | 职责 |
 | :--- | :--- |
-| `validate(obj, objName)` | JSR-303 参数校验，失败返回 AjaxResult.error |
+| `crudGate(bo, tool, entity, ops, requiredFields...)` | **增删改通用流程**：operationType 选择（表单）→ add 走 Bean Validation / update·delete 检查定位必填（表单）→ 非法类型报错 → 未确认返回 confirm；返回 null 即可执行（工具入口从 ~30 行瘦身到 ~10 行） |
+| `validate(obj)` | JSR-303 参数校验，失败返回 `type=form`（field 的 `message` 携带校验错误文案），成功返回 null；objName 自动取类名 |
+| `formMissing(message, bo)` | **多匹配消歧表单（字段动态推导）**：反射沿父类链扫 BO——优先取必填校验注解（`@NotBlank/@NotNull/@NotEmpty`）且当前值为空的字段，降级取空 String/String[] 字段前 3 个（排除 `confirmed/operationType/password/status/delFlag`），全空返回 error |
+| `formMissing(message, bo, fieldNames...)` | 指定字段的补充表单（动态推导不适用时显式指定） |
+| `formResult(title, message, fields, values)` | 组装 `code=8002, data.type=form` 结构化响应（`values` 回填 BO 已有值） |
+| `operationForm(bo, options)` | operationType 缺失时的下拉选择表单（select + options） |
+| `confirmResult / confirmCrud` | 组装 `code=8003, data.type=confirm`（arguments 强制合并 `confirmed=true`，标题/提示语自动生成） |
+| `isConfirmed(bo)` | 判断用户是否已点击同意（`BaseConfirmBo.confirmed`） |
+| `toMap(obj)` | Jackson 转 Map（NON_NULL + 剔除 `confirmed`），供 values/arguments 使用 |
+| `buildField(bo, name, message)` | 生成表单字段元数据；**label 反射读取字段 `@JsonPropertyDescription` 并截断**（"用户账号，例如 zhangsan" → "用户账号"），inputType 统一 text |
 | `executeWithErrorHandling(callback, desc)` | 统一异常处理 + 耗时日志 |
 | `logOperation(type, name, result)` | 操作日志记录 |
 
@@ -1311,12 +1338,14 @@ com.mall.chatmcp
 
 | 工具类 | 工具方法 | 说明 |
 | :--- | :--- | :--- |
-| `DeptToolServiceImpl` | `deptCrud` | 部门增删改查，按名称查询而非 ID |
-| `UserToolServiceImpl` | `userCrud` | 用户增删改查 + 状态管理 |
+| `DeptToolServiceImpl` | `deptCrud` | 部门增删改，按名称查询而非 ID |
+| `UserToolServiceImpl` | `userCrud` | 用户增删改 + 状态管理 |
 | `UserToolServiceImpl` | `resetUserPassword` | 重置用户密码（按用户名查找） |
 | `UserToolServiceImpl` | `changeUserStatus` | 修改用户状态（启用/停用） |
-| `RoleToolServiceImpl` | `roleCrud` | 角色增删改查 |
-| `NoticePostToolServiceImpl` | `noticeCrud` / `postCrud` | 公告/岗位增删改查 |
+| `UserToolServiceImpl` | `userRoleAuth` / `userPostAuth` / `userDeptAuth` | 用户角色/岗位/部门分配 |
+| `RoleToolServiceImpl` | `roleCrud` | 角色增删改 |
+| `RoleToolServiceImpl` | `roleDeptAuth` / `roleMenuAuth` | 角色数据/菜单权限分配 |
+| `NoticePostToolServiceImpl` | `noticeCrud` / `postCrud` | 公告/岗位增删改 |
 | `OpenMenuToolServiceImpl` | `getMenuComponent` | 菜单导航 |
 | `DeptBizToolServiceImpl` | `createDeptWithAdmin` / `batchCreateDepts` | 业务聚合工具 |
 | `Nl2SqlToolServiceImpl` | `nl2SqlQuery` | 自然语言转 SQL 查询 |
@@ -1324,9 +1353,6 @@ com.mall.chatmcp
 | `DictToolServiceImpl` | `dictTypeCrud` / `dictTypeQuery` | 字典类型增删改 + 查询 |
 | `DictToolServiceImpl` | `dictDataCrud` / `dictDataQuery` | 字典数据增删改 + 查询 |
 | `JobToolServiceImpl` | `jobCrud` / `jobQuery` / `jobLogQuery` | 定时任务增删改 + 状态修改 + 立即执行 + 日志查询 |
-| `LogToolServiceImpl` | `operLogQuery` | 操作日志查询（按操作人/模块/状态） |
-| `LogToolServiceImpl` | `loginLogQuery` | 登录日志查询（按用户名/状态） |
-| `LogToolServiceImpl` | `loginFailStats` | 统计登录失败次数最多的用户 |
 
 ### 3.4 工具设计规范
 
@@ -1337,10 +1363,10 @@ com.mall.chatmcp
 ```
 按名称查询 → 0条：报错"不存在"
            → 1条：用查询结果的ID执行操作
-           → 多条：报错"请补充更多信息后重试"
+           → 多条：返回 form 表单（字段动态推导，见 3.2 formMissing），用户补充后缩小范围精确定位
 ```
 
-多结果时支持组合条件查询（如 userName + nickName + phone + email）。
+多结果时支持组合条件查询（查询按 BO 中非空字段构造条件，用户补充任何字段都会真实缩小结果集）。
 
 #### 3.4.2 不暴露内部 ID
 
@@ -1363,6 +1389,49 @@ com.mall.chatmcp
 | `batchCreateDepts` | 按顺序创建多个部门，支持父子关系 |
 
 **收益**：减少模型需要理解的工具数量，核心流程锁死在代码里，不依赖模型乱拼。
+
+#### 3.4.4 变更类工具确认协议（2026-10 新增）
+
+所有变更类工具（增/删/改/分配/执行）遵循统一的交互契约，替代原「输出一句话提示 + 用户输入同意」的纯文本模式：
+
+**工具侧约定**：
+- `@Tool` 注解加 `returnDirect = true` 且 description 追加 `[JSON]` 标记（description 同时声明「首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用」，引导 LLM 正确续接）
+- BO 继承 `BaseConfirmBo`（获得 `confirmed` 字段进入 MCP schema）；散参数工具（`resetUserPassword` 等）以方法级 `Boolean confirmed` 参数承载
+- 未确认时返回 `confirm`（8003），`isConfirmed(bo)` 为 true 才执行业务
+
+**示例 JSON（用户「帮我把研发部删了」）**：
+
+```json
+// 第一次调用 deptCrud(operationType="delete", deptName="研发部") → 确认
+{
+  "code": 8003, "msg": "请确认操作",
+  "data": {
+    "type": "confirm", "tool": "deptCrud", "operationType": "delete",
+    "title": "确认删除部门",
+    "message": "即将对部门执行「删除」操作，请确认是否继续。",
+    "arguments": { "operationType": "delete", "deptName": "研发部", "confirmed": true },
+    "confirmText": "同意", "cancelText": "取消"
+  }
+}
+```
+
+```json
+// 用户同意后执行中发现多个「研发部」→ 动态推导补字段表单
+{
+  "code": 8002, "msg": "请补充操作信息",
+  "data": {
+    "type": "form", "title": "请补充操作信息",
+    "message": "查询到多个部门，请补充以下信息以精确定位：…",
+    "fields": [{ "name": "orderNum", "label": "显示顺序", "inputType": "text", "required": true, "placeholder": "请输入显示顺序" }],
+    "values": { "operationType": "delete", "deptName": "研发部", "confirmed": true },
+    "submitText": "提交",
+    "tool": "deptCrud",
+    "arguments": { "operationType": "delete", "deptName": "研发部" }
+  }
+}
+```
+
+（form 的 `tool`/`arguments` 由聊天侧 `ReturnDirectToolCallbackWrapper` 注入，`arguments` 已剔除 `confirmed`——用户补充字段后重放需对新参数再次确认）
 
 ### 3.5 NL2SQL 工具
 
@@ -1640,14 +1709,15 @@ mcp:
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
-| `VectorStoreChatMemoryAdvisor` | **自定义**：长期语义记忆（userId 跨会话检索 + 异步写入 + Mem0 两阶段决策） | order=98，实现 BaseChatMemoryAdvisor，调用 smallChatClient 提取/决策记忆 |
-| `ReturnDirectChatMemoryAdvisor` | **自定义**：拦截 returnDirect 工具结果 | order=99，单独入库，不经过 LLM |
-| `HistoryAwareToolSearchAdvisor` | **自定义**：继承 ToolSearchToolCallingAdvisor，双层防护修复跨轮/压缩丢失工具回调 | order=100 |
+| `ReturnDirectChatMemoryAdvisor` | **自定义**：拦截 returnDirect 工具结果（form/confirm/执行 JSON），双写 MySQL + session | order=`HIGHEST_PRECEDENCE+200`（链最外层，必须在 ToolCallingAdvisor 外才能拦到直出结果，详见 2.3.2） |
+| `ToolCallingAdvisor` | 框架自动注册：工具调用内循环 | order=`HIGHEST_PRECEDENCE+300`（链头）；检测到下游 memory advisor 时自动关闭内部 conversationHistory |
+| `VectorStoreChatMemoryAdvisor` | **自定义**：长期语义记忆（userId 跨会话检索 + 异步写入 + Mem0 两阶段决策） | order=100，实现 BaseChatMemoryAdvisor，调用 smallChatClient 提取/决策记忆 |
+| `RagContextQueryAdvisor` | **自定义**：知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件） | order=110 |
+| `SessionMemoryAdvisor` | Spring AI 2.0 原生：近期上下文窗口记忆 + 滑动窗口压缩 | order=120，基于 SessionService（JDBC） |
+| `HistoryAwareToolSearchAdvisor` | **自定义**：继承 ToolSearchToolCallingAdvisor，双层防护修复跨轮/压缩丢失工具回调 | order=140 |
 | `HistoryAwareToolCallingManager` | **自定义**：执行期兜底装饰器，按 sessionId 补回缺失工具回调 | 装饰父类 ToolCallingManager |
-| `SessionMemoryAdvisor` | Spring AI 2.0 原生：近期上下文窗口记忆 + 滑动窗口压缩 | order=101，基于 SessionService（JDBC） |
-| `RagContextQueryAdvisor` | **自定义**：知识库上下文查询（RAG 检索 + 注入系统提示词 + 推送 rag_retrieve 事件） | order=102 |
-| `HistoryChatMemoryAdvisor` | **自定义**：全量聊天记录入库 + 工具调用审计日志 + tool_call 事件推送 | order=103，流式拦截 ToolCall 事件 |
-| `SimpleLoggerAdvisor` | 请求/响应日志 | order=104 |
+| `HistoryChatMemoryAdvisor` | **自定义**：全量聊天记录入库 + 工具调用审计日志 + tool_call 事件推送（处于工具循环内层，只处理各轮迭代响应） | order=150，流式拦截 ToolCall 事件 |
+| `SimpleLoggerAdvisor` | 请求/响应日志 | order=160 |
 
 ### 5.2 存储与记忆
 
@@ -1690,13 +1760,12 @@ mcp:
 
 | 组件/类名 | 职责描述 | 备注 |
 | :--- | :--- | :--- |
-| `BaseToolServiceImpl` | 工具抽象基类 | 模板方法模式 |
+| `BaseToolServiceImpl` | 工具抽象基类（结构化返回协议 + crudGate + 动态字段推导） | 模板方法模式，详见 3.2 |
 | `Nl2SqlToolServiceImpl` | 自然语言转 SQL | LLM 生成 + 自我修正 + 远程执行 |
 | `DeptBizToolServiceImpl` | 部门业务聚合工具 | 多步操作封装为单一工具 |
 | `ConfigToolServiceImpl` | 系统参数配置 CRUD + 查询 | 按 configKey/configName 查询，不暴露 ID |
 | `DictToolServiceImpl` | 字典类型/字典数据 CRUD + 查询 | 支持 dictType/dictName/dictLabel 多维度查询 |
 | `JobToolServiceImpl` | 定时任务 CRUD + 状态修改 + 立即执行 + 日志查询 | 支持 add/update/delete/changeStatus/run 5 种操作 |
-| `LogToolServiceImpl` | 操作日志/登录日志查询 + 登录失败统计 | 只读查询，最多返回 10 条摘要 |
 | `McpServerConfig` | MCP Server 配置 | 工具注册 + sqlChatClient Bean |
 
 ### 5.6 MCP 网关服务

@@ -1,11 +1,12 @@
 /**
  * 离线演示模式（不连接后端接口也能进入系统）
- * 开关：.env 中 VITE_APP_USE_BACKEND = false 时启用
+ * 开关：src/settings.js 中 useBackend = false 时启用
  */
+import defaultSettings from '@/settings'
 
-// 是否启用离线演示模式（VITE_APP_USE_BACKEND = false 时不连后端）
+// 是否启用离线演示模式（settings.js 中 useBackend = false 时不连后端）
 export function isMockEnabled() {
-  return import.meta.env.VITE_APP_USE_BACKEND === 'true'
+  return defaultSettings.useBackend !== true
 }
 
 const MOCK_TOKEN = 'mock-token-offline-demo'

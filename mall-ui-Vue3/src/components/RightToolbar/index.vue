@@ -243,7 +243,7 @@ function saveStorage() {
 .check-line {
   width: 90%;
   height: 1px;
-  background-color: var(--card-border, #eceaf4);
+  background-color: var(--card-border, #e5e7eb);
   margin: 3px auto;
 }
 </style>

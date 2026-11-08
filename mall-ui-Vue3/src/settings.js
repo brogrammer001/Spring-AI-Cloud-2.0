@@ -5,6 +5,12 @@ export default {
   title: import.meta.env.VITE_APP_TITLE,
 
   /**
+   * 是否请求真实后端接口
+   * true：正常连接后端；false：离线演示模式（不连后端也能登录进入系统，接口返回 mock 数据）
+   */
+  useBackend: false,
+
+  /**
    * 侧边栏主题 深色主题theme-dark，浅色主题theme-light
    */
   sideTheme: 'theme-light',

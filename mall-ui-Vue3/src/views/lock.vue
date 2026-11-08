@@ -119,10 +119,10 @@ const initParticles = () => {
   resize()
   window.addEventListener('resize', resize)
 
-  // 马卡龙三色粒子（玫红 / 紫 / 蓝）
+  // 中性三色粒子（蓝 / 板岩灰 / 浅蓝）
   const palette = [
-    { dot: '240, 67, 110', line: '240, 67, 110' },
-    { dot: '139, 92, 246', line: '167, 139, 250' },
+    { dot: '37, 99, 235', line: '37, 99, 235' },
+    { dot: '71, 85, 105', line: '148, 163, 184' },
     { dot: '96, 165, 250', line: '96, 165, 250' }
   ]
 
@@ -180,15 +180,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* ===== 淡紫马卡龙风：浅色薰衣草底 + 毛玻璃白卡（禁止深色背景） ===== */
+/* ===== 中性黑白灰蓝风：冷灰底 + 毛玻璃白卡（禁止深色背景） ===== */
 .lock-container {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(at 12% 12%, rgba(250, 214, 226, 0.55) 0px, transparent 42%),
-    radial-gradient(at 88% 18%, rgba(221, 214, 246, 0.55) 0px, transparent 42%),
-    radial-gradient(at 80% 92%, rgba(214, 228, 250, 0.50) 0px, transparent 42%),
-    #f4f2f9;
+    radial-gradient(at 12% 12%, rgba(148, 163, 184, 0.18) 0px, transparent 42%),
+    radial-gradient(at 88% 18%, rgba(37, 99, 235, 0.08) 0px, transparent 42%),
+    radial-gradient(at 80% 92%, rgba(96, 165, 250, 0.10) 0px, transparent 42%),
+    #f6f7f9;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
   z-index: 1;
   font-size: 72px;
   font-weight: 200;
-  color: #262336;
+  color: #111827;
   letter-spacing: 4px;
   margin-bottom: 8px;
   font-variant-numeric: tabular-nums;
@@ -219,7 +219,7 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 1;
   font-size: 15px;
-  color: #8b8899;
+  color: #6b7280;
   margin-bottom: 40px;
   letter-spacing: 2px;
 }
@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
   align-items: center;
   box-shadow:
     0 1px 2px rgba(17, 24, 39, 0.04),
-    0 16px 40px rgba(124, 116, 160, 0.16),
+    0 16px 40px rgba(15, 23, 42, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
   animation: cardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -259,7 +259,7 @@ onBeforeUnmount(() => {
   height: 80px;
   border-radius: 50%;
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.25), 0 6px 16px rgba(124, 116, 160, 0.18);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 6px 16px rgba(15, 23, 42, 0.18);
   object-fit: cover;
   display: block;
 }
@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
   position: absolute;
   bottom: -4px;
   right: -4px;
-  background: linear-gradient(135deg, #f0436e 0%, #ff7a9c 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
   border-radius: 50%;
   width: 28px;
   height: 28px;
@@ -277,11 +277,11 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-size: 12px;
   color: #ffffff;
-  box-shadow: 0 3px 8px rgba(240, 67, 110, 0.35);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
 }
 
 .lock-username {
-  color: #262336;
+  color: #111827;
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 6px;
@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
 }
 
 .lock-hint {
-  color: #8b8899;
+  color: #6b7280;
   font-size: 13px;
   margin-bottom: 28px;
 }
@@ -299,16 +299,16 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #eceaf4;
+  border: 1px solid #e5e7eb;
   border-radius: 999px;
   padding: 4px 4px 4px 20px;
   transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
 }
 
 .input-wrap:focus-within {
-  border-color: #f0436e;
+  border-color: #2563eb;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.12);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .input-wrap.shake {
@@ -328,20 +328,20 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   outline: none;
-  color: #262336;
+  color: #111827;
   font-size: 15px;
   padding: 10px 0;
 }
 
 .lock-input::placeholder {
-  color: #b6b3c2;
+  color: #9ca3af;
 }
 
 .unlock-btn {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f0436e 0%, #ff7a9c 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
   border: none;
   color: #fff;
   font-size: 15px;
@@ -351,12 +351,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(240, 67, 110, 0.30);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.30);
 }
 
 .unlock-btn:hover:not(:disabled) {
   transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 8px 20px rgba(240, 67, 110, 0.38);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.38);
 }
 
 .unlock-btn:disabled {
@@ -371,7 +371,7 @@ onBeforeUnmount(() => {
 
 .error-msg {
   margin-top: 14px;
-  color: #d9305c;
+  color: #1d4ed8;
   font-size: 13px;
   text-align: center;
   animation: fadeIn 0.3s ease;
@@ -387,13 +387,13 @@ onBeforeUnmount(() => {
 }
 
 .lock-footer a {
-  color: #8b8899;
+  color: #6b7280;
   font-size: 13px;
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .lock-footer a:hover {
-  color: #f0436e;
+  color: #2563eb;
 }
 </style>

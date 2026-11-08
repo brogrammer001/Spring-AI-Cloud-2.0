@@ -77,7 +77,7 @@ const realHeight = computed(() =>
     align-items: center;
     width: 100%;
     height: 100%;
-    color: var(--text-placeholder, #b6b3c2);
+    color: var(--text-placeholder, #9ca3af);
     font-size: 30px;
   }
 }

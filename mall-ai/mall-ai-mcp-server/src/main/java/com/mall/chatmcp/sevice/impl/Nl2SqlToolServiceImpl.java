@@ -10,6 +10,7 @@ import com.mall.system.api.domain.Nl2sqlBusinessRuleVo;
 import com.mall.system.api.domain.Nl2sqlDimensionVo;
 import com.mall.system.api.domain.Nl2sqlMetricVo;
 import com.mall.system.api.domain.SqlQueryRequest;
+import jakarta.annotation.PreDestroy;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
 import net.sf.jsqlparser.expression.Function;
@@ -30,7 +31,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.Validator;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
-import jakarta.annotation.PreDestroy;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -38,11 +38,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -345,7 +341,7 @@ public class Nl2SqlToolServiceImpl extends BaseToolServiceImpl {
         }
 
         // 4. 三层都空时降级走 kbType=21 向量召回（长尾术语兜底）
-        if (sb.length() == 0) {
+        if (sb.isEmpty()) {
             logger.info("[SQL工具] 语义层未命中，降级kbType=21向量召回");
             return retrieveEvidence(question);
         }

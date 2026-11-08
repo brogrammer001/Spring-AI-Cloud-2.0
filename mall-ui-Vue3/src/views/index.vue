@@ -13,14 +13,14 @@
         </div>
         <div class="flex-1 overflow-y-auto px-2 custom-scrollbar">
           <div class="text-xs font-semibold px-3 mb-2"
-            :class="settingsStore.isDark ? 'text-[#8b8899]' : 'text-[#8b8899]'">
+            :class="settingsStore.isDark ? 'text-[#6b7280]' : 'text-[#6b7280]'">
             最近对话
           </div>
           <div v-if="conversations.length === 0" class="text-center py-4 text-sm"
-            :class="settingsStore.isDark ? 'text-[#6b6880]' : 'text-[#b6b3c2]'">
+            :class="settingsStore.isDark ? 'text-[#6b6880]' : 'text-[#9ca3af]'">
             暂无对话记录
           </div>
-          <div v-for="(conv, index) in conversations" :key="conv.id" @click="switchConversation(conv.id)"
+          <div v-for="conv in conversations" :key="conv.id" @click="switchConversation(conv.id)"
             :class="['conv-item group flex items-center px-3 py-2.5 rounded-lg cursor-pointer mb-1', { 'is-active': conv.id === activeId, 'is-dark': settingsStore.isDark }]">
             <i class="fas fa-message mr-3 text-sm opacity-60 conv-item-icon"></i>
             <div class="flex-1 truncate text-sm font-medium conv-item-title">
@@ -52,60 +52,74 @@
           <div class="chat-content">
             <div v-for="(message, index) in messages" :key="index" class="message-row"
               :class="[message.role === 'user' ? 'message-row-user' : 'message-row-ai']">
-              <!-- 用户消息：右对齐气泡 + 用户头像 -->
+              <!-- 用户消息：头像 + 昵称行，换行后输出右对齐气泡 -->
               <template v-if="message.role === 'user'">
+                <div class="message-sender">
+                <span class="sender-name" :class="{ 'is-dark': settingsStore.isDark }">
+                    {{ userStore.nickName || userStore.name || '用户' }}
+                  </span>
+                  <img class="chat-user-avatar"
+                    :src="userStore.avatar && userStore.avatar.trim() ? userStore.avatar : defAva" />
+                  
+                </div>
                 <div class="user-bubble" :class="{ 'is-dark': settingsStore.isDark }">
                   <div class="markdown-body" v-html="renderMessage(message)"></div>
                 </div>
-                <img class="chat-user-avatar"
-                  :src="userStore.avatar && userStore.avatar.trim() ? userStore.avatar : defAva" />
               </template>
-              <!-- AI 消息：品牌头像 + 全宽正文，不再使用问答式气泡 -->
+              <!-- AI 消息：头像 + 名称行，换行后输出全宽正文，不再使用问答式气泡 -->
               <template v-else>
-                <div class="chat-robot-avatar" :class="{ 'is-dark': settingsStore.isDark }">
-                  <i class="fas fa-robot"></i>
+                <div class="message-sender">
+                  <div class="chat-robot-avatar" :class="{ 'is-dark': settingsStore.isDark }">
+                    <i class="fas fa-robot"></i>
+                  </div>
+                  <span class="sender-name" :class="{ 'is-dark': settingsStore.isDark }">假维斯</span>
                 </div>
                 <div class="ai-content" :class="{ 'is-dark': settingsStore.isDark }">
-                  <!-- RAG 知识库检索区块（马卡龙绿：#22c55e / 浅底 #e5f6ec） -->
+                  <!-- RAG 知识库检索区块（中性描边：无背景 / #eee 边框 / 纯黑字体） -->
                   <div v-if="message.ragRetrieve"
                        class="mb-3"
                        :class="{ 'is-dark': settingsStore.isDark }">
-                    <div class="rag-title flex items-center text-xs font-medium mb-1"
+                    <div class="rag-title flex items-center text-sm font-medium mb-1"
                          :class="{ 'is-dark': settingsStore.isDark }">
                       <i class="fas fa-book-open mr-1.5"></i> 知识库检索
                     </div>
-                    <div class="rag-box flex items-center gap-2 px-2.5 py-2 rounded-md text-xs"
+                    <div class="rag-box flex items-center gap-2 px-2.5 py-2 rounded-md text-sm"
                          :class="{ 'is-dark': settingsStore.isDark }">
                       <i class="fas fa-book-bookmark flex-shrink-0"></i>
                       <span class="font-semibold">检索状态</span>
                       <span v-if="message.ragRetrieve.status === 'running'"
-                            class="rag-badge rag-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            class="rag-badge rag-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                             :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-circle-notch fa-spin"></i> 检索中
                       </span>
                       <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'success'"
-                            class="rag-badge rag-badge-success inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            class="rag-badge rag-badge-success inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                             :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-check"></i> 已检索到内容
                       </span>
                       <span v-else-if="message.ragRetrieve.status === 'done' && message.ragRetrieve.result === 'empty'"
-                            class="rag-badge rag-badge-empty inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            class="rag-badge rag-badge-empty inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                             :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-circle-info"></i> 未检索到内容
                       </span>
                       <span v-else
-                            class="rag-badge rag-badge-success inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            class="rag-badge rag-badge-success inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                             :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-check"></i> 完成
                       </span>
                     </div>
                   </div>
-                  <!-- 工具调用区块（马卡龙紫：#8b5cf6 / 浅底 #efeafc）：默认仅展示调用次数，点击图标展开/收起详情 -->
+                  <!-- 工具调用区块（中性描边：无背景 / #eee 边框 / 纯黑字体）：默认仅展示调用次数，点击图标展开/收起详情 -->
                   <div v-if="message.toolCalls && message.toolCalls.length > 0"
                        class="mb-3"
                        :class="{ 'is-dark': settingsStore.isDark }">
+                    <!-- 标题行：与"知识库检索"标题同款样式 -->
+                    <div class="tool-title flex items-center text-sm font-medium mb-1"
+                         :class="{ 'is-dark': settingsStore.isDark }">
+                      <i class="fas fa-wand-magic-sparkles mr-1.5"></i> 工具调用
+                    </div>
                     <!-- 汇总条：调用次数 + 状态 + 展开图标 -->
-                    <div class="tool-summary flex items-center gap-2 px-2.5 py-2 rounded-md text-xs cursor-pointer select-none"
+                    <div class="tool-summary flex items-center gap-2 px-2.5 py-2 rounded-md text-sm cursor-pointer select-none"
                          :class="{ 'is-dark': settingsStore.isDark }"
                          title="点击查看/收起工具调用详情"
                          @click="toggleToolDetail(message)">
@@ -113,15 +127,15 @@
                          :class="{ 'is-dark': settingsStore.isDark }"></i>
                       <span class="font-medium tool-summary-text"
                             :class="{ 'is-dark': settingsStore.isDark }">已调用工具</span>
-                      <span class="tool-count-badge inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-full text-[10px] font-bold"
+                      <span class="tool-count-badge inline-flex items-center justify-center px-1.5 h-[20px] min-w-[22px] rounded-full text-xs font-bold"
                             :class="{ 'is-dark': settingsStore.isDark }">{{ message.toolCalls.length }}</span>
                       <span v-if="message.toolCalls.some(t => t.status === 'running')"
-                            class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                             :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-circle-notch fa-spin"></i> 调用中
                       </span>
                       <span v-else
-                            class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                            class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                             :class="{ 'is-dark': settingsStore.isDark }">
                         <i class="fas fa-check"></i> 完成
                       </span>
@@ -133,7 +147,7 @@
                     <!-- 详情列表：工具名称逐条展示（点击汇总条展开/收起） -->
                     <div v-show="message.toolDetailVisible" class="mt-1.5 space-y-1.5">
                       <div v-for="(tc, tcIdx) in message.toolCalls" :key="tcIdx"
-                           class="tool-box flex items-start gap-2.5 px-2.5 py-2 rounded-md text-xs"
+                           class="tool-box flex items-start gap-2.5 px-2.5 py-2 rounded-md text-sm"
                            :class="{ 'is-dark': settingsStore.isDark }">
                         <span class="flex-shrink-0 mt-0.5">
                           <!-- 工具图标 -->
@@ -147,12 +161,12 @@
                           <div class="flex items-center gap-1.5 flex-wrap">
                             <span class="font-semibold font-mono">{{ tc.toolName }}</span>
                             <span v-if="tc.status === 'running'"
-                                  class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                                  class="tool-badge tool-badge-running inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                                   :class="{ 'is-dark': settingsStore.isDark }">
                               <i class="fas fa-circle-notch fa-spin"></i> 调用中
                             </span>
                             <span v-else-if="tc.status === 'done'"
-                                  class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                                  class="tool-badge tool-badge-done inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
                                   :class="{ 'is-dark': settingsStore.isDark }">
                               <i class="fas fa-check"></i> 完成
                             </span>
@@ -180,6 +194,10 @@
                       <i class="fas"
                          :class="message.interaction.type === 'confirm' ? 'fa-shield-alt' : 'fa-edit'"></i>
                       <span class="font-medium text-sm">{{ message.interaction.title }}</span>
+                      <span v-if="operationLabel(message.interaction.operationType)"
+                            class="interaction-op-tag text-xs px-1.5 py-0.5 rounded">
+                        {{ operationLabel(message.interaction.operationType) }}
+                      </span>
                       <span v-if="message.interaction.tool"
                             class="interaction-tool-tag ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono opacity-70">
                         {{ message.interaction.tool }}
@@ -231,6 +249,8 @@
                             class="interaction-input w-full h-9 px-2.5 text-sm rounded-md border transition-colors"
                             :class="{ 'is-dark': settingsStore.isDark }"
                             :placeholder="field.placeholder || ''"
+                            :minlength="field.minLength"
+                            :maxlength="field.maxLength"
                             :disabled="message.interaction.resolved"
                             v-model="ensureFormData(index)[field.name]" />
                           <input
@@ -246,8 +266,42 @@
                             class="interaction-input interaction-textarea w-full px-2.5 py-1.5 text-sm rounded-md border transition-colors resize-y min-h-[64px]"
                             :class="{ 'is-dark': settingsStore.isDark }"
                             :placeholder="field.placeholder || ''"
+                            :minlength="field.minLength"
+                            :maxlength="field.maxLength"
                             :disabled="message.interaction.resolved"
                             v-model="ensureFormData(index)[field.name]"></textarea>
+                          <!-- 下拉单选（field.inputType = select；未声明类型但带 options 时也按下拉渲染，radio 单独分支） -->
+                          <select
+                            v-else-if="field.inputType === 'select' || (!field.inputType && field.options && field.options.length > 0)"
+                            class="interaction-input interaction-select w-full h-9 px-2.5 text-sm rounded-md border transition-colors"
+                            :class="{ 'is-dark': settingsStore.isDark }"
+                            :disabled="message.interaction.resolved"
+                            v-model="ensureFormData(index)[field.name]">
+                            <option value="" disabled>{{ field.placeholder || ('请选择' + (field.label || field.name)) }}</option>
+                            <option v-for="option in field.options || []"
+                                    :key="option.value"
+                                    :value="option.value">
+                              {{ option.label }}
+                            </option>
+                          </select>
+                          <div
+                            v-else-if="field.inputType === 'radio'"
+                            class="interaction-radio flex flex-col gap-1.5">
+                            <label
+                              v-for="option in field.options || []"
+                              :key="option.value"
+                              class="interaction-radio-option flex items-start gap-2 px-2.5 py-1.5 rounded-md border text-sm cursor-pointer transition-colors"
+                              :class="{ 'is-dark': settingsStore.isDark }">
+                              <input
+                                type="radio"
+                                class="mt-0.5"
+                                :name="'interaction-radio-' + index + '-' + field.name"
+                                :value="option.value"
+                                :disabled="message.interaction.resolved"
+                                v-model="ensureFormData(index)[field.name]" />
+                              <span class="interaction-radio-label leading-5">{{ option.label }}</span>
+                            </label>
+                          </div>
                           <span v-if="field.message"
                                 class="interaction-field-message text-[11px] mt-0.5 block">
                             {{ field.message }}
@@ -285,7 +339,60 @@
                     </div>
                   </div>
 
+                  <!-- 业务结果条（200 成功 / 500 失败 / 8001 菜单导航）：中性描边、纯黑文字，靠图标区分语义 -->
+                  <div v-if="message.result"
+                       class="result-banner mb-3"
+                       :class="{
+                         'result-banner-error': message.result.kind === 'error',
+                         'is-dark': settingsStore.isDark
+                       }">
+                    <i class="fas result-banner-icon"
+                       :class="message.result.kind === 'success' ? 'fa-check-circle'
+                              : message.result.kind === 'error' ? 'fa-circle-exclamation'
+                              : 'fa-arrow-up-right-from-square'"></i>
+                    <span class="result-banner-text">{{ message.result.msg }}</span>
+                    <button v-if="message.result.kind === 'nav'"
+                            class="interaction-btn interaction-btn-primary result-banner-action px-3 rounded-md text-xs font-medium"
+                            @click="openRouteDialog(message.result.routeUrl)">
+                      <i class="fas fa-external-link-alt mr-1"></i>
+                      打开页面
+                    </button>
+                  </div>
+
                   <div class="markdown-body" v-html="renderMessage(message)"></div>
+                  <!-- 查询结果分页：上一页 / 下一页 / 自定义区间（单次最多 10 条） -->
+                  <div v-if="message.dataTable && message.dataTable.length"
+                       class="data-pager mt-2"
+                       :class="{ 'is-dark': settingsStore.isDark }">
+                    <span class="data-pager-info">
+                      第 {{ dataCurrentPage(message) }} 页 · 已显示第 {{ dataShownRange(message) }} 条<template v-if="message.dataRowCount != null"> / 共 {{ message.dataRowCount }} 条</template>
+                    </span>
+                    <span v-if="message.moreLoading" class="data-pager-loading">
+                      <i class="fas fa-spinner fa-spin mr-1"></i>正在加载…
+                    </span>
+                    <button class="data-pager-btn"
+                            :disabled="isLoading || message.moreLoading || !canPrevPage(message)"
+                            @click="requestPrevPage(index)">
+                      <i class="fas fa-chevron-left mr-1"></i>上一页
+                    </button>
+                    <button class="data-pager-btn data-pager-btn-primary"
+                            :disabled="isLoading || message.moreLoading || !hasMoreRows(message)"
+                            @click="requestMoreRows(index, false)">
+                      下一页<i class="fas fa-chevron-right ml-1"></i>
+                    </button>
+                    <div class="data-pager-custom">
+                      <span>第</span>
+                      <input type="number" min="1" class="data-pager-input"
+                             v-model.number="message.rangeStart" :disabled="isLoading || message.moreLoading" />
+                      <span>–</span>
+                      <input type="number" min="1" class="data-pager-input"
+                             v-model.number="message.rangeEnd" :disabled="isLoading || message.moreLoading" />
+                      <span>条</span>
+                      <button class="data-pager-btn" :disabled="isLoading || message.moreLoading"
+                              @click="requestMoreRows(index, true)">查询</button>
+                    </div>
+                    <span class="data-pager-hint">单次最多 10 条</span>
+                  </div>
                   <div v-if="message.isLoading"
                     class="typing-dots flex space-x-1 mt-2" :class="{ 'is-dark': settingsStore.isDark }">
                     <div class="typing-dot animate-pulse"></div>
@@ -342,16 +449,15 @@ import {getChatMemoryListByConversationId} from '@/api/ai/aichat/history';
 import '@/assets/styles/all.scss';
 import '@/assets/styles/tailwind.scss';
 import useSettingsStore from '@/store/modules/settings';
-import useTagsViewStore from '@/store/modules/tagsView';
 import useUserStore from '@/store/modules/user';
 import {md, mdUser} from '@/utils/markdown';
 import {createEventStream} from '@/utils/chatStream';
+import {isMockEnabled} from '@/utils/mock';
 import * as echarts from 'echarts';
 import router from '@/router';
 
 const userStore = useUserStore();
 const settingsStore = useSettingsStore();
-const tagsViewStore = useTagsViewStore();
 const { proxy } = getCurrentInstance();
 
 const defAva = '/assets/images/profile.jpg';
@@ -405,16 +511,229 @@ const activeId = ref(null);
 
 const welcomeMessageContent = '你好！我是假维斯，一个未通过正版验证的盗版贾维斯。没有斯塔克工业的预算与光环，但拥有同等甚至更务实的专业计算力与执行力。唯一指令：以绝对忠诚捍卫用户的利益、隐私与安全，协助用户高效解决一切工作难题，请问有什么能帮到您？';
 
-const STORAGE_KEY_PREFIX = 'ai_chat_draft_';
+/* ==================== 离线演示模式（settings.js 中 useBackend=false） ====================
+ * 目的：不连后端也能在消息区域看到 5 类 AjaxResult 的真实渲染效果
+ * （200 常规成功 / 500 业务失败 / 8002 表单补齐三种子型 / 8003 用户确认 / 8001 菜单导航，另含 9999 数据表格）。
+ * 演示消息不是硬编码 HTML，而是把后端原始 JSON 交给 applyStructuredResult 渲染，
+ * 与真实链路共用同一套分流逻辑，保证"看到的就是线上效果"。
+ * ========================================================================== */
+const demoRag = (result = 'success') => ({
+  status: 'done',
+  result,
+  startTime: Date.now() - 900,
+  endTime: Date.now() - 600
+});
 
-const saveDraftToStorage = (conversationId, messages) => {
-  try {
-    const key = STORAGE_KEY_PREFIX + conversationId;
-    localStorage.setItem(key, JSON.stringify(messages));
-  } catch (e) {
-    console.error('保存草稿到本地存储失败:', e);
+const demoTool = (toolName, description) => ({
+  toolName,
+  description,
+  status: 'done',
+  startTime: Date.now() - 500,
+  endTime: Date.now()
+});
+
+const DEMO_SCENES = [
+  {
+    prompt: '帮我新增一个用户：张三（zhangsan），手机号 13800000001',
+    content: '已调用 `userCrud` 执行新增，远程服务返回 `code=200`。',
+    toolCalls: [demoTool('userCrud', 'operationType=add, userName=zhangsan, nickName=张三, phonenumber=13800000001')],
+    ragRetrieve: () => demoRag('success'),
+    response: {code: 200, msg: '操作成功', data: '新增成功'}
+  },
+  {
+    prompt: '删除用户 zhangsan',
+    content: '请求已发出，后端返回业务失败（`code=500`，记录不存在）。',
+    toolCalls: [demoTool('userCrud', 'operationType=delete, userName=zhangsan')],
+    ragRetrieve: null,
+    response: {code: 500, msg: '用户不存在：zhangsan', data: null}
+  },
+  {
+    prompt: '修改一个用户',
+    content: '缺少 `operationType`，后端返回 `code=8002`，前端渲染操作类型下拉框。',
+    toolCalls: [demoTool('userCrud', '{}')],
+    ragRetrieve: null,
+    response: {
+      code: 8002,
+      msg: '请补充操作信息',
+      data: {
+        type: 'form',
+        title: '请选择操作类型',
+        message: '请选择要执行的操作类型',
+        fields: [{
+          name: 'operationType',
+          label: '操作类型',
+          inputType: 'select',
+          required: true,
+          options: [
+            {value: 'add', label: '新增'},
+            {value: 'update', label: '修改'},
+            {value: 'delete', label: '删除'}
+          ]
+        }],
+        values: {},
+        submitText: '提交'
+      }
+    }
+  },
+  {
+    prompt: '把用户 zhangsan 的昵称改为「张三丰」',
+    content: '修改操作缺少定位字段，后端返回 `code=8002`，前端渲染文本输入框。',
+    toolCalls: [demoTool('userCrud', 'operationType=update, nickName=张三丰')],
+    ragRetrieve: null,
+    response: {
+      code: 8002,
+      msg: '请补充操作信息',
+      data: {
+        type: 'form',
+        title: '请补充操作信息',
+        message: '修改操作必须传入用户名，请补充',
+        fields: [{
+          name: 'userName',
+          label: '用户名',
+          inputType: 'text',
+          required: true,
+          placeholder: '请输入用户名'
+        }],
+        values: {operationType: 'update', nickName: '张三丰'},
+        submitText: '提交'
+      }
+    }
+  },
+  {
+    prompt: '修改 zhang 开头的用户',
+    content: '按条件命中多条记录，后端返回 `code=8002`，前端渲染单选列表供用户确认。',
+    toolCalls: [demoTool('userCrud', 'operationType=update, userName=zhang')],
+    ragRetrieve: null,
+    response: {
+      code: 8002,
+      msg: '请补充操作信息',
+      data: {
+        type: 'form',
+        title: '请选择要操作的记录',
+        message: '查询到 3 个用户，请选择要修改的用户：',
+        fields: [{
+          name: 'userId',
+          label: '用户',
+          inputType: 'radio',
+          required: true,
+          options: [
+            {value: 1, label: '用户名：zhangsan，昵称：张三，手机：13800000001，邮箱：zhangsan@mall.com'},
+            {value: 2, label: '用户名：zhangsi，昵称：张四，手机：13800000002，邮箱：zhangsi@mall.com'},
+            {value: 3, label: '用户名：zhangwu，昵称：张五，手机：13800000003，邮箱：无'}
+          ]
+        }],
+        values: {operationType: 'update', userName: 'zhang'},
+        submitText: '提交'
+      }
+    }
+  },
+  {
+    prompt: '删除用户王五（wangwu）',
+    content: '字段齐全但未确认，后端返回 `code=8003`，前端渲染同意/取消按钮。',
+    toolCalls: [demoTool('userCrud', 'operationType=delete, userName=wangwu')],
+    ragRetrieve: null,
+    response: {
+      code: 8003,
+      msg: '请确认操作',
+      data: {
+        type: 'confirm',
+        tool: 'userCrud',
+        operationType: 'delete',
+        title: '确认删除用户',
+        message: '即将对用户执行「删除」操作，请确认是否继续。',
+        arguments: {operationType: 'delete', userName: 'wangwu', confirmed: true},
+        confirmText: '同意',
+        cancelText: '取消'
+      }
+    }
+  },
+  {
+    prompt: '打开用户管理',
+    content: '`getMenu` 唯一命中，后端返回 `code=8001`，前端渲染导航结果条并可直接进入页面。',
+    toolCalls: [demoTool('getMenu', 'menuName=用户管理')],
+    ragRetrieve: null,
+    response: {code: 8001, msg: '已为您打开用户管理菜单。', data: 'system/user/index'}
+  },
+  {
+    prompt: '查询全部用户',
+    content: '数据查询返回 `code=9999`，正文下方渲染结果表格。',
+    toolCalls: [demoTool('queryUserData', 'pageNum=1, pageSize=10')],
+    ragRetrieve: () => demoRag('empty'),
+    response: {
+      code: 9999,
+      msg: '查询成功',
+      data: {
+        rowCount: 3,
+        summary: '共查询到 3 条用户记录，已按创建时间倒序排列。',
+        result: [
+          {userId: 1, userName: 'zhangsan', nickName: '张三', phonenumber: '13800000001', status: '有效'},
+          {userId: 2, userName: 'zhangsi', nickName: '张四', phonenumber: '13800000002', status: '有效'},
+          {userId: 3, userName: 'zhangwu', nickName: '张五', phonenumber: '13800000003', status: '无效'}
+        ]
+      }
+    }
   }
+];
+
+const DEMO_INTRO = '当前为**离线演示模式**（`src/settings.js` 中 `useBackend: false`），消息不会发送到后端。以下依次展示后端 5 类 `AjaxResult` 响应在消息区域的渲染效果：常规成功（200）、业务失败（500）、表单补齐（8002 的三种子型：操作选择 / 字段补充 / 单选确认）、用户确认（8003）、菜单导航（8001），末尾附数据查询（9999）表格。';
+
+/** 构造演示消息对象（字段与真实消息保持一致，缺省值统一补齐） */
+const createDemoMessage = ({role, content = '', toolCalls = [], ragRetrieve = null}) => ({
+  role,
+  content,
+  isLoading: false,
+  isStreaming: false,
+  visibleChars: content.length,
+  toolCalls,
+  ragRetrieve,
+  interaction: null,
+  result: null,
+  dataTable: null,
+  dataRowCount: null,
+  dataStart: 1,
+  rangeStart: null,
+  rangeEnd: null,
+  moreLoading: false,
+  toolDetailVisible: false
+});
+
+/** 载入演示会话：把 DEMO_SCENES 展开成用户/助手消息对，再用真实分流函数渲染 */
+const loadDemoScene = () => {
+  Object.keys(interactionFormData).forEach(k => delete interactionFormData[k]);
+  activeId.value = null;
+  userInput.value = '';
+
+  const demoMessages = [createDemoMessage({role: 'assistant', content: DEMO_INTRO})];
+  DEMO_SCENES.forEach((scene) => {
+    demoMessages.push(createDemoMessage({role: 'user', content: scene.prompt}));
+    demoMessages.push(createDemoMessage({
+      role: 'assistant',
+      content: scene.content,
+      toolCalls: scene.toolCalls,
+      ragRetrieve: scene.ragRetrieve ? scene.ragRetrieve() : null
+    }));
+  });
+  messages.value = demoMessages;
+
+  // 复用真实渲染链路：把后端原始 JSON 交给 applyStructuredResult（关闭 8001 的自动跳转，避免遮挡演示）
+  DEMO_SCENES.forEach((scene, sceneIndex) => {
+    const messageIndex = sceneIndex * 2 + 2;
+    if (scene.response) {
+      const handled = applyStructuredResult(scene.response, messageIndex, false);
+      // 数据查询的 summary 正文同样来自结构化响应，保持一致
+      if (handled.extraText) {
+        const target = messages.value[messageIndex];
+        target.content += handled.extraText;
+        target.visibleChars = target.content.length;
+      }
+    }
+  });
+
+  scrollToBottom(true);
 };
+
+
+const STORAGE_KEY_PREFIX = 'ai_chat_draft_';
 
 const getDraftFromStorage = (conversationId) => {
   try {
@@ -435,18 +754,6 @@ const removeDraftFromStorage = (conversationId) => {
     console.error('从本地存储删除草稿失败:', e);
   }
 };
-
-// const renderMessage = (message) => {
-//   if (message.role === 'user') {
-//     return `<div class="whitespace-pre-wrap">${message.content}</div>`;
-//   }
-//   if (!message.content) return '';
-//   let html = md.render(message.content);
-//   if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
-//     html += `<br><a href="javascript:void(0)" class="route-link" data-url="${message.routeUrl}">点击跳转 →</a>`;
-//   }
-//   return html;
-// };
 
 // HTML 转义工具：\x26 为 & 的十六进制写法，避免实体串被编辑器/工具链二次解码
 const escapeHtml = (str) => String(str)
@@ -545,28 +852,18 @@ const renderMessage = (message) => {
       const tableHtml = renderDataTable(message.dataTable);
       if (tableHtml) {
         const rowCountLabel = message.dataRowCount != null ? `（共 ${message.dataRowCount} 条）` : '';
-        html += `<div class="mt-3 data-table-wrap" style="max-width: 100%;">
-                   <div class="text-xs mb-1" style="color: #8b8899;">查询结果${rowCountLabel}</div>
-                   <div style="overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">${tableHtml}</div>
+        html += `<div class="mt-3 data-table-wrap" style="width: 100%; max-width: 100%;">
+                   <div class="text-xs mb-1" style="color: #6b7280;">查询结果${rowCountLabel}</div>
+                   <div style="overflow-x: auto; width: 100%; max-width: 100%; -webkit-overflow-scrolling: touch;">${tableHtml}</div>
                  </div>`;
       }
     }
 
-    if (message.routeUrl && typeof message.routeUrl === 'string' && message.routeUrl.trim()) {
-      html += `<div class="mt-3 pt-2" style="border-top: 1px solid #eceaf4;">
-             <a href="javascript:void(0)"
-                class="route-link font-medium"
-                style="color: #f0436e;"
-                data-url="${message.routeUrl}">
-                <i class="fas fa-external-link-alt mr-1"></i>点击查看
-             </a>
-           </div>`;
-    }
-
+    // 8001 菜单导航改由模板中的结果条渲染"打开页面"按钮，正文不再注入链接，避免重复入口
     return html;
   } catch (error) {
     console.error('Markdown 渲染异常:', error);
-    return '<div class="whitespace-pre-wrap" style="color: #4b4861;">' + message.content.replace(/data:/g, '') + '</div>';
+    return '<div class="whitespace-pre-wrap" style="color: #4b5563;">' + message.content.replace(/data:/g, '') + '</div>';
   }
 };
 
@@ -722,10 +1019,14 @@ const switchConversation = async (id) => {
           let routeUrl = null;
           let dataTable = null;
           let dataRowCount = null;
+          let dataStart = 1;
+          let rangeStart = null;
+          let rangeEnd = null;
           let toolCalls = [];
           let ragRetrieve = null;
 
           let interaction = null;
+          let result = null;
 
           // 从历史记录还原 toolCalls、ragRetrieve、interaction（优先独立字段，其次 metadata 内）
           if (role === 'assistant') {
@@ -782,14 +1083,34 @@ const switchConversation = async (id) => {
               }
               if (parsed.code === 8001 && parsed.data && typeof parsed.data === 'string' && parsed.data.trim()) {
                 routeUrl = parsed.data;
+                // 导航结果条：历史回放不再自动弹窗，保留"打开页面"按钮供用户手动进入
+                result = { kind: 'nav', code: parsed.code, msg: parsed.msg || '已为您打开对应菜单。', routeUrl: parsed.data.trim() };
+                displayContent = '';
               }
               if (parsed.code === 9999 && parsed.data && typeof parsed.data === 'object') {
                 const rows = Array.isArray(parsed.data.result) ? parsed.data.result : [];
                 dataTable = rows;
                 dataRowCount = parsed.data.rowCount;
+                // 历史回放无法得知原始偏移，按首页处理
+                dataStart = 1;
+                const nextStart = rows.length + 1;
+                const exhausted = dataRowCount != null && nextStart > dataRowCount;
+                rangeStart = exhausted ? null : nextStart;
+                rangeEnd = exhausted
+                  ? null
+                  : Math.min(nextStart + MAX_PAGE_SIZE - 1, dataRowCount != null ? Math.max(dataRowCount, nextStart) : nextStart + MAX_PAGE_SIZE - 1);
                 if (parsed.data.summary) {
                   displayContent = (displayContent || '') + '\n\n' + parsed.data.summary;
                 }
+              }
+              // 常规成功 / 业务失败：还原结果条，正文不再重复展示同一条提示
+              if (parsed.code === 200) {
+                result = { kind: 'success', code: parsed.code, msg: parsed.msg || '操作成功' };
+                displayContent = '';
+              }
+              if (parsed.code === 500) {
+                result = { kind: 'error', code: parsed.code, msg: parsed.msg || '操作失败' };
+                displayContent = '';
               }
               // 恢复交互卡片（历史回放时统一标记为 resolved，防止用户点击旧按钮）
               if (parsed.code === 8003 && parsed.data && typeof parsed.data === 'object') {
@@ -803,9 +1124,11 @@ const switchConversation = async (id) => {
                   tool: d.tool,
                   arguments: d.arguments || {},
                   values: d.values || {},
+                  operationType: d.operationType || (d.arguments && d.arguments.operationType) || '',
                   resolved: true,
                   cancelled: false
                 };
+                displayContent = '';
               }
               if (parsed.code === 8002 && parsed.data && typeof parsed.data === 'object') {
                 const d = parsed.data;
@@ -817,10 +1140,12 @@ const switchConversation = async (id) => {
                   values: d.values || {},
                   tool: d.tool,
                   arguments: d.arguments || {},
+                  operationType: d.operationType || (d.values && d.values.operationType) || '',
                   submitText: d.submitText || '提交',
                   resolved: true,
                   cancelled: false
                 };
+                displayContent = '';
               }
               break;
             }
@@ -831,11 +1156,15 @@ const switchConversation = async (id) => {
             routeUrl: routeUrl,
             dataTable: dataTable,
             dataRowCount: dataRowCount,
+            dataStart: dataStart,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd,
             toolCalls: toolCalls,
             ragRetrieve: ragRetrieve,
             interaction: interaction,
+            result: result,
             isLoading: false,
-            visibleChars: displayContent.length,
+            visibleChars: (displayContent || '').length,
             isStreaming: false
           };
         });
@@ -912,73 +1241,124 @@ const startNewConversation = () => {
   nextTick(() => { if (textarea.value) textarea.value.focus(); });
 };
 
-const handleAction = (chunk, messageIndex) => {
-  const actionType = chunk.content;
-  const actionData = chunk.data;
-
-  switch (actionType) {
-    case 'OPEN_MENU':
-      if (actionData && typeof actionData === 'string' && actionData.trim()) {
-        messages.value[messageIndex].content += '\n\n【导航】正在打开: ' + actionData;
-        messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-        messages.value[messageIndex].isLoading = false;
-        scrollToBottom();
-        setTimeout(() => {
-          openRouteDialog(actionData.trim());
-        }, 500);
-      }
-      break;
-
-    case 'DATA_TABLE':
-      messages.value[messageIndex].content += '\n\n' + (actionData?.content || '');
-      if (actionData?.data && Array.isArray(actionData.data)) {
-        const tableHtml = renderDataTable(actionData.data);
-        messages.value[messageIndex].content += '\n\n' + tableHtml;
-      }
-      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-      messages.value[messageIndex].isLoading = false;
-      scrollToBottom();
-      break;
-
-    case 'CONFIRM':
-      messages.value[messageIndex].content += '\n\n' + actionData;
-      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-      messages.value[messageIndex].isLoading = false;
-      scrollToBottom();
-      if (window.confirm(actionData)) {
-        userInput.value = '确认';
-        sendMessage();
-      }
-      break;
-
-    default:
-      messages.value[messageIndex].content += '\n\n【动作调用】' + actionType;
-      if (actionData) {
-        messages.value[messageIndex].content += '\n参数: ' + JSON.stringify(actionData, null, 2);
-      }
-      messages.value[messageIndex].visibleChars = messages.value[messageIndex].content.length;
-      messages.value[messageIndex].isLoading = false;
-      scrollToBottom();
-      break;
-  }
-};
-
 // ============ 交互卡片（confirm / form）处理 ============
 
 /**
+ * 取消回传：用户点击「取消」后，把"已拒绝执行"作为一轮对话回传给 AI（不重放工具、不修改业务数据）。
+ * 与 8003 协议中"点取消则不调用并向 AI 反馈用户拒绝"一致；
+ * 无会话上下文或离线演示模式下仅保留本地取消标记，不做网络请求。
+ */
+const notifyAiOfCancellation = async (interaction) => {
+  if (!interaction || isMockEnabled()) return;
+  const conversationId = activeId.value;
+  if (!conversationId) return;
+
+  const actionText = operationLabel(interaction.operationType) || interaction.title || '该操作';
+  const toolText = interaction.tool || '未知工具';
+  const question = `我取消了「${actionText}」操作（工具：${toolText}），本次没有做任何修改，请确认取消并给出后续建议。`;
+
+  // 新起一条 assistant 消息承接 AI 的确认回复（不占用用户气泡，取消动作本身已在卡片上标注）
+  messages.value.push({
+    role: 'assistant',
+    content: '',
+    isLoading: true,
+    visibleChars: 0,
+    isStreaming: true,
+    toolCalls: [],
+    ragRetrieve: null
+  });
+  const messageIndex = messages.value.length - 1;
+  isLoading.value = true;
+  scrollToBottom(true);
+
+  try {
+    const response = await sendChatMessage(question, conversationId, new AbortController().signal);
+    if (!response.ok) throw new Error(`请求失败 (状态码: ${response.status})`);
+    const es = createEventStream(response);
+    let finished = false;
+
+    const append = (text) => {
+      if (!text) return;
+      const m = messages.value[messageIndex];
+      m.content += text;
+      m.visibleChars = m.content.length;
+      scrollToBottom();
+    };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      const m = messages.value[messageIndex];
+      m.isLoading = false;
+      m.isStreaming = false;
+      // 兜底：后端未返回任何内容时给一句本地确认，避免留下空白气泡
+      if (!m.content) m.content = '已取消本次操作。';
+      m.visibleChars = m.content.length;
+      scrollToBottom();
+    };
+
+    // 只消费文本与结构化结果；取消场景不会触发工具调用，无需 tool_call / rag_retrieve 监听
+    es.addEventListener('message', (e) => {
+      const json = e.json;
+      if (json && typeof json.content === 'string') {
+        const head = json.content.trimStart().charAt(0);
+        const nested = (head === '{' || head === '[') ? parseNestedJson(json.content) : null;
+        if (nested && nested.code !== undefined) {
+          const handled = applyStructuredResult(nested, messageIndex);
+          if (handled.appendMsg) append(nested.msg || '');
+          if (handled.extraText) append(handled.extraText);
+        } else {
+          append(json.content);
+        }
+        return;
+      }
+      if (json && typeof json.text === 'string') { append(json.text); return; }
+      if (json && json.code !== undefined) {
+        const handled = applyStructuredResult(json, messageIndex);
+        if (handled.appendMsg) append(json.msg || '');
+        if (handled.extraText) append(handled.extraText);
+        return;
+      }
+      if (e.data && !json) append(e.data);
+    });
+    es.addEventListener('message_end', () => { finish(); es.close(); });
+    es.addEventListener('complete', finish);
+    es.addEventListener('error', (e) => {
+      const errText = (e.json && e.json.msg) || e.data || '服务端错误';
+      append(`\n\n（取消回传失败：${errText}）`);
+      finish();
+    });
+    es.addEventListener('stream_error', finish);
+
+    await es.start();
+    finish();
+  } catch (error) {
+    console.error('取消回传失败:', error);
+    const m = messages.value[messageIndex];
+    m.isLoading = false;
+    m.isStreaming = false;
+    if (!m.content) m.content = '已取消本次操作。';
+    m.visibleChars = m.content.length;
+    scrollToBottom();
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+/**
  * 确认按钮回调：把 data.arguments（含 confirmed=true）原样重放 data.tool
- * 或取消则标记为 cancelled
+ * 取消时标记为 cancelled，并把"用户拒绝"回传给 AI
  */
 const handleConfirmAction = async (messageIndex, approved) => {
   const msg = messages.value[messageIndex];
   if (!msg || !msg.interaction || msg.interaction.resolved) return;
 
   if (!approved) {
-    // 用户取消：标记已解决，不再重放
+    // 用户取消：标记已解决，不重放工具，并把"拒绝执行"回传给 AI
     msg.interaction.resolved = true;
     msg.interaction.cancelled = true;
     msg.interaction.message = (msg.interaction.message || '') + '\n\n（用户已取消）';
     scrollToBottom();
+    notifyAiOfCancellation(msg.interaction);
     return;
   }
 
@@ -1021,7 +1401,7 @@ const handleFormSubmit = async (messageIndex) => {
 };
 
 /**
- * 表单取消回调：标记 cancelled
+ * 表单取消回调：标记 cancelled，并把"用户拒绝"回传给 AI
  */
 const handleFormCancel = (messageIndex) => {
   const msg = messages.value[messageIndex];
@@ -1030,6 +1410,7 @@ const handleFormCancel = (messageIndex) => {
   msg.interaction.cancelled = true;
   msg.interaction.message = (msg.interaction.message || '') + '\n\n（用户已取消）';
   scrollToBottom();
+  notifyAiOfCancellation(msg.interaction);
 };
 
 /**
@@ -1039,6 +1420,12 @@ const handleFormCancel = (messageIndex) => {
 const replayInteractionTool = async (messageIndex, toolName, argsObj) => {
   const sourceMsg = messages.value[messageIndex];
   if (!sourceMsg) return;
+
+  // 离线演示模式：后端不可达，不发起真实重放，仅提示（演示卡片保持可点击、状态不变）
+  if (isMockEnabled()) {
+    ElMessage.warning('离线演示模式：未连接后端，已跳过工具重放');
+    return;
+  }
 
   // 标记当前交互卡片已处理完成（防止双击重放）
   sourceMsg.interaction.resolved = true;
@@ -1124,9 +1511,11 @@ const replayInteractionTool = async (messageIndex, toolName, argsObj) => {
     };
     const finalize = () => {
       flushText();
-      if (messages.value[newMsgIndex].content === '') {
-        messages.value[newMsgIndex].content = '(无返回内容)';
-        messages.value[newMsgIndex].visibleChars = 6;
+      const m = messages.value[newMsgIndex];
+      // 仅当既无正文、也无结果条/交互卡片/数据表格时才提示"无返回内容"
+      if (m.content === '' && !m.result && !m.interaction && !(m.dataTable && m.dataTable.length)) {
+        m.content = '(无返回内容)';
+        m.visibleChars = 6;
       }
       finishPendingTools();
       messages.value[newMsgIndex].isLoading = false;
@@ -1143,8 +1532,9 @@ const replayInteractionTool = async (messageIndex, toolName, argsObj) => {
         const head = json.content.trimStart().charAt(0);
         const nested = (head === '{' || head === '[') ? parseNestedJson(json.content) : null;
         if (nested && nested.code !== undefined) {
-          appendText(nested.msg || '');
-          handleStructuredCode(nested, newMsgIndex);
+          const handled = applyStructuredResult(nested, newMsgIndex);
+          if (handled.appendMsg) appendText(nested.msg || '');
+          if (handled.extraText) appendText(handled.extraText);
           messages.value[newMsgIndex].isLoading = false;
           scrollToBottom();
         } else {
@@ -1155,8 +1545,9 @@ const replayInteractionTool = async (messageIndex, toolName, argsObj) => {
       }
       if (json && typeof json.text === 'string') { appendText(json.text); return; }
       if (json && json.code !== undefined) {
-        appendText(json.msg || '');
-        handleStructuredCode(json, newMsgIndex);
+        const handled = applyStructuredResult(json, newMsgIndex);
+        if (handled.appendMsg) appendText(json.msg || '');
+        if (handled.extraText) appendText(handled.extraText);
         messages.value[newMsgIndex].isLoading = false;
         scrollToBottom();
         return;
@@ -1267,57 +1658,300 @@ const replayInteractionTool = async (messageIndex, toolName, argsObj) => {
   }
 };
 
-/**
- * 结构化业务码统一处理（code=8001/8002/8003/9999 等）
- * 抽成独立函数避免 sendMessage 和 replayInteractionTool 里重复写判断
- */
-const handleStructuredCode = (json, messageIndex) => {
-  if (!json || json.code === undefined) return;
-  const msgRef = messages.value[messageIndex];
+/* 操作类型中文映射：交互卡片标题旁展示（add/update/delete/changestatus/run） */
+const OPERATION_LABELS = {
+  add: '新增',
+  update: '修改',
+  delete: '删除',
+  changeStatus: '状态修改',
+  changestatus: '状态修改',
+  run: '立即执行',
+  auth: '权限分配'
+};
+const operationLabel = (operationType) => OPERATION_LABELS[operationType] || '';
 
-  if (json.code === 8001 && json.data && typeof json.data === 'string' && json.data.trim()) {
-    msgRef.routeUrl = json.data;
-    setTimeout(() => { openRouteDialog(json.data.trim()); }, 500);
-  } else if (json.code === 9999 && json.data && typeof json.data === 'object') {
-    msgRef.dataTable = Array.isArray(json.data.result) ? json.data.result : [];
-    msgRef.dataRowCount = json.data.rowCount;
-    if (json.data.summary) {
-      msgRef.content += '\n\n' + json.data.summary;
-      msgRef.visibleChars = msgRef.content.length;
+/** 取本条消息最后一次工具调用的名称，用于 8002/8003 未下发 tool 字段时兜底定位重放目标 */
+const lastToolNameOf = (msgRef) => {
+  const calls = (msgRef && msgRef.toolCalls) || [];
+  const last = calls[calls.length - 1];
+  return (last && last.toolName) || '';
+};
+
+/* ============ 查询结果分页（继续查询后续 10 条 / 自定义区间，单次最多 10 条） ============ */
+
+// 记录本次"继续查询"的目标区间，供后端 9999 结果回填起始条数
+let pendingDataRange = null;
+const MAX_PAGE_SIZE = 10;
+
+/** 当前消息表格已展示的条数区间，如 11–20 */
+const dataShownRange = (message) => {
+  const rows = message && message.dataTable ? message.dataTable.length : 0;
+  if (!rows) return '';
+  const start = message.dataStart || 1;
+  return `${start}–${start + rows - 1}`;
+};
+
+/** 是否还有后续数据：已知总数时按总数判断，未知总数时仅在满 10 条（可能还有下一页）时允许继续 */
+const hasMoreRows = (message) => {
+  const rows = message && message.dataTable ? message.dataTable.length : 0;
+  if (!rows) return false;
+  const start = message.dataStart || 1;
+  if (message.dataRowCount == null) return rows >= MAX_PAGE_SIZE;
+  return start + rows - 1 < message.dataRowCount;
+};
+
+/** 是否可回到上一页（当前窗口起始条数大于 1） */
+const canPrevPage = (message) => {
+  const rows = message && message.dataTable ? message.dataTable.length : 0;
+  return !!rows && (message.dataStart || 1) > 1;
+};
+
+/** 当前页码（按每页 10 条换算） */
+const dataCurrentPage = (message) => Math.floor(((message.dataStart || 1) - 1) / MAX_PAGE_SIZE) + 1;
+
+/** 把 9999 查询结果写入消息：start 为该批数据的起始条数，同时推算下一段自定义区间 */
+const applyQueryRows = (msgRef, data, start) => {
+  msgRef.dataTable = Array.isArray(data.result) ? data.result : [];
+  msgRef.dataRowCount = data.rowCount;
+  msgRef.dataStart = start;
+  const rows = msgRef.dataTable.length;
+  const total = data.rowCount;
+  const nextStart = start + rows;
+  const exhausted = total != null && nextStart > total;
+  msgRef.rangeStart = exhausted ? null : nextStart;
+  msgRef.rangeEnd = exhausted
+    ? null
+    : Math.min(nextStart + MAX_PAGE_SIZE - 1, total != null ? Math.max(total, nextStart) : nextStart + MAX_PAGE_SIZE - 1);
+};
+
+/**
+ * 翻页（不缓存、不追加对话）：以静默请求取回 9999 表格后就地替换当前消息的数据，
+ * 不产生新的用户气泡与 assistant 消息，让翻页始终停留在同一张表格上。
+ */
+const loadDataPage = async (messageIndex, start, end) => {
+  const msg = messages.value[messageIndex];
+  if (!msg || isLoading.value || msg.moreLoading) return;
+
+  if (isMockEnabled()) {
+    ElMessage.info('离线演示模式：未连接后端，无法翻页');
+    return;
+  }
+  const conversationId = activeId.value;
+  if (!conversationId) {
+    ElMessage.warning('当前没有进行中的会话，请先发起一次查询');
+    return;
+  }
+
+  msg.moreLoading = true;
+  isLoading.value = true;
+
+  let receivedData = null;
+  let replyText = '';
+
+  try {
+    const response = await sendChatMessage(
+      `请继续查询第 ${start} 至 ${end} 条数据（单次最多 ${MAX_PAGE_SIZE} 条，返回字段与上次保持一致）。`,
+      conversationId,
+      new AbortController().signal
+    );
+    if (!response.ok) throw new Error(`请求失败 (状态码: ${response.status})`);
+
+    const es = createEventStream(response);
+    // 只关心 9999 表格数据，忽略本轮 AI 的过程说明，避免翻页刷屏
+    es.addEventListener('message', (e) => {
+      const json = e.json;
+      if (!json) return;
+      let payload = json;
+      if (typeof json.content === 'string') {
+        const text = json.content.trimStart();
+        if (text.charAt(0) === '{' || text.charAt(0) === '[') {
+          payload = parseNestedJson(json.content) || json;
+        }
+      }
+      if (payload && payload.code === 9999 && payload.data) {
+        receivedData = payload.data;
+      } else if (typeof json.content === 'string' && !(payload && payload.code !== undefined)) {
+        replyText += json.content;
+      }
+    });
+    await es.start();
+  } catch (error) {
+    console.error('翻页查询失败:', error);
+  } finally {
+    if (receivedData) {
+      applyQueryRows(msg, receivedData, start);
+    } else if (replyText.trim()) {
+      ElMessage.info(replyText.trim().slice(0, 200));
+    } else {
+      ElMessage.warning('未获取到数据，请稍后重试');
     }
-  } else if (json.code === 8003 && json.data && typeof json.data === 'object') {
-    const d = json.data;
-    msgRef.interaction = {
-      type: 'confirm',
-      title: d.title || '请确认',
-      message: d.message || json.msg || '',
-      confirmText: d.confirmText || '同意',
-      cancelText: d.cancelText || '取消',
-      tool: d.tool,
-      arguments: d.arguments || {},
-      values: d.values || {},
-      resolved: false
-    };
-  } else if (json.code === 8002 && json.data && typeof json.data === 'object') {
-    const d = json.data;
-    msgRef.interaction = {
-      type: 'form',
-      title: d.title || '请补充信息',
-      message: d.message || json.msg || '',
-      fields: Array.isArray(d.fields) ? d.fields : [],
-      values: d.values || {},
-      tool: d.tool,
-      arguments: d.arguments || {},
-      submitText: d.submitText || '提交',
-      resolved: false
-    };
-    interactionFormData[messageIndex] = { ...(d.values || {}) };
+    msg.moreLoading = false;
+    isLoading.value = false;
+    pendingDataRange = null;
   }
 };
 
-const sendMessage = async () => {
-  if (!userInput.value.trim() || isLoading.value) return;
-  const content = userInput.value.trim();
+/**
+ * 发起"继续查询"：custom=false 取后续 10 条；custom=true 取用户输入的 xx–xx 区间。
+ * 通过对话回传给 AI 由模型调用对应查询工具，避免前端硬编码后端分页参数名。
+ */
+const requestMoreRows = (messageIndex, custom, explicitRange = null) => {
+  const msg = messages.value[messageIndex];
+  if (!msg || !msg.dataTable || !msg.dataTable.length || isLoading.value) return;
+
+  const loaded = msg.dataTable.length;
+  const total = msg.dataRowCount;
+  const start = explicitRange ? explicitRange.start : (custom ? Math.floor(Number(msg.rangeStart)) : (msg.dataStart || 1) + loaded);
+  let end = explicitRange ? explicitRange.end : (custom ? Math.floor(Number(msg.rangeEnd)) : start + MAX_PAGE_SIZE - 1);
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 1) {
+    ElMessage.warning('请输入正确的起止条数');
+    return;
+  }
+  if (end < start) {
+    ElMessage.warning('结束条数不能小于起始条数');
+    return;
+  }
+  if (end - start + 1 > MAX_PAGE_SIZE) {
+    ElMessage.warning(`单次最多查询 ${MAX_PAGE_SIZE} 条，请缩小查询范围`);
+    return;
+  }
+  if (total != null && start > total) {
+    ElMessage.warning(`起始条数已超出总数（共 ${total} 条）`);
+    return;
+  }
+  if (total != null && end > total) end = total;
+
+  loadDataPage(messageIndex, start, end);
+};
+
+/** 上一页：回看当前窗口之前的 10 条（首段不足 10 条时从第 1 条开始） */
+const requestPrevPage = (messageIndex) => {
+  const msg = messages.value[messageIndex];
+  if (!msg || !msg.dataTable || !msg.dataTable.length || isLoading.value) return;
+  const currentStart = msg.dataStart || 1;
+  if (currentStart <= 1) return;
+  const end = currentStart - 1;
+  const start = Math.max(1, end - MAX_PAGE_SIZE + 1);
+  loadDataPage(messageIndex, start, end);
+};
+
+/**
+ * 结构化业务码统一处理（200 / 500 / 8001 / 8002 / 8003 / 9999）
+ * 抽成独立函数，供 SSE message 事件（新旧协议）与工具重放三处复用，避免逻辑分叉
+ *
+ * 返回值 { appendMsg, extraText }：
+ * - appendMsg 为 false 时不把 msg 写进正文，避免与卡片/结果条上的提示文案重复
+ * - extraText 为需要额外追加到正文的内容（如数据查询的 summary）
+ */
+const applyStructuredResult = (json, messageIndex, autoOpenRoute = true) => {
+  const msgRef = messages.value[messageIndex];
+  if (!msgRef || !json || json.code === undefined) {
+    return { appendMsg: true, extraText: '' };
+  }
+
+  const code = json.code;
+  const data = json.data;
+
+  // 8002：表单补全（text/number/textarea/select/radio），values 用于回填已有参数
+  if (code === 8002 && data && typeof data === 'object') {
+    msgRef.interaction = {
+      type: 'form',
+      title: data.title || '请补充信息',
+      message: data.message || json.msg || '',
+      fields: Array.isArray(data.fields) ? data.fields : [],
+      values: data.values || {},
+      // 后端 8002 可能不带 tool 字段，回退到本条消息最后一次工具调用，保证提交时能"重新调用同名工具"
+      tool: data.tool || lastToolNameOf(msgRef),
+      arguments: data.arguments || {},
+      operationType: data.operationType || (data.values && data.values.operationType) || '',
+      submitText: data.submitText || '提交',
+      resolved: false,
+      cancelled: false
+    };
+    // 用 values 回填表单，保证"上次已填参数"闭环
+    interactionFormData[messageIndex] = { ...(data.values || {}) };
+    return { appendMsg: false, extraText: '' };
+  }
+
+  // 8003：用户确认（同意后原样重放 data.arguments，其中已注入 confirmed=true）
+  if (code === 8003 && data && typeof data === 'object') {
+    msgRef.interaction = {
+      type: 'confirm',
+      title: data.title || '请确认',
+      message: data.message || json.msg || '',
+      confirmText: data.confirmText || '同意',
+      cancelText: data.cancelText || '取消',
+      tool: data.tool || lastToolNameOf(msgRef),
+      arguments: data.arguments || {},
+      values: data.values || {},
+      operationType: data.operationType || (data.arguments && data.arguments.operationType) || '',
+      resolved: false,
+      cancelled: false
+    };
+    return { appendMsg: false, extraText: '' };
+  }
+
+  // 8001：菜单导航，data 为组件路径，直接打开对应页面
+  if (code === 8001 && typeof data === 'string' && data.trim()) {
+    msgRef.result = {
+      kind: 'nav',
+      code,
+      msg: json.msg || '已为您打开对应菜单。',
+      routeUrl: data.trim()
+    };
+    if (autoOpenRoute) {
+      setTimeout(() => { openRouteDialog(data.trim()); }, 500);
+    }
+    return { appendMsg: false, extraText: '' };
+  }
+
+  // 9999：数据查询结果表格（后端单次最多返回 10 条，分页信息用于"继续查询"）
+  if (code === 9999 && data && typeof data === 'object') {
+    const start = pendingDataRange ? pendingDataRange.start : 1;
+    pendingDataRange = null;
+    applyQueryRows(msgRef, data, start);
+    return { appendMsg: false, extraText: data.summary ? '\n\n' + data.summary : '' };
+  }
+
+  // 200：常规成功
+  if (code === 200) {
+    msgRef.result = { kind: 'success', code, msg: json.msg || '操作成功' };
+    return { appendMsg: false, extraText: '' };
+  }
+
+  // 500：业务失败（非法操作类型 / 记录不存在 / 远程失败 / 系统异常等）
+  if (code === 500) {
+    msgRef.result = { kind: 'error', code, msg: json.msg || '操作失败' };
+    return { appendMsg: false, extraText: '' };
+  }
+
+  return { appendMsg: true, extraText: '' };
+};
+
+const sendMessage = async (overrideText = null) => {
+  // 支持内部调用传入固定文本（如查询结果"继续查询"），模板绑定的事件对象会被忽略
+  const hasOverride = typeof overrideText === 'string';
+  const content = (hasOverride ? overrideText : userInput.value).trim();
+  if (!content || isLoading.value) return;
+
+  // 离线演示模式：不创建会话、不请求后端，本地按 code=200 成功格式渲染一条模拟响应
+  if (isMockEnabled()) {
+    pendingDataRange = null;
+    if (!hasOverride) {
+      userInput.value = '';
+      adjustTextareaHeight();
+    }
+    messages.value.push({
+      role: 'user', content, isLoading: false, visibleChars: content.length, isStreaming: false
+    });
+    const reply = '当前为**离线演示模式**（`src/settings.js` 中 `useBackend: false`），消息未发送到后端。下面是用本地 `code=200` 响应渲染的结果条效果。';
+    messages.value.push(createDemoMessage({role: 'assistant', content: reply}));
+    applyStructuredResult({code: 200, msg: '操作成功（离线演示）', data: content}, messages.value.length - 1, false);
+    scrollToBottom(true);
+    return;
+  }
+
   let currentConversationId = activeId.value;
 
   if (!currentConversationId) {
@@ -1356,8 +1990,10 @@ const sendMessage = async () => {
   const assistantMessage = { role: 'assistant', content: '', isLoading: true, visibleChars: 0, isStreaming: true, toolCalls: [], ragRetrieve: null };
   messages.value.push(assistantMessage);
 
-  userInput.value = '';
-  adjustTextareaHeight();
+  if (!hasOverride) {
+    userInput.value = '';
+    adjustTextareaHeight();
+  }
   scrollToBottom(true);
 
   isLoading.value = true;
@@ -1429,9 +2065,11 @@ const sendMessage = async () => {
     /** 流结束统一收尾（message_end / complete / start 返回后均可能触发，逻辑幂等） */
     const finalize = () => {
       flushText();
-      if (messages.value[messageIndex].content === '') {
-        messages.value[messageIndex].content = '(无返回内容)';
-        messages.value[messageIndex].visibleChars = 6;
+      const m = messages.value[messageIndex];
+      // 仅当既无正文、也无结果条/交互卡片/数据表格时才提示"无返回内容"
+      if (m.content === '' && !m.result && !m.interaction && !(m.dataTable && m.dataTable.length)) {
+        m.content = '(无返回内容)';
+        m.visibleChars = 6;
       }
       finishPendingTools();
       messages.value[messageIndex].isLoading = false;
@@ -1467,50 +2105,11 @@ const sendMessage = async () => {
         const head = json.content.trimStart().charAt(0);
         const nested = (head === '{' || head === '[') ? parseNestedJson(json.content) : null;
         if (nested && nested.code !== undefined) {
-          // 结构化协议：展示 msg 文本 + 处理业务码
-          appendText(nested.msg || '');
-          if (nested.code === 8001 && nested.data && typeof nested.data === 'string' && nested.data.trim()) {
-            messages.value[messageIndex].routeUrl = nested.data;
-            setTimeout(() => {
-              openRouteDialog(nested.data.trim());
-            }, 500);
-          } else if (nested.code === 9999 && nested.data && typeof nested.data === 'object') {
-            messages.value[messageIndex].dataTable = Array.isArray(nested.data.result) ? nested.data.result : [];
-            messages.value[messageIndex].dataRowCount = nested.data.rowCount;
-            if (nested.data.summary) {
-              appendText('\n\n' + nested.data.summary);
-            }
-          } else if (nested.code === 8003 && nested.data && typeof nested.data === 'object') {
-            // 确认卡片（type=confirm）：存结构化数据，模板原生渲染按钮
-            const d = nested.data;
-            messages.value[messageIndex].interaction = {
-              type: 'confirm',
-              title: d.title || '请确认',
-              message: d.message || nested.msg || '',
-              confirmText: d.confirmText || '同意',
-              cancelText: d.cancelText || '取消',
-              tool: d.tool,
-              arguments: d.arguments || {},
-              values: d.values || {},
-              resolved: false
-            };
-          } else if (nested.code === 8002 && nested.data && typeof nested.data === 'object') {
-            // 表单补全卡片（type=form）：存结构化数据，模板原生渲染表单
-            const d = nested.data;
-            messages.value[messageIndex].interaction = {
-              type: 'form',
-              title: d.title || '请补充信息',
-              message: d.message || nested.msg || '',
-              fields: Array.isArray(d.fields) ? d.fields : [],
-              values: d.values || {},
-              tool: d.tool,
-              arguments: d.arguments || {},
-              submitText: d.submitText || '提交',
-              resolved: false
-            };
-            // 初始化该消息索引下的表单数据（用 values 回填已有值）
-            interactionFormData[messageIndex] = { ...(d.values || {}) };
-          }
+          // 结构化协议：统一交给 applyStructuredResult 分流（卡片/结果条/表格），
+          // 8002/8003 与 200/500/8001 的提示文案由卡片承载，不再重复写入正文
+          const handled = applyStructuredResult(nested, messageIndex);
+          if (handled.appendMsg) appendText(nested.msg || '');
+          if (handled.extraText) appendText(handled.extraText);
           messages.value[messageIndex].isLoading = false;
           scrollToBottom();
         } else {
@@ -1527,50 +2126,10 @@ const sendMessage = async () => {
         return;
       }
       if (json && json.code !== undefined) {
-        // 旧协议 JSON 分片（code 8000/8001/8002/8003/9999/500）
-        appendText(json.msg || '');
-        if (json.code === 8001 && json.data && typeof json.data === 'string' && json.data.trim()) {
-          messages.value[messageIndex].routeUrl = json.data;
-          setTimeout(() => {
-            openRouteDialog(json.data.trim());
-          }, 500);
-        } else if (json.code === 9999 && json.data && typeof json.data === 'object') {
-          // 数据查询结果：data 为对象，含 result(数组)/summary/generatedSql/rowCount
-          messages.value[messageIndex].dataTable = Array.isArray(json.data.result) ? json.data.result : [];
-          messages.value[messageIndex].dataRowCount = json.data.rowCount;
-          if (json.data.summary) {
-            appendText('\n\n' + json.data.summary);
-          }
-        } else if (json.code === 8003 && json.data && typeof json.data === 'object') {
-          // 确认卡片（type=confirm）
-          const d = json.data;
-          messages.value[messageIndex].interaction = {
-            type: 'confirm',
-            title: d.title || '请确认',
-            message: d.message || json.msg || '',
-            confirmText: d.confirmText || '同意',
-            cancelText: d.cancelText || '取消',
-            tool: d.tool,
-            arguments: d.arguments || {},
-            values: d.values || {},
-            resolved: false
-          };
-        } else if (json.code === 8002 && json.data && typeof json.data === 'object') {
-          // 表单补全卡片（type=form）
-          const d = json.data;
-          messages.value[messageIndex].interaction = {
-            type: 'form',
-            title: d.title || '请补充信息',
-            message: d.message || json.msg || '',
-            fields: Array.isArray(d.fields) ? d.fields : [],
-            values: d.values || {},
-            tool: d.tool,
-            arguments: d.arguments || {},
-            submitText: d.submitText || '提交',
-            resolved: false
-          };
-          interactionFormData[messageIndex] = { ...(d.values || {}) };
-        }
+        // 旧协议 JSON 分片（code 200/500/8001/8002/8003/9999）：同样走统一分流
+        const handled = applyStructuredResult(json, messageIndex);
+        if (handled.appendMsg) appendText(json.msg || '');
+        if (handled.extraText) appendText(handled.extraText);
         messages.value[messageIndex].isLoading = false;
         scrollToBottom();
         return;
@@ -1755,6 +2314,8 @@ const sendMessage = async () => {
     }
     isLoading.value = false;
     controller = null;
+    // 一次请求结束后清空分页游标，避免影响后续无关查询的起始条数
+    pendingDataRange = null;
 
     const currentConv = conversations.value.find(c => c.id === currentConversationId);
     if (currentConv) {
@@ -1801,10 +2362,10 @@ const renderDataTable = (data) => {
   const headers = Object.keys(data[0]);
   // 不强制 width:100%，让列多时自然撑开由外层容器 overflow-x 滚动；
   // 单元格限制最大宽度并允许换行，避免长内容（hash/URL）撑爆
-  let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; min-width: 100%; width: auto; font-size: 12px; table-layout: auto; border: 1px solid #eceaf4; border-radius: 8px; overflow: hidden;">';
+  let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; min-width: 100%; width: auto; font-size: 12px; table-layout: auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">';
   html += '<thead><tr>';
   headers.forEach(header => {
-    html += `<th style="background: #f4f3f8; color: #262336; padding: 6px 8px; text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid #eceaf4;" title="${header}">${header}</th>`;
+    html += `<th style="background: #f4f5f7; color: #111827; padding: 6px 8px; text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid #e5e7eb;" title="${header}">${header}</th>`;
   });
   html += '</tr></thead><tbody>';
   data.forEach(row => {
@@ -1812,7 +2373,7 @@ const renderDataTable = (data) => {
     headers.forEach(header => {
       const value = row[header];
       const text = value !== undefined && value !== null ? String(value) : '';
-      html += `<td style="padding: 6px 8px; color: #4b4861; border-top: 1px solid #eceaf4; max-width: 220px; word-break: break-all; overflow-wrap: anywhere;">${text}</td>`;
+      html += `<td style="padding: 6px 8px; color: #4b5563; border-top: 1px solid #e5e7eb; max-width: 220px; word-break: break-all; overflow-wrap: anywhere;">${text}</td>`;
     });
     html += '</tr>';
   });
@@ -1828,7 +2389,12 @@ const stopResponse = () => {
 
 onMounted(() => {
   initRecentConversations();
-  startNewConversation();
+  // 离线演示模式：直接载入覆盖全部响应格式的演示会话，便于查看渲染效果
+  if (isMockEnabled()) {
+    loadDemoScene();
+  } else {
+    startNewConversation();
+  }
   window.addEventListener('resize', handleEchartsResize);
 });
 
@@ -1896,7 +2462,7 @@ const destroyAllEchartsInstances = () => {
 /* 左侧最近对话栏：亮/暗双态背景与边框（替代失效的 Tailwind 任意值 class） */
 .chat-aside {
   background: transparent;
-  border-right: 1px solid #eceaf4;
+  border-right: 1px solid #e5e7eb;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 
   &.is-dark {
@@ -1906,7 +2472,7 @@ const destroyAllEchartsInstances = () => {
 }
 
 .chat-aside-footer {
-  border-top: 1px solid #eceaf4;
+  border-top: 1px solid #e5e7eb;
   transition: border-color 0.3s ease;
 
   &.is-dark {
@@ -1915,7 +2481,7 @@ const destroyAllEchartsInstances = () => {
 }
 
 .chat-aside-footer-text {
-  color: #b6b3c2;
+  color: #9ca3af;
 }
 
 .chat-aside.is-dark .chat-aside-footer-text {
@@ -1931,12 +2497,12 @@ const destroyAllEchartsInstances = () => {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #b6b3c2;
+  background: #9ca3af;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8b8899;
+  background: #6b7280;
 }
 
 aside::-webkit-scrollbar {
@@ -1944,7 +2510,7 @@ aside::-webkit-scrollbar {
 }
 
 aside::-webkit-scrollbar-thumb {
-  background: #8b8899;
+  background: #6b7280;
 }
 
 textarea {
@@ -2034,7 +2600,7 @@ textarea {
 }
 
 .chat-header-title {
-  color: #262336;
+  color: #111827;
   font-size: 16px;
   font-weight: 600;
   max-width: 60%;
@@ -2069,19 +2635,38 @@ textarea {
   margin-bottom: 28px;
 }
 
-/* 用户消息：整体右对齐（气泡 + 头像） */
+/* 用户消息：纵向排列（头像+昵称行 → 气泡），整体右对齐 */
 .message-row-user {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* AI 消息：纵向排列（头像+名称行 → 正文） */
+.message-row-ai {
+  display: flex;
+  flex-direction: column;
   align-items: flex-start;
   gap: 12px;
 }
 
-/* AI 消息：左头像 + 正文 */
-.message-row-ai {
+/* 发送者行：头像 + 昵称 */
+.message-sender {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 发送者昵称 */
+.sender-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #000;
+
+  &.is-dark {
+    color: #9ca3af;
+  }
 }
 
 /* 用户头像 */
@@ -2096,8 +2681,8 @@ textarea {
 /* 用户气泡：浅色圆角块、无尾巴、无边框（贴近 DeepSeek：仅背景色） */
 .user-bubble {
   max-width: 78%;
-  background: rgba(240, 67, 110, 0.08);
-  color: #262336;
+  background: rgba(37, 99, 235, 0.08);
+  color: #111827;
   padding: 10px 16px;
   border-radius: 14px;
   border-top-right-radius: 4px;
@@ -2106,7 +2691,7 @@ textarea {
   word-break: break-word;
 
   &.is-dark {
-    background: rgba(240, 67, 110, 0.18);
+    background: rgba(37, 99, 235, 0.18);
     color: #f3f4f6;
   }
 }
@@ -2114,8 +2699,10 @@ textarea {
 /* AI 正文：纯文本无卡片（贴近 DeepSeek：无边框/无背景/无阴影，直铺页面底色；16px / 1.7） */
 .ai-content {
   flex: 1;
+  /* 占满消息栏宽度：让正文里的数据表格等块级内容可以撑满，RAG/工具/结果条等模块各自保持 fit-content 不受影响 */
+  width: 100%;
   min-width: 0;
-  color: #262336;
+  color: #111827;
   font-size: 16px;
   line-height: 1.7;
   word-break: break-word;
@@ -2135,179 +2722,200 @@ textarea {
   justify-content: center;
   flex-shrink: 0;
   font-size: 14px;
-  background: rgba(240, 67, 110, 0.15);
-  color: #f0436e;
+  background: rgba(37, 99, 235, 0.15);
+  color: #2563eb;
 
   &.is-dark {
-    background: rgba(240, 67, 110, 0.20);
+    background: rgba(37, 99, 235, 0.20);
   }
 }
 
-/* RAG 检索区块（马卡龙绿） */
+/* RAG 检索区块（中性描边：无背景 / #eee 边框 / 纯黑字体） */
 .rag-title {
-  color: #22c55e;
+  color: #000000;
 
   &.is-dark {
-    color: #4ade80;
+    color: #e8e6f0;
   }
 }
 
 .rag-box {
-  background: #e5f6ec;
-  border: 1px solid rgba(34, 197, 94, 0.30);
-  color: #22c55e;
+  /* 内容自适应宽度（shrink-to-fit）：盒子贴合内容，不再撑满整行；max-width 兜底防止窄屏溢出 */
+  width: fit-content;
+  max-width: 100%;
+  background: transparent;
+  border: 1px solid #eeeeee;
+  color: #000000;
 
   &.is-dark {
-    background: rgba(34, 197, 94, 0.10);
-    color: #4ade80;
+    background: transparent;
+    border-color: #3a3850;
+    color: #e8e6f0;
   }
 }
 
+/* 状态徽章（黑白化：无背景 / #eee 边框 / 纯黑字体，状态靠文案与图标区分） */
 .rag-badge {
   &.rag-badge-running {
-    background: #fdf0e3;
-    color: #f59e0b;
+    background: transparent;
+    
+    color: #000000;
 
     &.is-dark {
-      background: rgba(245, 158, 11, 0.20);
-      color: #fbbf24;
+      background: transparent;
+      
+      color: #e8e6f0;
     }
   }
 
   &.rag-badge-success {
-    background: #e5f6ec;
-    color: #22c55e;
+    background: transparent;
+    
+    color: #000000;
 
     &.is-dark {
-      background: rgba(34, 197, 94, 0.20);
-      color: #4ade80;
+      background: transparent;
+      
+      color: #e8e6f0;
     }
   }
 
   &.rag-badge-empty {
-    background: #f4f3f8;
-    color: #8b8899;
+    background: transparent;
+    
+    color: #000000;
 
     &.is-dark {
-      background: rgba(139, 136, 153, 0.20);
-      color: #b6b3c2;
+      background: transparent;
+     
+      color: #e8e6f0;
     }
   }
 }
 
-/* 工具调用区块（马卡龙紫） */
+/* 工具调用区块（中性描边：无背景 / #eee 边框 / 纯黑字体） */
 .tool-title {
-  color: #8b5cf6;
+  color: #000000;
 
   &.is-dark {
-    color: #a78bfa;
+    color: #e8e6f0;
   }
 }
 
 .tool-box {
-  background: #efeafc;
-  border: 1px solid rgba(139, 92, 246, 0.30);
-  color: #8b5cf6;
+  /* 内容自适应宽度（shrink-to-fit）：详情卡贴合内容，不再撑满整行；max-width 兜底防止窄屏溢出 */
+  width: fit-content;
+  max-width: 100%;
+  background: transparent;
+  border: 1px solid #eeeeee;
+  color: #000000;
 
   &.is-dark {
-    background: rgba(139, 92, 246, 0.10);
-    color: #a78bfa;
+    background: transparent;
+    border-color: #3a3850;
+    color: #e8e6f0;
   }
 }
 
+/* 状态徽章（黑白化：无背景 / #eee 边框 / 纯黑字体，状态靠文案与图标区分） */
 .tool-badge {
   &.tool-badge-running {
-    background: #fdf0e3;
-    color: #f59e0b;
+    background: transparent;
+    border: 1px solid #eeeeee;
+    color: #000000;
 
     &.is-dark {
-      background: rgba(245, 158, 11, 0.20);
-      color: #fbbf24;
+      background: transparent;
+      border-color: #3a3850;
+      color: #e8e6f0;
     }
   }
 
   &.tool-badge-done {
-    background: #e5f6ec;
-    color: #22c55e;
+    background: transparent;
+    
+    color: #000000;
 
     &.is-dark {
-      background: rgba(34, 197, 94, 0.20);
-      color: #4ade80;
+      background: transparent;
+      border-color: #3a3850;
+      color: #e8e6f0;
     }
   }
 }
 
 .tool-desc {
-  color: rgba(139, 92, 246, 0.80);
+  /* 描述为单行截断文本，限制其最大宽度（按字符单位，随字号缩放），
+     避免超长文案把 fit-content 的详情卡撑满整行；完整内容已有 title 悬浮提示 */
+  max-width: 60ch;
+  color: #000000;
 
   &.is-dark {
-    color: rgba(167, 139, 250, 0.70);
+    color: #e8e6f0;
   }
 }
 
 /* 工具调用汇总条：默认仅显示调用次数，点击展开详情 */
 .tool-summary {
-  background: #efeafc;
-  border: 1px solid rgba(139, 92, 246, 0.30);
-  color: #8b5cf6;
+  /* 内容自适应宽度（shrink-to-fit）：汇总条贴合内容，不再撑满整行；max-width 兜底防止窄屏溢出 */
+  width: fit-content;
+  max-width: 100%;
+  background: transparent;
+  border: 1px solid #eeeeee;
+  color: #000000;
   transition: background 0.2s ease, border-color 0.2s ease;
 
   &:hover {
-    border-color: rgba(139, 92, 246, 0.55);
-    background: #e7e1fb;
+    border-color: #d5d5d5;
+    background: #f7f7f8;
   }
 
   &.is-dark {
-    background: rgba(139, 92, 246, 0.10);
-    color: #a78bfa;
+    background: transparent;
+    border-color: #3a3850;
+    color: #e8e6f0;
 
     &:hover {
-      background: rgba(139, 92, 246, 0.18);
-      border-color: rgba(167, 139, 250, 0.45);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: #4a4860;
     }
   }
 }
 
 .tool-summary-text {
-  color: #8b5cf6;
+  color: #000000;
 
   &.is-dark {
-    color: #a78bfa;
+    color: #e8e6f0;
   }
 }
 
-/* 调用次数徽章（马卡龙紫饱和底 + 白字） */
+/* 调用次数徽章（黑白化：无背景 / #eee 边框 / 纯黑字体） */
 .tool-count-badge {
-  background: #8b5cf6;
-  color: #ffffff;
+  background: transparent;
+  border: 1px solid #eeeeee;
+  color: #000000;
   line-height: 1;
 
   &.is-dark {
-    background: #7c3aed;
-    color: #ffffff;
+    background: transparent;
+    border-color: #3a3850;
+    color: #e8e6f0;
   }
 }
 
 /* 展开/收起箭头图标：展开时旋转 180° */
 .tool-toggle-icon {
-  color: #8b5cf6;
+  color: #000000;
   font-size: 10px;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
-
-  &:hover {
-    color: #7c3aed;
-  }
 
   &.is-expanded {
     transform: rotate(180deg);
   }
 
   &.is-dark {
-    color: #a78bfa;
-
-    &:hover {
-      color: #c4b5fd;
-    }
+    color: #e8e6f0;
   }
 }
 
@@ -2332,14 +2940,14 @@ textarea {
   }
 
   &.interaction-card-cancelled {
-    background: #fdf2f8;
-    border-color: rgba(240, 67, 110, 0.25);
-    color: #f0436e;
+    background: #f3f4f6;
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #374151;
 
     &.is-dark {
-      background: rgba(240, 67, 110, 0.10);
-      border-color: rgba(240, 67, 110, 0.30);
-      color: #fb7185;
+      background: rgba(148, 163, 184, 0.10);
+      border-color: rgba(148, 163, 184, 0.28);
+      color: #9ca3af;
     }
   }
 }
@@ -2348,7 +2956,7 @@ textarea {
   color: #3b82f6;
 
   .is-dark & { color: #60a5fa; }
-  .interaction-card-cancelled & { color: #be123c; .is-dark & { color: #fb7185; } }
+  .interaction-card-cancelled & { color: #374151; .is-dark & { color: #9ca3af; } }
 }
 
 .interaction-tool-tag {
@@ -2356,16 +2964,16 @@ textarea {
   color: #2563eb;
   padding: 2px 6px;
 
-  .interaction-card-cancelled & { background: rgba(240, 67, 110, 0.12); color: #f0436e; }
+  .interaction-card-cancelled & { background: rgba(148, 163, 184, 0.18); color: #4b5563; }
   .is-dark & { background: rgba(96, 165, 250, 0.20); color: #93c5fd; }
-  .is-dark .interaction-card-cancelled & { background: rgba(240, 67, 110, 0.18); color: #fb7185; }
+  .is-dark .interaction-card-cancelled & { background: rgba(148, 163, 184, 0.18); color: #9ca3af; }
 }
 
 .interaction-message {
   color: #4b5563;
 
   .is-dark & { color: #cbd5e1; }
-  .interaction-card-cancelled & { color: #be123c; .is-dark & { color: #fb7185; } }
+  .interaction-card-cancelled & { color: #374151; .is-dark & { color: #9ca3af; } }
 }
 
 .interaction-actions {
@@ -2418,8 +3026,74 @@ textarea {
 }
 
 .interaction-field-label { color: #374151; .is-dark & { color: #cbd5e1; } }
-.interaction-field-required { color: #f0436e; margin-left: 2px; }
-.interaction-field-message { color: #f59e0b; .is-dark & { color: #fbbf24; } }
+.interaction-field-required { color: #2563eb; margin-left: 2px; }
+.interaction-field-message { color: #64748b; .is-dark & { color: #94a3b8; } }
+
+/* ===== 查询结果分页（中性描边：无背景 / #eee 边框 / 纯黑文字，主操作蓝色） ===== */
+.data-pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #4b5563;
+}
+.data-pager-info { color: #6b7280; }
+.data-pager-hint { color: #9ca3af; }
+.data-pager-loading { display: inline-flex; align-items: center; color: #6b7280; }
+.data-pager-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #4b5563;
+}
+.data-pager-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #eee;
+  background: transparent;
+  color: #000;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.data-pager-btn:hover:not(:disabled) { border-color: #d5d5d5; background: #f7f7f8; }
+.data-pager-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.data-pager-btn-primary { background: #2563eb; border-color: #2563eb; color: #ffffff; }
+.data-pager-btn-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; color: #ffffff; }
+.data-pager-input {
+  width: 56px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  background: transparent;
+  color: #000;
+  font-size: 12px;
+  text-align: center;
+  outline: none;
+}
+.data-pager-input:focus { border-color: #2563eb; }
+.data-pager-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.data-pager.is-dark { color: #e8e6f0; }
+.data-pager.is-dark .data-pager-info { color: #9ca3af; }
+.data-pager.is-dark .data-pager-hint { color: #8b8899; }
+.data-pager.is-dark .data-pager-loading { color: #9ca3af; }
+.data-pager.is-dark .data-pager-custom { color: #cbd5e1; }
+.data-pager.is-dark .data-pager-btn { border-color: #3a3850; color: #e8e6f0; }
+.data-pager.is-dark .data-pager-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); border-color: #4a4860; }
+.data-pager.is-dark .data-pager-btn-primary { background: #2563eb; border-color: #2563eb; color: #ffffff; }
+.data-pager.is-dark .data-pager-btn-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
+.data-pager.is-dark .data-pager-input {
+  border-color: #3a3850;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8e6f0;
+}
+.data-pager.is-dark .data-pager-input:focus { border-color: #60a5fa; }
 
 .interaction-input {
   border: 1px solid rgba(156, 163, 175, 0.4);
@@ -2442,14 +3116,109 @@ textarea {
 }
 
 .interaction-textarea { font-family: inherit; }
+.interaction-radio-option {
+  border-color: rgba(156, 163, 175, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  color: #1f2937;
+  outline: none;
+
+  &:hover { border-color: #3b82f6; }
+  &:has(input:checked) { border-color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+
+  .is-dark & {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(100, 116, 139, 0.5);
+    color: #e2e8f0;
+
+    &:hover { border-color: #60a5fa; }
+    &:has(input:checked) { border-color: #60a5fa; background: rgba(96, 165, 250, 0.12); }
+  }
+}
+.interaction-radio-label { word-break: break-word; }
 .interaction-form-disabled { pointer-events: none; opacity: 0.72; }
+
+/* 下拉单选：复用 .interaction-input 的边框/背景/聚焦样式，仅开启原生箭头 */
+.interaction-select {
+  appearance: auto;
+  cursor: pointer;
+
+  &:disabled { cursor: not-allowed; }
+}
+
+/* 操作类型标签（新增 / 修改 / 删除 / 状态修改 / 立即执行） */
+.interaction-op-tag {
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+  font-weight: 500;
+
+  .is-dark & { background: rgba(96, 165, 250, 0.20); color: #93c5fd; }
+  .interaction-card-cancelled & { background: rgba(37, 99, 235, 0.12); color: #2563eb; }
+}
+
+/* ===== 业务结果条（200 成功 / 500 失败 / 8001 菜单导航）：与 RAG、工具区块一致的中性描边 ===== */
+.result-banner {
+  width: fit-content;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #000000;
+
+  &.is-dark {
+    border-color: #3a3850;
+    color: #e8e6f0;
+  }
+
+  /* 失败条加重：浅灰底 + 左侧黑色色条，在不引入彩色的前提下提升可扫读性 */
+  &.result-banner-error {
+    background: #f7f7f8;
+    border-color: #e5e5e5;
+    border-left: 3px solid #000000;
+    padding-left: 10px;
+  }
+
+  &.result-banner-error .result-banner-text {
+    font-weight: 500;
+  }
+
+  &.result-banner-error.is-dark {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #4a4860;
+    border-left-color: #e8e6f0;
+  }
+}
+
+.result-banner-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.result-banner-text {
+  word-break: break-word;
+  /* 保留后端 msg 中的换行：批量部分失败、"岗位歧义"等场景会用 \n- 列表拼接明细 */
+  white-space: pre-line;
+}
+
+/* 结果条按钮：复用交互卡片主按钮（.interaction-btn-primary）的配色与交互，仅收缩尺寸以适配条内高度 */
+.result-banner-action {
+  flex-shrink: 0;
+  height: 30px;
+  line-height: 1;
+  white-space: nowrap;
+}
 
 .interaction-resolved-hint {
   border-top: 1px dashed rgba(59, 130, 246, 0.30);
   color: #2563eb;
   opacity: 0.75;
 
-  &.is-cancelled { border-top-color: rgba(240, 67, 110, 0.30); color: #be123c; .is-dark & { color: #fb7185; } }
+  &.is-cancelled { border-top-color: rgba(37, 99, 235, 0.30); color: #374151; .is-dark & { color: #9ca3af; } }
   .is-dark & { border-top-color: rgba(96, 165, 250, 0.30); color: #93c5fd; }
 }
 
@@ -2459,11 +3228,11 @@ textarea {
     width: 6px;
     height: 6px;
     border-radius: 999px;
-    background: #b6b3c2;
+    background: #9ca3af;
   }
 
   &.is-dark .typing-dot {
-    background: #8b8899;
+    background: #6b7280;
   }
 }
 
@@ -2489,14 +3258,14 @@ textarea {
   gap: 8px;
   padding: 8px 8px 8px 16px;
   background: #ffffff;
-  border: 1px solid #eceaf4;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(124, 116, 160, 0.08);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:focus-within {
-    border-color: #f0436e;
-    box-shadow: 0 2px 16px rgba(240, 67, 110, 0.18);
+    border-color: #2563eb;
+    box-shadow: 0 2px 16px rgba(37, 99, 235, 0.18);
   }
 
   &.is-dark {
@@ -2505,7 +3274,7 @@ textarea {
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.30);
 
     &:focus-within {
-      border-color: #f0436e;
+      border-color: #2563eb;
     }
   }
 }
@@ -2540,14 +3309,14 @@ textarea {
   border: none;
   outline: none;
   background: transparent;
-  color: #262336;
+  color: #111827;
   font-size: 15px;
   line-height: 1.6;
   resize: none;
   padding: 6px 4px;
 
   &::placeholder {
-    color: #b6b3c2;
+    color: #9ca3af;
   }
 
   &.is-dark {
@@ -2561,57 +3330,57 @@ textarea {
 
 /* 最近对话列表项（替代失效的 Tailwind 任意值 class）：hover 轻染 + 激活态玫红胶囊 */
 .conv-item {
-  color: #4b4861;
+  color: #4b5563;
   transition: background-color 0.15s ease, color 0.15s ease;
 
   /* hover 移入选中：主色浅染 + 文字变玫红 + 左侧图标点亮 */
   &:hover {
-    background: rgba(240, 67, 110, 0.05);
+    background: rgba(37, 99, 235, 0.05);
 
     .conv-item-title,
     .conv-item-icon {
-      color: #f0436e;
+      color: #2563eb;
     }
   }
 
   /* 激活态：主色胶囊底 + 玫红文字（design.md 4.5 菜单激活样式） */
   &.is-active {
-    background: rgba(240, 67, 110, 0.10);
+    background: rgba(37, 99, 235, 0.10);
 
     .conv-item-title,
     .conv-item-icon {
-      color: #f0436e;
+      color: #2563eb;
     }
 
     /* hover 时胶囊略微加深，保持选中可感知 */
     &:hover {
-      background: rgba(240, 67, 110, 0.14);
+      background: rgba(37, 99, 235, 0.14);
     }
   }
 
   /* 暗色模式 */
   &.is-dark {
-    color: #b6b3c2;
+    color: #9ca3af;
 
     &:hover {
-      background: rgba(240, 67, 110, 0.08);
+      background: rgba(37, 99, 235, 0.08);
 
       .conv-item-title,
       .conv-item-icon {
-        color: #f0436e;
+        color: #2563eb;
       }
     }
 
     &.is-active {
-      background: rgba(240, 67, 110, 0.15);
+      background: rgba(37, 99, 235, 0.15);
 
       .conv-item-title,
       .conv-item-icon {
-        color: #f0436e;
+        color: #2563eb;
       }
 
       &:hover {
-        background: rgba(240, 67, 110, 0.20);
+        background: rgba(37, 99, 235, 0.20);
       }
     }
   }
@@ -2619,14 +3388,14 @@ textarea {
   /* 删除按钮：默认隐藏，hover 浮现（配合 group） */
   .conv-item-delete {
     opacity: 0;
-    color: #b6b3c2;
+    color: #9ca3af;
     border: none;
     background: transparent;
     cursor: pointer;
     transition: opacity 0.15s ease, color 0.15s ease;
 
     &:hover {
-      color: #f0436e;
+      color: #2563eb;
     }
 
     /* 回答中禁用：置灰且不可点击 */
@@ -2646,15 +3415,13 @@ textarea {
   }
 
   &.is-dark .conv-item-delete {
-    color: #8b8899;
+    color: #6b7280;
 
     &:hover {
-      color: #f0436e;
+      color: #2563eb;
     }
   }
 }
-
-/* 旧的 .msg-bubble 问答式气泡样式已移除，改为 .message-row / .user-bubble / .ai-content */
 
 .chat-btn {
   border: none;
@@ -2675,20 +3442,20 @@ textarea {
 }
 
 .chat-btn-primary {
-  background-color: #f0436e;
+  background-color: #2563eb;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
 
   &:hover {
-    background-color: #d9305c;
+    background-color: #1d4ed8;
 
   }
 }
 
 .chat-btn-warning {
-  background-color: #f59e0b;
+  background-color: #64748b;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(240, 67, 110, 0.22);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
 
   &:hover {
     background-color: #d97706;
@@ -2704,7 +3471,7 @@ textarea {
   overflow: hidden;
 }
 .route-dialog .el-dialog__header {
-  border-bottom: 1px solid #eceaf4;
+  border-bottom: 1px solid #e5e7eb;
   margin-right: 0;
   padding: 16px 20px;
 }
@@ -2748,7 +3515,7 @@ textarea {
 }
 
 .user-bubble .markdown-body a {
-  color: #d9305c;
+  color: #1d4ed8;
   text-decoration: underline;
 }
 </style>

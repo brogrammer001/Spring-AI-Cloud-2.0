@@ -25,7 +25,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * 每条用例跑完整链路（召回→生成→校验→执行→语义校验），17 条约需 1~3 分钟，适合低峰期执行。
  */
 @Service
-public class Nl2SqlEvalService extends BaseToolServiceImpl {
+public class Nl2SqlEvalServiceImpl extends BaseToolServiceImpl {
 
     @Autowired
     private Nl2SqlToolServiceImpl nl2SqlToolService;

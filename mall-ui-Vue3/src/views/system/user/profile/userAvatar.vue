@@ -161,12 +161,12 @@ function closeDialog() {
 
   img {
     border: 3px solid #ffffff;
-    box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.25), 0 6px 16px rgba(124, 116, 160, 0.18);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 6px 16px rgba(15, 23, 42, 0.18);
     transition: box-shadow 0.3s ease;
   }
 
   &:hover img {
-    box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.45), 0 8px 20px rgba(124, 116, 160, 0.22);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.45), 0 8px 20px rgba(15, 23, 42, 0.22);
   }
 }
 
@@ -178,7 +178,7 @@ function closeDialog() {
   top: 3px;
   bottom: 3px;
   color: #ffffff;
-  background: linear-gradient(135deg, rgba(240, 67, 110, 0.55), rgba(255, 122, 156, 0.55));
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.55), rgba(255, 122, 156, 0.55));
   font-size: 26px;
   font-weight: 300;
   font-style: normal;

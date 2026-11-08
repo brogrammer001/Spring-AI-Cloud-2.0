@@ -37,11 +37,10 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         super.setValidator(validator);
     }
 
-    @Tool(description = "创建部门并设置负责人，自动为负责人分配部门管理员角色。参数：部门信息(dept)、负责人用户名(adminUserName)。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
+    @Tool(description = "创建部门并设置负责人，自动为负责人分配部门管理员角色。参数：部门信息(dept)、负责人用户名(adminUserName)。" + CONFIRMED_MSG + " [JSON]", returnDirect = true)
     public AjaxResult createDeptWithAdmin(
             @ToolParam(description = "部门信息") SysDeptBo dept,
-            @ToolParam(description = "负责人用户名") String adminUserName,
-            @ToolParam(description = "用户确认标志，用户在前端点击同意按钮后为true，AI不要自行设置该值") Boolean confirmed) {
+            @ToolParam(description = "用户名") String adminUserName) {
 
         return executeWithErrorHandling(() -> {
             AjaxResult validateResult = validate(dept);
@@ -52,10 +51,10 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
             if (adminUserName == null || adminUserName.isEmpty()) {
                 Map<String, Object> values = new LinkedHashMap<>();
                 values.put("dept", toMap(dept));
-                return formMissing("负责人用户名不能为空，请补充", values, "adminUserName");
+                return formMissing("用户名不能为空，请补充", values, "adminUserName");
             }
 
-            if (!Boolean.TRUE.equals(confirmed)) {
+            if (!Boolean.TRUE.equals(dept.getConfirmed())) {
                 Map<String, Object> args = new LinkedHashMap<>();
                 args.put("dept", toMap(dept));
                 args.put("adminUserName", adminUserName);
@@ -65,7 +64,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
 
             Long userId = getUserIdByUserName(adminUserName);
             if (userId == null) {
-                return AjaxResult.error("负责人用户不存在：" + adminUserName);
+                return AjaxResult.error("用户不存在：" + adminUserName);
             }
 
             SysDept sysDept = new SysDept();
@@ -111,7 +110,7 @@ public class DeptBizToolServiceImpl extends BaseToolServiceImpl {
         }, "创建部门并设置负责人");
     }
 
-    @Tool(description = "批量创建部门结构。参数：部门信息列表(deptList)。按顺序创建，支持父子关系。首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。 [JSON]", returnDirect = true)
+    @Tool(description = "批量创建部门结构。参数：部门信息列表(deptList)。按顺序创建，支持父子关系。" + CONFIRMED_MSG + " [JSON]", returnDirect = true)
     public AjaxResult batchCreateDepts(
             @ToolParam(description = "部门信息列表") List<SysDeptBo> deptList,
             @ToolParam(description = "用户确认标志，用户在前端点击同意按钮后为true，AI不要自行设置该值") Boolean confirmed) {

@@ -42,7 +42,7 @@ function back() {
 </script>
 
 <style lang="scss" scoped>
-/* ===== 淡紫马卡龙风：悬浮白卡 + 玫红主色 ===== */
+/* ===== 中性黑白灰蓝风：悬浮白卡 + 蓝主色 ===== */
 .errPage-container {
   width: 820px;
   max-width: calc(100% - 40px);
@@ -61,7 +61,7 @@ function back() {
   width: 100%;
   padding: 40px 48px;
   background: var(--card-bg, #ffffff);
-  border: 1px solid var(--card-border, #eceaf4);
+  border: 1px solid var(--card-border, #e5e7eb);
   border-radius: var(--radius-xl, 20px);
   box-shadow: var(--shadow-lg);
   animation: errIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -78,7 +78,7 @@ function back() {
     font-size: 56px;
     font-weight: 700;
     line-height: 1.1;
-    background: linear-gradient(135deg, #f0436e 0%, #a78bfa 100%);
+    background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -89,7 +89,7 @@ function back() {
     margin: 0 0 10px;
     font-size: 20px;
     font-weight: 600;
-    color: var(--text-primary, #262336);
+    color: var(--text-primary, #111827);
   }
 
   h6 {
@@ -97,7 +97,7 @@ function back() {
     font-size: 14px;
     font-weight: 400;
     line-height: 1.7;
-    color: var(--text-secondary, #8b8899);
+    color: var(--text-secondary, #6b7280);
   }
 }
 
@@ -122,12 +122,12 @@ function back() {
 
   a {
     font-weight: 600;
-    color: var(--el-color-primary, #f0436e);
+    color: var(--el-color-primary, #2563eb);
     text-decoration: none;
     transition: color 0.25s ease;
 
     &:hover {
-      color: #d9305c;
+      color: #1d4ed8;
       text-decoration: underline;
     }
   }

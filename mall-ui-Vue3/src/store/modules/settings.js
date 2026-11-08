@@ -9,12 +9,21 @@ const { sideTheme, showSettings, navType, tagsView, tagsViewPersist, tagsIcon, f
 
 const storageSetting = JSON.parse(localStorage.getItem('layout-setting')) || ''
 
+/* 主色：统一为中性蓝（历史版本默认是玫红 #f0436e / #E65D6E，持久化在 localStorage 中，需要做一次迁移） */
+const DEFAULT_THEME = '#2563eb'
+const LEGACY_THEME = ['#f0436e', '#e65d6e', '#E65D6E', '#d9305c', '#c71585']
+const resolveTheme = () => {
+  const stored = String(storageSetting.theme || '')
+  if (!stored || LEGACY_THEME.some(c => c.toLowerCase() === stored.toLowerCase())) return DEFAULT_THEME
+  return stored
+}
+
 const useSettingsStore = defineStore(
   'settings',
   {
     state: () => ({
       title: '',
-      theme: storageSetting.theme || '#f0436e',
+      theme: resolveTheme(),
       sideTheme: storageSetting.sideTheme || sideTheme,
       showSettings: showSettings,
       navType: storageSetting.navType === undefined ? navType : storageSetting.navType,

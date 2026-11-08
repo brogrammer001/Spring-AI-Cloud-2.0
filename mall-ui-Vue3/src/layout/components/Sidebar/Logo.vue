@@ -89,7 +89,7 @@ const getLogoTextColor = computed(() => {
       height: 32px;
       border-radius: var(--radius-sm, 8px);
       /* 极淡玫红光环，强化品牌识别 */
-      box-shadow: 0 2px 8px rgba(240, 67, 110, 0.18);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.18);
       object-fit: cover;
       /* flex 布局下防止图标被压缩 */
       flex-shrink: 0;

@@ -1,23 +1,23 @@
 package com.mall.chatmcp.sevice.impl;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.chatmcp.bo.BaseConfirmBo;
 import com.mall.chatmcp.sevice.BaseToolService;
+import com.mall.common.core.annotation.FieldRemark;
 import com.mall.common.core.web.domain.AjaxResult;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.validation.Validator;
 
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.function.Function;
 
 public abstract class BaseToolServiceImpl implements BaseToolService {
 
@@ -28,22 +28,49 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
     /** 表单响应码：前端据此渲染输入框 */
     public static final int FORM_CODE = 8002;
 
+    public static final String CONFIRMED_MSG = "首次调用会返回确认信息，用户点击同意后需携带 confirmed=true 再次调用。";
+
     /** 确认响应码：前端据此渲染同意/取消按钮 */
     public static final int CONFIRM_CODE = 8003;
+
+    /** 批量操作单次最多处理条数，防止超大列表导致长时间执行 */
+    protected static final int MAX_BATCH_SIZE = 100;
 
     /** 常规增删改操作选项 */
     protected static final String[][] OPS_CRUD = {
         {"add", "新增"}, {"update", "修改"}, {"delete", "删除"}
     };
 
-    /** 操作类型 -> 中文标签 */
-    private static final Map<String, String> OP_LABELS = Map.of(
-        "add", "新增", "update", "修改", "delete", "删除",
-        "changestatus", "状态修改", "run", "立即执行", "auth", "分配");
+    /** 操作类型枚举：操作码 -> 中文标签 */
+    private enum OperationType {
+        ADD("add", "新增"),
+        UPDATE("update", "修改"),
+        DELETE("delete", "删除"),
+        CHANGE_STATUS("changestatus", "状态修改"),
+        RUN("run", "立即执行"),
+        AUTH("auth", "分配");
 
-    /** 动态推导补充字段时排除的控制/敏感字段（非查询条件或不适合用户补充） */
-    private static final Set<String> EXCLUDED_FORM_FIELDS = Set.of(
-        "confirmed", "operationType", "password", "status", "delFlag");
+        private final String code;
+        private final String label;
+
+        OperationType(String code, String label) {
+            this.code = code;
+            this.label = label;
+        }
+
+        /** 按操作码获取中文标签，未匹配时返回原操作码 */
+        public static String labelOf(String code) {
+            if (code == null) {
+                return null;
+            }
+            for (OperationType type : values()) {
+                if (type.code.equalsIgnoreCase(code)) {
+                    return type.label;
+                }
+            }
+            return code;
+        }
+    }
 
     private final ObjectMapper objectMapper = new ObjectMapper().setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
 
@@ -58,15 +85,20 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
         BindingResult bindingResult = new BeanPropertyBindingResult(obj, obj.getClass().getSimpleName());
         validator.validate(obj, bindingResult);
         if (bindingResult.hasErrors()) {
-            List<Map<String, Object>> fields = new ArrayList<>();
-            bindingResult.getFieldErrors().forEach(error -> {
-                Map<String, Object> field = buildField(obj, error.getField(), error.getDefaultMessage());
-                if (!fields.contains(field)) {
-                    fields.add(field);
+            Map<String, Map<String, Object>> fieldMap = new LinkedHashMap<>();
+            for (FieldError error : bindingResult.getFieldErrors()) {
+                Map<String, Object> field = fieldMap.get(error.getField());
+                if (field == null) {
+                    field = buildField(obj, error.getField(), error.getDefaultMessage());
+                    fieldMap.put(error.getField(), field);
                 }
-            });
+                if (Arrays.asList(error.getCodes()).contains("Size")) {
+                    addSizeLimits(field, obj, error.getField());
+                }
+            }
             logger.warn("参数校验失败: {}", bindingResult.getAllErrors());
-            return formResult("请补充操作信息", "以下必填信息不完整，请补充后提交", fields, toMap(obj));
+            return formResult("请补充操作信息", "以下必填信息不完整，请补充后提交",
+                new ArrayList<>(fieldMap.values()), toMap(obj));
         }
         return null;
     }
@@ -91,10 +123,12 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
                 }
             }
             case "update", "delete" -> {
-                for (String field : requiredFields) {
-                    if (isEmptyValue(fieldValue(bo, field))) {
-                        return formMissing(opLabel(operationType) + "操作必须传入"
-                            + resolveLabel(bo, field) + "，请补充", bo, field);
+                if (!hasRecordId(bo)) {
+                    for (String field : requiredFields) {
+                        if (isEmptyValue(fieldValue(bo, field))) {
+                            return formMissing(opLabel(operationType) + "操作必须传入"
+                                + resolveLabel(bo, field) + "，请补充", bo, field);
+                        }
                     }
                 }
             }
@@ -143,6 +177,56 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
             fields.add(buildField(null, name, null));
         }
         return formResult("请补充操作信息", message, fields, values);
+    }
+
+    /**
+     * 单选表单：查询到多条匹配记录时，前端渲染单选框让用户选择一条。
+     * option.value 为记录主键，option.label 为记录的可读描述。
+     * 用户选择后，前端将 {selectFieldName: selectedId} 合并进 arguments 重新调用工具。
+     */
+    protected <T> AjaxResult formSelect(String message, Object bo, List<T> records,
+                                        Function<T, Object> idGetter,
+                                        Function<T, String> labelGetter,
+                                        String selectFieldName,
+                                        String selectFieldLabel) {
+        if (records == null || records.isEmpty()) {
+            return AjaxResult.error(message);
+        }
+        List<Map<String, Object>> opts = new ArrayList<>();
+        for (T record : records) {
+            Map<String, Object> opt = new LinkedHashMap<>();
+            opt.put("value", idGetter.apply(record));
+            opt.put("label", labelGetter.apply(record));
+            opts.add(opt);
+        }
+        Map<String, Object> field = new LinkedHashMap<>();
+        field.put("name", selectFieldName);
+        field.put("label", selectFieldLabel);
+        field.put("inputType", "radio");
+        field.put("required", true);
+        field.put("options", opts);
+        field.put("message", message);
+        List<Map<String, Object>> fields = new ArrayList<>();
+        fields.add(field);
+        return formResult("请选择要操作的记录", message, fields, bo);
+    }
+
+    /**
+     * 是否已携带记录主键（单选回传），携带时跳过名称必填校验与重复查询
+     */
+    protected boolean hasRecordId(Object bo) {
+        if (bo == null) {
+            return false;
+        }
+        for (Class<?> c = bo.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            for (Field f : c.getDeclaredFields()) {
+                String name = f.getName();
+                if ((name.endsWith("Id") || "dictCode".equals(name)) && !isEmptyValue(fieldValue(bo, name))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -212,7 +296,7 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
             return new LinkedHashMap<>();
         }
         try {
-            Map<String, Object> raw = objectMapper.convertValue(obj, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> raw = objectMapper.convertValue(obj, new TypeReference<>() {});
             raw.remove("confirmed");
             raw.values().removeIf(Objects::isNull);
             return raw;
@@ -223,10 +307,8 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
     }
 
     protected String opLabel(String operationType) {
-        if (operationType == null) {
-            return "操作";
-        }
-        return OP_LABELS.getOrDefault(operationType.toLowerCase(), operationType);
+        String label = OperationType.labelOf(operationType);
+        return label == null ? "操作" : label;
     }
 
     /**
@@ -247,16 +329,32 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
     }
 
     /**
+     * 沿父类链查找 BO 字段定义
+     */
+    private Field findField(Object bo, String name) {
+        if (bo == null) {
+            return null;
+        }
+        for (Class<?> c = bo.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            try {
+                return c.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                // 字段定义在父类中，继续向上查找
+            }
+        }
+        return null;
+    }
+
+    /**
      * 反射读取 BO 字段的 @JsonPropertyDescription，例如 "用户账号，例如 zhangsan" -> "用户账号"
      */
     private String resolveLabel(Object bo, String name) {
         if (bo != null) {
             for (Class<?> c = bo.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
                 try {
-                    JsonPropertyDescription desc = c.getDeclaredField(name)
-                        .getAnnotation(JsonPropertyDescription.class);
-                    if (desc != null && !desc.value().isBlank()) {
-                        return shorten(desc.value());
+                    FieldRemark desc = c.getDeclaredField(name).getAnnotation(FieldRemark.class);
+                    if (desc != null && !desc.name().isBlank()) {
+                        return desc.name();
                     }
                     break;
                 } catch (NoSuchFieldException ignored) {
@@ -268,38 +366,35 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
     }
 
     /**
-     * 多条匹配需补充区分信息：字段不写死，按实体类动态推导——优先取必填校验
-     * （@NotBlank/@NotNull/@NotEmpty）且当前值为空的字段，其次取值为空的字符串字段，
-     * 补充后这些字段会作为查询条件缩小范围实现精确定位
+     * 在候选记录中匹配前端单选回传的主键，匹配不到返回 null
      */
-    protected AjaxResult formMissing(String message, Object bo) {
-        List<String> mandatory = new ArrayList<>();
-        List<String> candidates = new ArrayList<>();
-        for (Class<?> c = bo.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
-            for (Field f : c.getDeclaredFields()) {
-                String name = f.getName();
-                if (EXCLUDED_FORM_FIELDS.contains(name) || !isEmptyValue(fieldValue(bo, name))) {
-                    continue;
-                }
-                boolean mandatoryField = f.getAnnotation(NotBlank.class) != null
-                    || f.getAnnotation(NotNull.class) != null
-                    || f.getAnnotation(NotEmpty.class) != null;
-                if (mandatoryField) {
-                    mandatory.add(name);
-                } else if (isTextField(f.getType()) && candidates.size() < 3) {
-                    candidates.add(name);
-                }
+    protected <T> Long matchSelectedId(List<T> records, Long selectedId, Function<T, Long> idGetter) {
+        if (selectedId == null || records == null) {
+            return null;
+        }
+        for (T record : records) {
+            if (selectedId.equals(idGetter.apply(record))) {
+                return selectedId;
             }
         }
-        List<String> fields = mandatory.isEmpty() ? candidates : mandatory;
-        if (fields.isEmpty()) {
-            return AjaxResult.error(message);
-        }
-        return formMissing(message, bo, fields.toArray(new String[0]));
+        return null;
     }
 
-    private boolean isTextField(Class<?> type) {
-        return type == String.class || type == String[].class;
+    /**
+     * 为校验失败的字段补充 @Size 长度限制（仅校验不通过时返回）
+     */
+    private void addSizeLimits(Map<String, Object> field, Object bo, String name) {
+        Field fieldDef = findField(bo, name);
+        Size size = fieldDef != null ? fieldDef.getAnnotation(Size.class) : null;
+        if (size == null) {
+            return;
+        }
+        if (size.min() > 0) {
+            field.put("minLength", size.min());
+        }
+        if (size.max() < Integer.MAX_VALUE) {
+            field.put("maxLength", size.max());
+        }
     }
 
     /** 反射读取 BO 字段值（沿父类链查找），取不到返回 null */
@@ -335,15 +430,64 @@ public abstract class BaseToolServiceImpl implements BaseToolService {
         return joiner.toString();
     }
 
-    private String shorten(String description) {
-        int end = description.length();
-        for (char sep : new char[]{'，', '：', ',', ':'}) {
-            int idx = description.indexOf(sep);
-            if (idx >= 0 && idx < end) {
-                end = idx;
-            }
+    /**
+     * 批量列表校验：为空或超过上限时返回错误，通过返回 null
+     */
+    protected AjaxResult checkBatchSize(List<?> list, String entity) {
+        if (list == null || list.isEmpty()) {
+            return AjaxResult.error(entity + "列表不能为空");
         }
-        return end > 0 ? description.substring(0, end) : description;
+        if (list.size() > MAX_BATCH_SIZE) {
+            return AjaxResult.error("单次批量操作最多支持 " + MAX_BATCH_SIZE + " 条" + entity + "，当前为 " + list.size() + " 条");
+        }
+        return null;
+    }
+
+    /**
+     * 名称列表拼接，用于确认文案展示操作规模
+     */
+    protected String joinNames(List<String> names) {
+        return String.join("、", names);
+    }
+
+    /**
+     * 批量操作结果汇总：逐条记录成功与失败明细。
+     * 全部成功返回 success，存在失败返回 error（已成功项写入成功信息，失败项写明原因）。
+     */
+    protected static class BatchResult {
+        private final String successTitle;
+        private final String failTitle;
+        private final StringBuilder successItems = new StringBuilder();
+        private final StringBuilder failItems = new StringBuilder();
+
+        protected BatchResult(String successTitle, String failTitle) {
+            this.successTitle = successTitle;
+            this.failTitle = failTitle;
+        }
+
+        protected void addSuccess(String item) {
+            append(successItems, item);
+        }
+
+        protected void addFail(String item, String reason) {
+            append(failItems, item + "：" + (reason == null ? "执行失败" : reason));
+        }
+
+        private void append(StringBuilder sb, String item) {
+            if (!sb.isEmpty()) {
+                sb.append("；");
+            }
+            sb.append(item);
+        }
+
+        protected AjaxResult toResult() {
+            String success = successItems.isEmpty() ? "" : successTitle + successItems;
+            if (failItems.isEmpty()) {
+                return AjaxResult.success(success);
+            }
+            String fail = failTitle + failItems;
+            return AjaxResult.error(success.isEmpty() ? fail : success + "。" + fail);
+        }
     }
 
     protected AjaxResult executeWithErrorHandling(ToolCallback callback, String operationDesc) {

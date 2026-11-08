@@ -84,7 +84,7 @@ const activeMenu = computed(() => {
     .el-menu-item, .el-sub-menu__title {
       &:hover {
         /* 玫红浅染（design.md 4.5 菜单 hover） */
-        background-color: var(--menu-hover, rgba(240, 67, 110, 0.05)) !important;
+        background-color: var(--menu-hover, rgba(37, 99, 235, 0.05)) !important;
       }
     }
 
@@ -92,9 +92,9 @@ const activeMenu = computed(() => {
       color: v-bind(getMenuTextColor);
 
       &.is-active {
-        /* 激活态玫红（design.md 主色 #f0436e） */
-        color: var(--menu-active-text, #f0436e);
-        background-color: var(--menu-hover, rgba(240, 67, 110, 0.05)) !important;
+        /* 激活态玫红（design.md 主色 #2563eb） */
+        color: var(--menu-active-text, #2563eb);
+        background-color: var(--menu-hover, rgba(37, 99, 235, 0.05)) !important;
       }
     }
 

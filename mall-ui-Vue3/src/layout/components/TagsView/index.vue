@@ -382,7 +382,7 @@ function handleScroll() {
   overflow: hidden;
 
   $btn-width: 28px;
-  $divider: 1px solid var(--tags-item-border, #eceaf4);
+  $divider: 1px solid var(--tags-item-border, #e5e7eb);
 
   .tags-nav-btn {
     flex-shrink: 0;
@@ -392,18 +392,18 @@ function handleScroll() {
     width: $btn-width;
     height: 40px;
     cursor: pointer;
-    color: var(--text-secondary, #8b8899);
+    color: var(--text-secondary, #6b7280);
     font-size: 13px;
     user-select: none;
     transition: background 0.2s ease, color 0.2s ease;
 
     &:hover:not(.disabled) {
-      background: rgba(240, 67, 110, 0.06);
-      color: var(--el-color-primary, #f0436e);
+      background: rgba(37, 99, 235, 0.06);
+      color: var(--el-color-primary, #2563eb);
     }
 
     &.disabled {
-      color: var(--text-placeholder, #b6b3c2);
+      color: var(--text-placeholder, #9ca3af);
       cursor: not-allowed;
     }
 
@@ -428,8 +428,8 @@ function handleScroll() {
       cursor: pointer;
       height: 26px;
       line-height: 1;
-      border: 1px solid var(--tags-item-border, #eceaf4);
-      color: var(--tags-item-text, #4b4861);
+      border: 1px solid var(--tags-item-border, #e5e7eb);
+      color: var(--tags-item-text, #4b5563);
       background: var(--tags-item-bg, rgba(255, 255, 255, 0.8));
       padding: 0 10px;
       font-size: 12px;
@@ -442,20 +442,20 @@ function handleScroll() {
       &:last-of-type  { margin-right: 15px; }
 
       &:hover {
-        color: var(--el-color-primary, #f0436e);
-        border-color: rgba(240, 67, 110, 0.25);
-        background: rgba(240, 67, 110, 0.04);
+        color: var(--el-color-primary, #2563eb);
+        border-color: rgba(37, 99, 235, 0.25);
+        background: rgba(37, 99, 235, 0.04);
       }
 
       &.active {
-        background-color: var(--el-color-primary, #f0436e);
+        background-color: var(--el-color-primary, #2563eb);
         color: #fff;
-        border-color: var(--el-color-primary, #f0436e);
-        box-shadow: 0 2px 6px rgba(240, 67, 110, 0.25);
+        border-color: var(--el-color-primary, #2563eb);
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 
         &:hover {
-          background-color: #d9305c;
-          border-color: #d9305c;
+          background-color: #1d4ed8;
+          border-color: #1d4ed8;
           color: #fff;
         }
 
@@ -502,8 +502,8 @@ function handleScroll() {
 
       /* 非激活态下关闭按钮 hover 用玫红浅染 */
       &:not(.active) .tags-close-btn:hover {
-        background: rgba(240, 67, 110, 0.12);
-        color: var(--el-color-primary, #f0436e);
+        background: rgba(37, 99, 235, 0.12);
+        color: var(--el-color-primary, #2563eb);
       }
     }
   }
@@ -525,15 +525,15 @@ function handleScroll() {
     width: $btn-width;
     height: 40px;
     cursor: pointer;
-    color: var(--text-secondary, #8b8899);
+    color: var(--text-secondary, #6b7280);
     font-size: 13px;
     border-left: $divider;
     user-select: none;
     transition: background 0.2s ease, color 0.2s ease;
 
     &:hover {
-      background: rgba(240, 67, 110, 0.06);
-      color: var(--el-color-primary, #f0436e);
+      background: rgba(37, 99, 235, 0.06);
+      color: var(--el-color-primary, #2563eb);
     }
   }
 
@@ -553,10 +553,10 @@ function handleScroll() {
     border-radius: var(--radius-sm, 8px);
     font-size: 13px;
     font-weight: 400;
-    color: var(--text-regular, #4b4861);
+    color: var(--text-regular, #4b5563);
     /* 柔和紫调阴影，禁硬阴影 */
-    box-shadow: var(--shadow-lg, 0 12px 32px rgba(124, 116, 160, 0.14));
-    border: 1px solid var(--card-border, #eceaf4);
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.14));
+    border: 1px solid var(--card-border, #e5e7eb);
 
     li {
       margin: 0;
@@ -569,8 +569,8 @@ function handleScroll() {
       gap: 6px;
 
       &:hover {
-        background: rgba(240, 67, 110, 0.08);
-        color: var(--el-color-primary, #f0436e);
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--el-color-primary, #2563eb);
       }
     }
   }

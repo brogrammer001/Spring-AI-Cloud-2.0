@@ -10,12 +10,15 @@
       <app-main />
       <settings ref="settingRef" />
     </div>
+    <!-- 登录后的全局智能客服机器人（可拖动，点击展开聊天面板） -->
+    <ai-assistant />
   </div>
 </template>
 
 <script setup>
 import { useWindowSize } from '@vueuse/core'
 import Sidebar from './components/Sidebar/index.vue'
+import AiAssistant from '@/components/AiAssistant/index.vue'
 import { AppMain, Navbar, Settings, TagsView } from './components'
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'

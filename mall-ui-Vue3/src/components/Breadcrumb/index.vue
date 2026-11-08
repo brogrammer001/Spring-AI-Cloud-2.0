@@ -88,7 +88,7 @@ getBreadcrumb()
   display: inline-block;
   font-size: 14px;
   line-height: 64px;
-  color: var(--text-regular, #4b4861);
+  color: var(--text-regular, #4b5563);
 
   :deep(.el-breadcrumb__item) {
     display: inline-flex;
@@ -97,24 +97,24 @@ getBreadcrumb()
 
   /* 分隔符淡化 */
   :deep(.el-breadcrumb__separator) {
-    color: var(--text-placeholder, #b6b3c2);
+    color: var(--text-placeholder, #9ca3af);
     margin: 0 8px;
   }
 
   .no-redirect {
-    color: var(--text-primary, #262336);
+    color: var(--text-primary, #111827);
     font-weight: 600;
     cursor: text;
   }
 
   a {
-    color: var(--text-regular, #4b4861);
+    color: var(--text-regular, #4b5563);
     transition: color 0.2s ease;
     border-radius: var(--radius-xs, 6px);
     padding: 2px 4px;
 
     &:hover {
-      color: var(--el-color-primary, #f0436e);
+      color: var(--el-color-primary, #2563eb);
     }
   }
 }

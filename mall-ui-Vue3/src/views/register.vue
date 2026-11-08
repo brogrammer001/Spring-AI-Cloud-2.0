@@ -162,15 +162,15 @@ getCode()
 </script>
 
 <style lang='scss' scoped>
-/* ===== 淡紫马卡龙风（与登录页统一：玫瑰红主色 + 薰衣草底 + 毛玻璃卡） ===== */
-$primary: #f0436e;
-$primary-hover: #d9305c;
-$text-strong: #262336;
-$text-regular: #4b4861;
-$text-muted: #8b8899;
-$text-faint: #b6b3c2;
-$border: #eceaf4;
-$border-hover: #dcd8ea;
+/* ===== 中性黑白灰蓝风（与登录页统一：蓝主色 + 冷灰底 + 毛玻璃卡） ===== */
+$primary: #2563eb;
+$primary-hover: #1d4ed8;
+$text-strong: #111827;
+$text-regular: #4b5563;
+$text-muted: #6b7280;
+$text-faint: #9ca3af;
+$border: #e5e7eb;
+$border-hover: #d1d5db;
 
 .register {
   position: relative;
@@ -182,10 +182,10 @@ $border-hover: #dcd8ea;
   padding: 24px;
   overflow: hidden;
   background:
-    radial-gradient(at 12% 12%, rgba(250, 214, 226, 0.55) 0px, transparent 42%),
-    radial-gradient(at 88% 18%, rgba(221, 214, 246, 0.55) 0px, transparent 42%),
-    radial-gradient(at 80% 92%, rgba(214, 228, 250, 0.50) 0px, transparent 42%),
-    #f4f2f9;
+    radial-gradient(at 12% 12%, rgba(148, 163, 184, 0.18) 0px, transparent 42%),
+    radial-gradient(at 88% 18%, rgba(37, 99, 235, 0.08) 0px, transparent 42%),
+    radial-gradient(at 80% 92%, rgba(96, 165, 250, 0.10) 0px, transparent 42%),
+    #f6f7f9;
 
   /* 柔和光斑：让毛玻璃卡片有内容可透 */
   &::before,
@@ -203,7 +203,7 @@ $border-hover: #dcd8ea;
     height: 480px;
     top: -140px;
     left: -100px;
-    background: radial-gradient(circle, rgba(240, 67, 110, 0.16) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.16) 0%, transparent 70%);
   }
 
   &::after {
@@ -211,7 +211,7 @@ $border-hover: #dcd8ea;
     height: 520px;
     bottom: -180px;
     right: -120px;
-    background: radial-gradient(circle, rgba(167, 139, 250, 0.20) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(148, 163, 184, 0.20) 0%, transparent 70%);
   }
 }
 
@@ -261,7 +261,7 @@ $border-hover: #dcd8ea;
     .el-input__wrapper.is-focus {
       border-color: $primary !important;
       background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 0 0 3px rgba(240, 67, 110, 0.12) !important;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
     }
 
     input {
@@ -298,8 +298,8 @@ $border-hover: #dcd8ea;
     justify-content: center;
     font-size: 20px;
     color: #ffffff;
-    background: linear-gradient(135deg, $primary 0%, #ff7a9c 100%);
-    box-shadow: 0 4px 12px rgba(240, 67, 110, 0.30);
+    background: linear-gradient(135deg, $primary 0%, #60a5fa 100%);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.30);
   }
 }
 
@@ -328,13 +328,13 @@ $border-hover: #dcd8ea;
   border: none !important;
   background: $primary !important;
   color: #ffffff !important;
-  box-shadow: 0 1px 2px rgba(240, 67, 110, 0.22) !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.22) !important;
   transition: all 0.3s ease !important;
 
   &:hover {
     background: $primary-hover !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 8px 20px rgba(240, 67, 110, 0.30) !important;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.30) !important;
   }
 
   &:active {

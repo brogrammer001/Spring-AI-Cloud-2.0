@@ -263,14 +263,14 @@ onMounted(() => {
     overflow: hidden;
     line-height: 34px;
     padding-top: 6px;
-    background: var(--table-header-bg, #f4f3f8);
+    background: var(--table-header-bg, #f4f5f7);
 }
 .popup-result {
     box-sizing: border-box;
     line-height: 24px;
     margin: 25px auto;
     padding: 15px 10px 10px;
-    border: 1px solid var(--card-border, #eceaf4);
+    border: 1px solid var(--card-border, #e5e7eb);
     position: relative;
 }
 .popup-result .title {
@@ -302,7 +302,7 @@ onMounted(() => {
     height: 30px;
     white-space: nowrap;
     overflow: hidden;
-    border: 1px solid var(--card-border, #eceaf4);
+    border: 1px solid var(--card-border, #e5e7eb);
 }
 .popup-result-scroll {
     font-size: 12px;

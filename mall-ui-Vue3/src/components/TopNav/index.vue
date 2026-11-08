@@ -185,7 +185,7 @@ onMounted(() => {
   > .el-sub-menu .el-sub-menu__title {
     height: 64px !important;
     line-height: 64px !important;
-    color: var(--text-regular, #4b4861) !important;
+    color: var(--text-regular, #4b5563) !important;
     padding: 0 12px !important;
     margin: 0 4px !important;
     border-bottom: none !important;
@@ -195,22 +195,22 @@ onMounted(() => {
 
     &:not(.is-disabled):hover,
     &:not(.is-disabled):focus {
-      background-color: rgba(240, 67, 110, 0.06) !important;
-      color: var(--el-color-primary, #f0436e) !important;
+      background-color: rgba(37, 99, 235, 0.06) !important;
+      color: var(--el-color-primary, #2563eb) !important;
     }
   }
 
   > .el-menu-item.is-active,
   > .el-sub-menu.is-active > .el-sub-menu__title {
-    color: var(--el-color-primary, #f0436e) !important;
+    color: var(--el-color-primary, #2563eb) !important;
     font-weight: 600;
-    background-color: rgba(240, 67, 110, 0.10);
+    background-color: rgba(37, 99, 235, 0.10);
     border-bottom: none !important;
   }
 
   /* 子菜单 title（非顶层 is-active 路径）hover 同步玫红 */
   > .el-sub-menu .el-sub-menu__title:hover {
-    background-color: rgba(240, 67, 110, 0.06) !important;
+    background-color: rgba(37, 99, 235, 0.06) !important;
   }
 }
 
@@ -226,7 +226,7 @@ onMounted(() => {
   vertical-align: middle;
   margin-left: 6px;
   margin-top: 0px;
-  color: var(--text-secondary, #8b8899);
+  color: var(--text-secondary, #6b7280);
 }
 
 /* 暗色模式覆盖 */
@@ -237,13 +237,13 @@ html.dark .topmenu-container.el-menu--horizontal {
 
     &:not(.is-disabled):hover,
     &:not(.is-disabled):focus {
-      background-color: rgba(240, 67, 110, 0.18) !important;
+      background-color: rgba(37, 99, 235, 0.18) !important;
     }
   }
 
   > .el-menu-item.is-active,
   > .el-sub-menu.is-active > .el-sub-menu__title {
-    background-color: rgba(240, 67, 110, 0.22);
+    background-color: rgba(37, 99, 235, 0.22);
   }
 }
 </style>

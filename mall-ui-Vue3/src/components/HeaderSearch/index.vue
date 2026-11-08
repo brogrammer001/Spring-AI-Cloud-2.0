@@ -251,7 +251,7 @@ watch(searchPool, (list) => {
 }
 
 :deep(.highlight) {
-  color: var(--el-color-primary, #f0436e);
+  color: var(--el-color-primary, #2563eb);
   font-weight: 600;
 }
 
@@ -271,10 +271,10 @@ watch(searchPool, (list) => {
 .result-count {
   padding: 6px 16px 0;
   font-size: 12px;
-  color: var(--text-placeholder, #b6b3c2);
+  color: var(--text-placeholder, #9ca3af);
 
   strong {
-    color: var(--el-color-primary, #f0436e);
+    color: var(--el-color-primary, #2563eb);
     font-weight: 600;
   }
 }
@@ -321,7 +321,7 @@ watch(searchPool, (list) => {
       }
 
       .menu-path {
-        color: var(--text-placeholder, #b6b3c2);
+        color: var(--text-placeholder, #9ca3af);
         font-size: 10px;
       }
     }
@@ -340,23 +340,23 @@ watch(searchPool, (list) => {
 
     .empty-icon {
       font-size: 42px;
-      color: var(--text-placeholder, #b6b3c2);
+      color: var(--text-placeholder, #9ca3af);
       margin-bottom: 14px;
     }
 
     .empty-text {
       font-size: 14px;
-      color: var(--text-secondary, #8b8899);
+      color: var(--text-secondary, #6b7280);
       margin: 0 0 6px;
 
       strong {
-        color: var(--text-regular, #4b4861);
+        color: var(--text-regular, #4b5563);
       }
     }
 
     .empty-tip {
       font-size: 12px;
-      color: var(--text-placeholder, #b6b3c2);
+      color: var(--text-placeholder, #9ca3af);
       margin: 0;
     }
   }
@@ -367,8 +367,8 @@ watch(searchPool, (list) => {
   align-items: center;
   gap: 28px;
   padding: 10px 20px;
-  border-top: 1px solid var(--card-border, #eceaf4);
-  color: var(--text-secondary, #8b8899);
+  border-top: 1px solid var(--card-border, #e5e7eb);
+  color: var(--text-secondary, #6b7280);
   font-size: 12px;
 
   .shortcut-item {
@@ -384,14 +384,14 @@ watch(searchPool, (list) => {
     min-width: 20px;
     height: 20px;
     padding: 0 5px;
-    border: 1px solid var(--card-border, #eceaf4);
+    border: 1px solid var(--card-border, #e5e7eb);
     border-radius: 4px;
-    background: var(--table-header-bg, #f4f3f8);
-    color: var(--text-regular, #4b4861);
+    background: var(--table-header-bg, #f4f5f7);
+    color: var(--text-regular, #4b5563);
     font-size: 11px;
     font-family: inherit;
     line-height: 1;
-    box-shadow: 0 1px 0 var(--card-border, #eceaf4);
+    box-shadow: 0 1px 0 var(--card-border, #e5e7eb);
   }
 }
 </style>

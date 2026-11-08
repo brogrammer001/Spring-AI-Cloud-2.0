@@ -197,11 +197,11 @@ async function toggleTheme(event) {
     margin-right: 8px;
     padding: 0 10px;
     border-radius: var(--radius-full);
-    color: var(--el-color-primary, #f0436e);
+    color: var(--el-color-primary, #2563eb);
 
     &:hover {
-      background: rgba(240, 67, 110, 0.08);
-      color: var(--el-color-primary, #f0436e);
+      background: rgba(37, 99, 235, 0.08);
+      color: var(--el-color-primary, #2563eb);
     }
   }
 
@@ -243,7 +243,7 @@ async function toggleTheme(event) {
       height: 36px;
       padding: 0 6px;
       font-size: 17px;
-      color: var(--el-color-primary, #f0436e);
+      color: var(--el-color-primary, #2563eb);
       vertical-align: text-bottom;
 
       &.hover-effect {
@@ -255,8 +255,8 @@ async function toggleTheme(event) {
 
         &:hover {
           /* design.md 4.5 右侧图标 hover 玫红轻染 + 文字玫红 */
-          background: rgba(240, 67, 110, 0.10);
-          color: var(--el-color-primary, #f0436e);
+          background: rgba(37, 99, 235, 0.10);
+          color: var(--el-color-primary, #2563eb);
         }
       }
 
@@ -291,7 +291,7 @@ async function toggleTheme(event) {
 
         &:hover {
           /* design.md 4.5 头像区 hover 胶囊轻染 */
-          background: rgba(240, 67, 110, 0.05);
+          background: rgba(37, 99, 235, 0.05);
         }
 
         .user-avatar {
@@ -300,25 +300,25 @@ async function toggleTheme(event) {
           border-radius: 50%;
           object-fit: cover;
           /* 参考图：白边圆环头像 */
-          box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px rgba(240, 67, 110, 0.25);
+          box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px rgba(37, 99, 235, 0.25);
           transition: box-shadow 0.25s ease;
         }
 
         &:hover .user-avatar {
           /* hover 时玫红光环加深 */
-          box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px rgba(240, 67, 110, 0.45);
+          box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px rgba(37, 99, 235, 0.45);
         }
 
         .user-nickname {
           font-size: 14px;
           font-weight: 600;
-          color: var(--text-primary, #262336);
+          color: var(--text-primary, #111827);
         }
 
         i {
           cursor: pointer;
           font-size: 12px;
-          color: var(--text-secondary, #8b8899);
+          color: var(--text-secondary, #6b7280);
         }
       }
     }

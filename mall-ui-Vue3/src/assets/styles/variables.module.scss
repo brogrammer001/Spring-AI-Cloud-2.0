@@ -2,7 +2,7 @@
 $blue: #324157;
 $light-blue: #333c46;
 $red: #C03639;
-$pink: #E65D6E;
+$pink: #2563EB;
 $green: #30B08F;
 $tiffany: #4AB7BD;
 $yellow: #FEC171;
@@ -15,10 +15,10 @@ $menuBg: #1a1f2e;
 $menuHover: #263445;
 
 // 浅色主题theme-light
-$menuLightBg: #f7f6fb;
-$menuLightHover: #efeef7;
+$menuLightBg: #f7f8fa;
+$menuLightHover: #f1f2f4;
 $menuLightText: #303133;
-$menuLightActiveText: #f0436e;
+$menuLightActiveText: #2563eb;
 
 // 基础变量
 $base-sidebar-width: 200px;
@@ -32,7 +32,7 @@ $base-sub-menu-background: #141824;
 $base-sub-menu-hover: rgba(255,255,255,.06);
 
 // 组件变量
-$--color-primary: #f0436e;
+$--color-primary: #2563eb;
 $--color-success: #67C23A;
 $--color-warning: #E6A23C;
 $--color-danger: #F56C6C;
@@ -79,7 +79,7 @@ $--color-info: #909399;
   /* splitpanes default-theme 变量 */
   --splitpanes-default-bg: #ffffff;
 
-  /* ===== 现代设计 token：淡紫马卡龙风 ===== */
+  /* ===== 现代设计 token：中性黑白灰蓝 ===== */
   /* 圆角 */
   --radius-xs: 6px;
   --radius-sm: 8px;
@@ -89,11 +89,11 @@ $--color-info: #909399;
   --radius-full: 999px;
 
   /* 柔和紫调多层阴影 */
-  --shadow-sm: 0 1px 2px rgba(124, 116, 160, 0.06), 0 2px 8px rgba(124, 116, 160, 0.06);
-  --shadow-md: 0 4px 16px rgba(124, 116, 160, 0.10), 0 2px 6px rgba(124, 116, 160, 0.05);
-  --shadow-lg: 0 12px 32px rgba(124, 116, 160, 0.14), 0 4px 12px rgba(124, 116, 160, 0.07);
-  --shadow-xl: 0 24px 56px rgba(124, 116, 160, 0.18), 0 8px 24px rgba(124, 116, 160, 0.10);
-  --shadow-primary: 0 8px 24px rgba(240, 67, 110, 0.28);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14), 0 4px 12px rgba(15, 23, 42, 0.07);
+  --shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.18), 0 8px 24px rgba(15, 23, 42, 0.10);
+  --shadow-primary: 0 8px 24px rgba(37, 99, 235, 0.28);
 
   /* 毛玻璃 */
   --glass-bg: rgba(255, 255, 255, 0.75);
@@ -102,28 +102,28 @@ $--color-info: #909399;
   --glass-border-soft: rgba(255, 255, 255, 0.45);
   --glass-blur: 20px;
 
-  /* 页面基底：淡紫薰衣草 */
-  --app-bg: radial-gradient(at 0% 0%, rgba(167, 139, 250, 0.10) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(240, 67, 110, 0.05) 0px, transparent 50%),
+  /* 页面基底：冷灰蓝微光 */
+  --app-bg: radial-gradient(at 0% 0%, rgba(148, 163, 184, 0.10) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.05) 0px, transparent 50%),
             radial-gradient(at 100% 100%, rgba(96, 165, 250, 0.08) 0px, transparent 50%),
-            #f4f2f9;
+            #f6f7f9;
 
   /* 内容区背景 */
   --content-bg: transparent;
   --card-bg: #ffffff;
-  --card-border: #eceaf4;
+  --card-border: #e5e7eb;
 
   /* 文本层级 */
-  --text-primary: #262336;
-  --text-regular: #4b4861;
-  --text-secondary: #8b8899;
-  --text-placeholder: #b6b3c2;
+  --text-primary: #111827;
+  --text-regular: #4b5563;
+  --text-secondary: #6b7280;
+  --text-placeholder: #9ca3af;
 
   /* 边框 */
-  --border-color-soft: #eceaf4;
+  --border-color-soft: #e5e7eb;
 
-  /* 表格头底色（浅灰紫，呼应次级数据卡 #f4f3f8） */
-  --table-header-bg: #f4f3f8;
+  /* 表格头底色（浅灰紫，呼应次级数据卡 #f4f5f7） */
+  --table-header-bg: #f4f5f7;
 }
 
 // 暗黑模式变量
@@ -157,7 +157,7 @@ html.dark {
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.65), 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-primary: 0 8px 24px rgba(64, 158, 255, 0.35);
+  --shadow-primary: 0 8px 24px rgba(37, 99, 235, 0.35);
 
   /* 毛玻璃（暗色） */
   --glass-bg: rgba(30, 30, 32, 0.65);
@@ -167,9 +167,9 @@ html.dark {
   --glass-blur: 20px;
 
   /* 应用整体柔和网格渐变背景（暗色） */
-  --app-bg: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.16) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.12) 0px, transparent 50%),
+  --app-bg: radial-gradient(at 0% 0%, rgba(148, 163, 184, 0.16) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(148, 163, 184, 0.12) 0px, transparent 50%),
             radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.10) 0px, transparent 50%),
             #0f0f10;
 

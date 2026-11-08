@@ -3,7 +3,7 @@
     <!-- 自定义标题 -->
     <template #header>
       <div class="drawer-head">
-        <el-icon style="color:#f0436e;margin-right:8px;"><List /></el-icon>
+        <el-icon style="color:#2563eb;margin-right:8px;"><List /></el-icon>
         <span class="drawer-head-name">{{ row.dictName }}</span>
         <span class="drawer-head-type">{{ row.dictType }}</span>
       </div>
@@ -116,12 +116,12 @@ function loadData() {
 .drawer-head-name {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #262336);
+  color: var(--text-primary, #111827);
   margin-right: 8px;
 }
 .drawer-head-type {
   font-size: 14px;
-  color: var(--text-secondary, #8b8899);
+  color: var(--text-secondary, #6b7280);
   font-family: monospace;
 }
 .drawer-wrap {
@@ -132,13 +132,13 @@ function loadData() {
   align-items: center;
   justify-content: center;
   height: 120px;
-  color: var(--text-secondary, #8b8899);
+  color: var(--text-secondary, #6b7280);
   font-size: 13px;
   gap: 8px;
 }
 .drawer-empty {
   text-align: center;
-  color: var(--text-placeholder, #b6b3c2);
+  color: var(--text-placeholder, #9ca3af);
   padding: 60px 0;
   font-size: 13px;
 }
@@ -150,8 +150,8 @@ function loadData() {
   margin-bottom: 16px;
 }
 .stat-card {
-  background: var(--table-header-bg, #f4f3f8);
-  border: 1px solid var(--card-border, #eceaf4);
+  background: var(--table-header-bg, #f4f5f7);
+  border: 1px solid var(--card-border, #e5e7eb);
   border-radius: var(--radius-sm, 8px);
   padding: 10px 14px;
   text-align: center;
@@ -159,19 +159,19 @@ function loadData() {
 .stat-num {
   font-size: 22px;
   font-weight: 700;
-  color: var(--text-primary, #262336);
+  color: var(--text-primary, #111827);
 }
-.stat-num.success { color: #22c55e; }
-.stat-num.danger  { color: #f0436e; }
+.stat-num.success { color: #334155; }
+.stat-num.danger  { color: #2563eb; }
 .stat-label {
   font-size: 11px;
-  color: var(--text-secondary, #8b8899);
+  color: var(--text-secondary, #6b7280);
   margin-top: 4px;
 }
 .dict-item {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  border: 1px solid var(--card-border, #eceaf4);
+  border: 1px solid var(--card-border, #e5e7eb);
   border-radius: var(--radius-sm, 8px);
   overflow: hidden;
   margin-bottom: 8px;
@@ -179,7 +179,7 @@ function loadData() {
 .dict-cell {
   display: grid;
   grid-template-columns: 70px 1fr;
-  border-right: 1px solid var(--card-border, #eceaf4);
+  border-right: 1px solid var(--card-border, #e5e7eb);
 }
 .dict-cell:last-child {
   border-right: 0;
@@ -187,14 +187,14 @@ function loadData() {
 .dict-cell-key {
   padding: 9px 14px;
   font-size: 12px;
-  color: var(--text-secondary, #8b8899);
-  background: var(--table-header-bg, #f4f3f8);
-  border-right: 1px solid var(--card-border, #eceaf4);
+  color: var(--text-secondary, #6b7280);
+  background: var(--table-header-bg, #f4f5f7);
+  border-right: 1px solid var(--card-border, #e5e7eb);
 }
 .dict-cell-val {
   padding: 9px 14px;
   font-size: 13px;
-  color: var(--text-primary, #262336);
+  color: var(--text-primary, #111827);
   word-break: break-all;
   display: flex;
   align-items: center;
