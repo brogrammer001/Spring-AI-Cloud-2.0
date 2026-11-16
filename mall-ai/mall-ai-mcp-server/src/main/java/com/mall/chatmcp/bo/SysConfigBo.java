@@ -1,5 +1,6 @@
 package com.mall.chatmcp.bo;
 
+import org.springframework.ai.tool.annotation.ToolParam;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.mall.common.core.annotation.FieldRemark;
 import jakarta.validation.constraints.NotBlank;
@@ -9,36 +10,43 @@ public class SysConfigBo extends BaseConfirmBo {
 
     @FieldRemark(name = "操作类型", readConverterExp = "add=新增,update=修改,delete=删除", excludeForm = true)
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
+    @ToolParam(required = false)
     private String operationType;
 
     @FieldRemark(field = "configId", column = "config_id", name = "参数配置ID", excludeForm = true)
     @JsonPropertyDescription("参数配置ID，选择记录后自动回传，无需手动填写")
+    @ToolParam(required = false)
     private Long configId;
 
     @FieldRemark(field = "configName", column = "config_name", name = "参数名称")
     @NotBlank(message = "参数名称不能为空")
     @Size(min = 0, max = 100, message = "参数名称不能超过100个字符")
     @JsonPropertyDescription("参数名称，例如 用户管理-账号初始密码")
+    @ToolParam(required = false)
     private String configName;
 
     @FieldRemark(field = "configKey", column = "config_key", name = "参数键名")
     @NotBlank(message = "参数键名不能为空")
     @Size(min = 0, max = 100, message = "参数键名长度不能超过100个字符")
     @JsonPropertyDescription("参数键名，例如 sys.user.initPassword")
+    @ToolParam(required = false)
     private String configKey;
 
     @FieldRemark(field = "configValue", column = "config_value", name = "参数键值")
     @NotBlank(message = "参数键值不能为空")
     @Size(min = 0, max = 500, message = "参数键值长度不能超过500个字符")
     @JsonPropertyDescription("参数键值，例如 123456")
+    @ToolParam(required = false)
     private String configValue;
 
     @FieldRemark(field = "configType", column = "config_type", name = "系统内置", readConverterExp = "Y=是,N=否")
     @JsonPropertyDescription("系统内置：Y是 N否")
+    @ToolParam(required = false)
     private String configType;
 
     @FieldRemark(field = "remark", column = "remark", name = "备注")
     @JsonPropertyDescription("备注")
+    @ToolParam(required = false)
     private String remark;
 
     public Long getConfigId() {

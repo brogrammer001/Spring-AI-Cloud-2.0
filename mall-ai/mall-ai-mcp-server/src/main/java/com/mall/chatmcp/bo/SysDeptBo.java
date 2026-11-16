@@ -1,5 +1,6 @@
 package com.mall.chatmcp.bo;
 
+import org.springframework.ai.tool.annotation.ToolParam;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.mall.common.core.annotation.FieldRemark;
 import jakarta.validation.constraints.NotBlank;
@@ -10,50 +11,61 @@ public class SysDeptBo extends BaseConfirmBo {
 
     @FieldRemark(name = "操作类型", readConverterExp = "add=新增,update=修改,delete=删除", excludeForm = true)
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
+    @ToolParam(required = false)
     private String operationType;
 
     @FieldRemark(field = "deptId", column = "dept_id", name = "部门ID", excludeForm = true)
     @JsonPropertyDescription("部门ID，选择记录后自动回传，无需手动填写")
+    @ToolParam(required = false)
     private Long deptId;
 
     @FieldRemark(field = "parentId", column = "parent_id", name = "父部门ID", excludeForm = true)
     @JsonPropertyDescription("父部门ID，选择父部门后自动回传，无需手动填写")
+    @ToolParam(required = false)
     private Long parentId;
 
     @FieldRemark(field = "parentName", name = "父部门名称")
     @JsonPropertyDescription("父部门名称，为空则为顶级部门")
+    @ToolParam(required = false)
     private String parentName;
 
     @FieldRemark(field = "deptName", column = "dept_name", name = "部门名称")
     @NotBlank(message = "部门名称不能为空")
     @Size(min = 0, max = 30, message = "部门名称长度不能超过30个字符")
     @JsonPropertyDescription("部门名称，例如 财务部、研发部")
+    @ToolParam(required = false)
     private String deptName;
 
     @FieldRemark(field = "orderNum", column = "order_num", name = "显示顺序")
     @NotNull(message = "显示顺序不能为空")
     @JsonPropertyDescription("显示顺序")
+    @ToolParam(required = false)
     private Integer orderNum;
 
     @FieldRemark(field = "leader", column = "leader", name = "负责人")
     @JsonPropertyDescription("负责人")
+    @ToolParam(required = false)
     private String leader;
 
     @FieldRemark(field = "phone", column = "phone", name = "联系电话")
     @Size(min = 0, max = 11, message = "联系电话长度不能超过11个字符")
     @JsonPropertyDescription("联系电话")
+    @ToolParam(required = false)
     private String phone;
 
     @FieldRemark(field = "email", column = "email", name = "邮箱")
     @JsonPropertyDescription("邮箱")
+    @ToolParam(required = false)
     private String email;
 
     @FieldRemark(field = "status", column = "status", name = "部门状态", readConverterExp = "0=正常,1=停用", excludeForm = true)
     @JsonPropertyDescription("部门状态，0正常 1停用")
+    @ToolParam(required = false)
     private String status;
 
     @FieldRemark(field = "remark", column = "remark", name = "备注")
     @JsonPropertyDescription("备注")
+    @ToolParam(required = false)
     private String remark;
 
     public Long getDeptId() {

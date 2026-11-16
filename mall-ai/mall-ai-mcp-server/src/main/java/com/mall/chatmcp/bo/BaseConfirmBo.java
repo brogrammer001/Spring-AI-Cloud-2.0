@@ -1,5 +1,6 @@
 package com.mall.chatmcp.bo;
 
+import org.springframework.ai.tool.annotation.ToolParam;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.mall.common.core.annotation.FieldRemark;
 
@@ -10,6 +11,7 @@ public class BaseConfirmBo {
 
     @FieldRemark(name = "用户确认标志", excludeForm = true)
     @JsonPropertyDescription("用户确认标志：用户在前端点击同意按钮后为true。未确认的变更操作会返回确认提示，AI不要自行设置该值")
+    @ToolParam(required = false)
     private Boolean confirmed;
 
     public Boolean getConfirmed() {

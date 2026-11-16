@@ -7,7 +7,9 @@ import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.uuid.IdUtils;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.ai.chat.client.advisor.api.*;
+import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.BaseChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.model.tool.ToolExecutionResult;
@@ -37,7 +39,7 @@ import java.util.List;
 public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
 
     /** 必须小于 ToolCallingAdvisor 的 HIGHEST_PRECEDENCE + 300，才能位于其外层拦截 returnDirect 结果 */
-    public static final int RETURN_DIRECT_ADVISOR_ORDER = Ordered.HIGHEST_PRECEDENCE + 200;
+    public static final int RETURN_DIRECT_ADVISOR_ORDER = Ordered.HIGHEST_PRECEDENCE + 130;
 
     private int order = RETURN_DIRECT_ADVISOR_ORDER;
 

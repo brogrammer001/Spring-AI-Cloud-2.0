@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.Duration;
@@ -83,7 +84,7 @@ public class ChatClientConfig {
     public HistoryAwareToolSearchAdvisor toolSearchAdvisor(@Qualifier("toolIndex") ToolIndex toolIndex) {
         return HistoryAwareToolSearchAdvisor.newBuilder()
             .toolIndex(toolIndex)
-            .advisorOrder(140)
+            .advisorOrder(Ordered.HIGHEST_PRECEDENCE + 300)
             .build();
     }
 
@@ -91,7 +92,7 @@ public class ChatClientConfig {
     public SessionMemoryAdvisor sessionMemoryAdvisor(SessionService sessionService) {
         return SessionMemoryAdvisor.builder(sessionService)
             .compactionTrigger(new TurnCountTrigger(4))
-            .order(120)
+            .order(Ordered.HIGHEST_PRECEDENCE + 120)
             .compactionStrategy(
                 SlidingWindowCompactionStrategy.builder()
                     .maxEvents(8)
@@ -129,7 +130,7 @@ public class ChatClientConfig {
         if (vectorStoreEnabled && conversationVectorStore != null) {
             advisors.add(VectorStoreChatMemoryAdvisor.builder(conversationVectorStore, compressChatClient,
                     nacosPromptRegistry, aiMemoryFactService)
-                .order(100)
+                .order(Ordered.HIGHEST_PRECEDENCE + 100)
                 .defaultTopK(vectorStoreChatMemoryDefaultTopK)
                 .build());
         }
@@ -137,7 +138,7 @@ public class ChatClientConfig {
         // 2. 知识库上下文查询 - 根据 vectorEnabled 和 knowledgeVectorStore 是否存在来决定
         if (vectorStoreEnabled && knowledgeVectorStore != null) {
             advisors.add(RagContextQueryAdvisor.builder(knowledgeVectorStore, kbDocumentService, rerankerService, agentEventSinkManager, vectorStoreEnabled)
-                .order(110)
+                .order(Ordered.HIGHEST_PRECEDENCE + 110)
                 .build());
         }
 
@@ -148,13 +149,13 @@ public class ChatClientConfig {
         //    该结果由链头直接返回、不流经任何正数 order 的内层 Advisor；此处一份落 MySQL（含 tool/arguments
         //    完整工具调用信息，前端渲染表单/确认卡片），一份 appendEvent 进 session（内层 SessionMemoryAdvisor
         //    拦不到，下一轮 LLM 上下文靠这里补齐续接依据）
-        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, sessionService).build());
+        advisors.add(ReturnDirectChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, sessionService).build()); // 130
 
         // 5.工具搜索顾问
-        advisors.add(toolSearchAdvisor); //140
+        advisors.add(toolSearchAdvisor); //Ordered.HIGHEST_PRECEDENCE + 300
 
         // 6. 保存全量消息，必须在 toolSearchAdvisor 之后，要拿到工具调用信息
-        advisors.add(HistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, agentEventSinkManager, toolCallLogService, mcpEnabled).order(150).build());
+        advisors.add(HistoryChatMemoryAdvisor.builder(sysChatHistoryService, mallRedisTemplate, agentEventSinkManager, toolCallLogService, mcpEnabled).order(Ordered.HIGHEST_PRECEDENCE + 310).build());
 
         // 7. 观测日志
         advisors.add(new SimpleLoggerAdvisor(160));

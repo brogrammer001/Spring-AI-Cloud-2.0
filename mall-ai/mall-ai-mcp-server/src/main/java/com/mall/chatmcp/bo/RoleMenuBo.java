@@ -1,5 +1,6 @@
 package com.mall.chatmcp.bo;
 
+import org.springframework.ai.tool.annotation.ToolParam;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.mall.common.core.annotation.FieldRemark;
 import jakarta.validation.constraints.NotBlank;
@@ -9,18 +10,22 @@ public class RoleMenuBo extends BaseConfirmBo {
     @FieldRemark(field = "roleName", column = "role_name", name = "角色名称")
     @NotBlank(message = "角色名称不能为空")
     @JsonPropertyDescription("角色名称，例如 管理员")
+    @ToolParam(required = false)
     private String roleName;
 
     @FieldRemark(field = "menuIds", column = "menu_id", name = "菜单名称列表")
     @JsonPropertyDescription("菜单名称列表，用于绑定角色的菜单权限")
+    @ToolParam(required = false)
     private String[] menuNames;
 
     @FieldRemark(field = "roleId", column = "role_id", name = "角色ID", excludeForm = true)
     @JsonPropertyDescription("角色ID，选择角色后自动回传，无需手动填写")
+    @ToolParam(required = false)
     private Long roleId;
 
     @FieldRemark(field = "menuId", column = "menu_id", name = "菜单ID", excludeForm = true)
     @JsonPropertyDescription("菜单ID，选择菜单后自动回传，无需手动填写")
+    @ToolParam(required = false)
     private Long menuId;
 
     public String getRoleName() {

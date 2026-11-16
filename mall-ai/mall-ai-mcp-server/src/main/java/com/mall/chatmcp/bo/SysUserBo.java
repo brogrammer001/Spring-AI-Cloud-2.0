@@ -1,5 +1,6 @@
 package com.mall.chatmcp.bo;
 
+import org.springframework.ai.tool.annotation.ToolParam;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.mall.common.core.annotation.FieldRemark;
 import com.mall.common.core.xss.Xss;
@@ -12,14 +13,17 @@ public class SysUserBo extends BaseConfirmBo {
 
     @FieldRemark(name = "操作类型", readConverterExp = "add=新增,update=修改,delete=删除", excludeForm = true)
     @JsonPropertyDescription("操作类型：add-新增，update-修改，delete-删除")
+    @ToolParam(required = false)
     private String operationType;
 
     @FieldRemark(field = "userId", column = "user_id", name = "用户ID", excludeForm = true)
     @JsonPropertyDescription("用户ID，选择记录后自动回传，无需手动填写")
+    @ToolParam(required = false)
     private Long userId;
 
     @FieldRemark(field = "deptId", column = "dept_id", name = "部门ID", excludeForm = true)
     @JsonPropertyDescription("部门ID，选择部门后自动回传，无需手动填写")
+    @ToolParam(required = false)
     private Long deptId;
 
     @FieldRemark(field = "userName", column = "user_name", name = "用户账号")
@@ -27,6 +31,7 @@ public class SysUserBo extends BaseConfirmBo {
     @NotBlank(message = "用户账号不能为空")
     @Size(min = 0, max = 30, message = "用户账号长度不能超过30个字符")
     @JsonPropertyDescription("用户账号，例如 zhangsan、lisi")
+    @ToolParam(required = false)
     private String userName;
 
     @FieldRemark(field = "nickName", column = "nick_name", name = "用户昵称")
@@ -34,30 +39,36 @@ public class SysUserBo extends BaseConfirmBo {
     @NotBlank(message = "用户昵称不能为空")
     @Size(min = 0, max = 30, message = "用户昵称长度不能超过30个字符")
     @JsonPropertyDescription("用户昵称，例如 张三、李四")
+    @ToolParam(required = false)
     private String nickName;
 
     @FieldRemark(field = "deptName", column = "dept_name", name = "部门名称")
     @JsonPropertyDescription("部门名称，例如 财务部、研发部")
+    @ToolParam(required = false)
     private String deptName;
 
     @FieldRemark(field = "phonenumber", column = "phonenumber", name = "手机号码")
     @Size(min = 0, max = 11, message = "手机号码长度不能超过11个字符")
     @JsonPropertyDescription("手机号码，11位数字")
+    @ToolParam(required = false)
     private String phonenumber;
 
     @FieldRemark(field = "email", column = "email", name = "邮箱")
     @Email(message = "邮箱格式不正确")
     @Size(min = 0, max = 50, message = "邮箱长度不能超过50个字符")
     @JsonPropertyDescription("邮箱")
+    @ToolParam(required = false)
     private String email;
 
     @FieldRemark(field = "sex", column = "sex", name = "性别", readConverterExp = "0=男,1=女,2=未知")
     @Pattern(regexp = "^[男女]$", message = "性别填写错误，只能填写'男'或'女'")
     @JsonPropertyDescription("性别，只能是男或女")
+    @ToolParam(required = false)
     private String sex;
 
     @FieldRemark(field = "status", column = "status", name = "用户状态", readConverterExp = "0=正常,1=停用", excludeForm = true)
     @JsonPropertyDescription("用户状态：有效/启用表示正常，无效/停用表示禁用，仅在update操作时使用")
+    @ToolParam(required = false)
     private String status;
 
     public Long getUserId() {
