@@ -1,13 +1,14 @@
 package com.mall.common.core.text;
 
+import com.mall.common.core.utils.StringUtils;
+
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import com.mall.common.core.utils.StringUtils;
 
 /**
  * 字符集工具类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class CharsetKit
 {

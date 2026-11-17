@@ -3,7 +3,7 @@ package com.mall.common.core.constant;
 /**
  * Token的Key常量
  * 
- * @author mall
+ * @author ruoyi
  */
 public class TokenConstants
 {

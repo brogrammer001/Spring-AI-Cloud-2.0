@@ -4,6 +4,7 @@ import com.alibaba.nacos.api.ai.AiService;
 import com.alibaba.nacos.api.ai.listener.AbstractNacosPromptListener;
 import com.alibaba.nacos.api.ai.listener.NacosPromptEvent;
 import com.alibaba.nacos.api.ai.model.prompt.Prompt;
+import com.alibaba.nacos.api.ai.model.prompt.PromptVariable;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,9 @@ public class NacosPromptRegistry {
 
     /** 仅用于渲染后检查残留占位符（不参与替换） */
     private static final Pattern LEFTOVER = Pattern.compile("\\{\\{\\s*[\\w.\\-]+\\s*}}");
+
+    /** 占位符：{{ varName }} */
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{\\s*([\\w.\\-]+)\\s*}}");
 
     private final AiService aiService;
     private final PromptProperties properties;
@@ -109,8 +113,9 @@ public class NacosPromptRegistry {
     }
 
     /**
-     * 业务侧统一渲染入口：委托给 SDK 的 prompt.render(variables)。
-     * <p>渲染优先级（SDK 内部实现）：调用方变量 &gt; Nacos 控制台 defaultValue。</p>
+     * 业务侧统一渲染入口。
+     * <p>渲染优先级：调用方变量 &gt; Nacos 控制台 defaultValue。</p>
+     * <p>nacos-client 3.3.0 已移除 {@code Prompt.render(Map)}，这里按模板自行替换 {{var}} 占位符。</p>
      *
      * @param name      业务别名（bindings 里配置的名字）
      * @param variables 变量名 → 变量值；可为 null 或空（此时仅使用 defaultValue）
@@ -118,8 +123,36 @@ public class NacosPromptRegistry {
      */
     public String render(String name, Map<String, String> variables) {
         var snapshot = getSnapshot(name);
-        // SDK render：template == null 返回 null；merged 为空时返回原 template
-        String rendered = snapshot.prompt().render(variables);
+        String template = snapshot.template();
+        // template == null 返回 null
+        if (template == null) {
+            return null;
+        }
+        Map<String, String> merged = new HashMap<>();
+        Prompt prompt = snapshot.prompt();
+        if (prompt != null && prompt.getVariables() != null) {
+            for (PromptVariable variable : prompt.getVariables()) {
+                if (variable.getName() != null && variable.getDefaultValue() != null) {
+                    merged.put(variable.getName(), variable.getDefaultValue());
+                }
+            }
+        }
+        if (variables != null) {
+            variables.forEach((key, value) -> {
+                if (value != null) {
+                    merged.put(key, value);
+                }
+            });
+        }
+        Matcher matcher = PLACEHOLDER.matcher(template);
+        StringBuilder builder = new StringBuilder();
+        while (matcher.find()) {
+            String value = merged.get(matcher.group(1));
+            matcher.appendReplacement(builder,
+                Matcher.quoteReplacement(value != null ? value : matcher.group()));
+        }
+        matcher.appendTail(builder);
+        String rendered = builder.toString();
         checkLeftover(name, rendered);
         return rendered;
     }

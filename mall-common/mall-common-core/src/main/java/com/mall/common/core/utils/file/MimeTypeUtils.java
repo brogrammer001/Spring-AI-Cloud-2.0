@@ -3,7 +3,7 @@ package com.mall.common.core.utils.file;
 /**
  * 媒体类型工具类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class MimeTypeUtils
 {
@@ -30,7 +30,7 @@ public class MimeTypeUtils
             // 图片
             "bmp", "gif", "jpg", "jpeg", "png",
             // word excel powerpoint
-            "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md",
+            "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt",
             // 压缩文件
             "rar", "zip", "gz", "bz2",
             // 视频格式

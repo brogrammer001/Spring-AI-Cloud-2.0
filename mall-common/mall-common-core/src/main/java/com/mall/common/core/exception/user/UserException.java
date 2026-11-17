@@ -5,7 +5,7 @@ import com.mall.common.core.exception.base.BaseException;
 /**
  * 用户信息异常类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class UserException extends BaseException
 {

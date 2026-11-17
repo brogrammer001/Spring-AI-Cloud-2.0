@@ -6,7 +6,7 @@ import com.mall.common.core.utils.StringUtils;
 /**
  * sql操作工具类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class SqlUtil
 {

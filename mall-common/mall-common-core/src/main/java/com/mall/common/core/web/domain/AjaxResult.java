@@ -9,7 +9,7 @@ import java.util.Objects;
 /**
  * 操作消息提醒
  * 
- * @author mall
+ * @author ruoyi
  */
 public class AjaxResult extends HashMap<String, Object>
 {
@@ -89,11 +89,6 @@ public class AjaxResult extends HashMap<String, Object>
     public static AjaxResult success(String msg)
     {
         return AjaxResult.success(msg, null);
-    }
-
-    public static AjaxResult done()
-    {
-        return new AjaxResult(-1, "");
     }
 
     /**

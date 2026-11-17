@@ -3,7 +3,7 @@ package com.mall.common.core.exception;
 /**
  * 权限异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public class PreAuthorizeException extends RuntimeException
 {

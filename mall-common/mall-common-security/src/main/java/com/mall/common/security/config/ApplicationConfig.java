@@ -1,5 +1,8 @@
 package com.mall.common.security.config;
 
+import java.util.TimeZone;
+import org.springframework.context.annotation.Bean;
+
 /**
  * 系统配置
  *
@@ -10,12 +13,9 @@ public class ApplicationConfig
     /**
      * 时区配置
      */
-//    @Bean
-//    public ObjectMapper objectMapper()
-//    {
-//        ObjectMapper objectMapper = JsonMapper.builder().build();
-//        objectMapper.findAndRegisterModules();
-//        objectMapper.setTimeZone(TimeZone.getDefault());
-//        return objectMapper;
-//    }
+    @Bean
+    public tools.jackson.databind.json.JsonMapper jacksonJsonMapper(tools.jackson.databind.json.JsonMapper.Builder builder)
+    {
+        return builder.defaultTimeZone(TimeZone.getTimeZone("GMT+8")).build();
+    }
 }

@@ -3,7 +3,7 @@ package com.mall.common.core.utils.sign;
 /**
  * Base64工具类
  * 
- * @author mall
+ * @author ruoyi
  */
 public final class Base64
 {

@@ -3,7 +3,7 @@ package com.mall.common.core.constant;
 /**
  * 缓存常量信息
  * 
- * @author mall
+ * @author ruoyi
  */
 public class CacheConstants
 {
@@ -56,4 +56,9 @@ public class CacheConstants
      * 登录IP黑名单 cache key
      */
     public static final String SYS_LOGIN_BLACKIPLIST = SYS_CONFIG_KEY + "sys.login.blackIPList";
+
+    /**
+     * 用户注册开关 cache key
+     */
+    public static final String SYS_ACCOUNT_REGISTER_USER = SYS_CONFIG_KEY + "sys.account.registerUser";
 }

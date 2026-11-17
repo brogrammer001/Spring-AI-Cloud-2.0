@@ -3,7 +3,7 @@ package com.mall.common.core.exception.base;
 /**
  * 基础异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public class BaseException extends RuntimeException
 {

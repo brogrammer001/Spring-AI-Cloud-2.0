@@ -44,6 +44,9 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
     /** mcp.client.enabled 配置：false 时不推送工具调用事件 */
     private boolean mcpEnabled;
 
+    /** 用户ID上下文 key：Spring AI 2.1 移除了 SessionMemoryAdvisor.USER_ID_CONTEXT_KEY，改为本地约定 */
+    public static final String USER_ID_CONTEXT_KEY = "chat.user.id";
+
     private JsonMapper jsonMapper = JsonMapper.builder().build();
 
     public HistoryChatMemoryAdvisor(int order, StringRedisTemplate stringRedisTemplate, ISysChatHistoryService sysChatHistoryService,
@@ -99,7 +102,7 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
     @Override
     public ChatClientRequest before(ChatClientRequest chatClientRequest, AdvisorChain advisorChain) {
         String conversationId = getConversationId(chatClientRequest.context());
-        String userId = Objects.requireNonNull(chatClientRequest.context().get(SessionMemoryAdvisor.USER_ID_CONTEXT_KEY)).toString();
+        String userId = Objects.requireNonNull(chatClientRequest.context().get(USER_ID_CONTEXT_KEY)).toString();
         Message userMessage = chatClientRequest.prompt().getLastUserOrToolResponseMessage();
         this.saveHistory(conversationId, Collections.singletonList(userMessage));
         this.saveToolCallLog(conversationId, userId, Collections.singletonList(userMessage));
@@ -111,7 +114,7 @@ public class HistoryChatMemoryAdvisor implements BaseChatMemoryAdvisor {
     public ChatClientResponse after(ChatClientResponse chatClientResponse, AdvisorChain advisorChain) {
         String conversationId = getConversationId(chatClientResponse.context());
 
-        String userId = Objects.requireNonNull(chatClientResponse.context().get(SessionMemoryAdvisor.USER_ID_CONTEXT_KEY)).toString();
+        String userId = Objects.requireNonNull(chatClientResponse.context().get(USER_ID_CONTEXT_KEY)).toString();
 
         List<Message> assistantMessages = new ArrayList<>();
         if (chatClientResponse.chatResponse() != null) {

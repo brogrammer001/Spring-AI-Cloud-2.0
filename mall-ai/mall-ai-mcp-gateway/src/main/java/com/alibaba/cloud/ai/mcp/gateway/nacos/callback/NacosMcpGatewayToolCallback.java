@@ -32,7 +32,7 @@ import com.alibaba.nacos.api.ai.model.mcp.McpServiceRef;
 import com.alibaba.nacos.api.ai.model.mcp.McpToolMeta;
 import com.alibaba.nacos.api.config.listener.AbstractListener;
 import com.alibaba.nacos.api.exception.NacosException;
-import com.alibaba.nacos.common.utils.JacksonUtils;
+import com.alibaba.nacos.api.utils.json.JsonUtils;
 import com.alibaba.nacos.shaded.com.google.common.collect.Maps;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -718,7 +718,7 @@ public class NacosMcpGatewayToolCallback implements ToolCallback {
     @SuppressWarnings("unchecked")
     public String call(@NonNull final String input, final @Nullable ToolContext toolContext) {
         try {
-            logger.info("[call] input: {} toolContext: {}", input, JacksonUtils.toJson(toolContext));
+            logger.info("[call] input: {} toolContext: {}", input, JsonUtils.toJson(toolContext));
 
             // Parameter validation
             if (this.toolDefinition == null) {
@@ -778,7 +778,7 @@ public class NacosMcpGatewayToolCallback implements ToolCallback {
             throw new RuntimeException("No available endpoint found for service: " + serviceRef.getServiceName());
         }
 
-        logger.info("Tool callback instance: {}", JacksonUtils.toJson(mcpEndpointInfo));
+        logger.info("Tool callback instance: {}", JsonUtils.toJson(mcpEndpointInfo));
         McpToolMeta toolMeta = this.toolDefinition.getToolMeta();
         String baseUrl = protocol + "://" + mcpEndpointInfo.getAddress() + ":" + mcpEndpointInfo.getPort();
 
@@ -829,7 +829,7 @@ public class NacosMcpGatewayToolCallback implements ToolCallback {
             throw new RuntimeException("No available endpoint found for service: " + serviceRef.getServiceName());
         }
 
-        logger.info("[handleMcpStreamProtocol] Tool callback instance: {}", JacksonUtils.toJson(mcpEndpointInfo));
+        logger.info("[handleMcpStreamProtocol] Tool callback instance: {}", JsonUtils.toJson(mcpEndpointInfo));
         String exportPath = remoteServerConfig.getExportPath();
 
         // Build base URL

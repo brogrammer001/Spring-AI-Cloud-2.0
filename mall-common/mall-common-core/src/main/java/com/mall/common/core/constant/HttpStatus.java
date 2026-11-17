@@ -3,7 +3,7 @@ package com.mall.common.core.constant;
 /**
  * 返回状态码
  * 
- * @author mall
+ * @author ruoyi
  */
 public class HttpStatus
 {

@@ -3,7 +3,7 @@ package com.mall.common.core.exception;
 /**
  * 演示模式异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public class DemoModeException extends RuntimeException
 {

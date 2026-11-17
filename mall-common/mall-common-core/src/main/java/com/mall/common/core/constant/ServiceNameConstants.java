@@ -23,12 +23,12 @@ public class ServiceNameConstants
     public static final String FILE_SERVICE = "mall-file";
 
     /**
-     * AI聊天服务的serviceid
-     */
-    public static final String CHAT_SERVICE = "mall-ai-chat";
-
-    /**
      * 定时任务服务的serviceid
      */
     public static final String JOB_SERVICE = "mall-job";
+
+    /**
+     * AI对话服务的serviceid
+     */
+    public static final String CHAT_SERVICE = "mall-ai-chat";
 }

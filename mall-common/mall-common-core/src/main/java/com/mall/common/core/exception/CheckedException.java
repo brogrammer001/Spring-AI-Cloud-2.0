@@ -3,7 +3,7 @@ package com.mall.common.core.exception;
 /**
  * 检查异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public class CheckedException extends RuntimeException
 {

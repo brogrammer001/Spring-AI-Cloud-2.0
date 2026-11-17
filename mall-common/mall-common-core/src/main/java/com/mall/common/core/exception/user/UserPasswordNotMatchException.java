@@ -3,7 +3,7 @@ package com.mall.common.core.exception.user;
 /**
  * 用户密码不正确或不符合规范异常类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class UserPasswordNotMatchException extends UserException
 {

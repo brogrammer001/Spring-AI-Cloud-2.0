@@ -111,6 +111,14 @@ public interface ISysMenuService
     public boolean checkMenuExistRole(Long menuId);
 
     /**
+     * 校验上级菜单是否为自己或自己的子菜单
+     *
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    public boolean checkParentCycle(SysMenu menu);
+
+    /**
      * 新增保存菜单信息
      * 
      * @param menu 菜单信息

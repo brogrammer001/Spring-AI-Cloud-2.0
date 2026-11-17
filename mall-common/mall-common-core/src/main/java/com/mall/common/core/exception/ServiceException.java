@@ -3,7 +3,7 @@ package com.mall.common.core.exception;
 /**
  * 业务异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public final class ServiceException extends RuntimeException
 {

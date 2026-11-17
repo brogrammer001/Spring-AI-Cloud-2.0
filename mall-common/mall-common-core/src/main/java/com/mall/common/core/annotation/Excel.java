@@ -1,18 +1,19 @@
 package com.mall.common.core.annotation;
 
+import com.mall.common.core.utils.poi.ExcelHandlerAdapter;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.math.BigDecimal;
-import org.apache.poi.ss.usermodel.HorizontalAlignment;
-import org.apache.poi.ss.usermodel.IndexedColors;
-import com.mall.common.core.utils.poi.ExcelHandlerAdapter;
 
 /**
  * 自定义导出Excel数据注解
  * 
- * @author mall
+ * @author ruoyi
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
@@ -32,6 +33,11 @@ public @interface Excel
      * 日期格式, 如: yyyy-MM-dd
      */
     public String dateFormat() default "";
+
+    /**
+     * 如果是字典类型，请设置字典的type值 (如: sys_user_sex)
+     */
+    public String dictType() default "";
 
     /**
      * 读取内容转表达式 (如: 0=男,1=女,2=未知)
@@ -90,6 +96,11 @@ public @interface Excel
     public String[] combo() default {};
 
     /**
+     * 是否从字典读数据到combo,默认不读取,如读取需要设置dictType注解.
+     */
+    public boolean comboReadDict() default false;
+
+    /**
      * 是否需要纵向合并单元格,应对需求:含有list集合单元格)
      */
     public boolean needMerge() default false;
@@ -110,7 +121,7 @@ public @interface Excel
     public boolean isStatistics() default false;
 
     /**
-     * 导出类型（0数字 1字符串）
+     * 导出类型（0数字 1字符串 2图片）
      */
     public ColumnType cellType() default ColumnType.STRING;
 

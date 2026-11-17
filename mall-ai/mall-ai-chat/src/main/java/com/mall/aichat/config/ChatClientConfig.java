@@ -16,8 +16,6 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
-import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
-import org.springframework.ai.session.compaction.TurnCountTrigger;
 import org.springframework.ai.tool.toolsearch.ToolIndex;
 import org.springframework.ai.tool.toolsearch.index.lucene.LuceneToolIndex;
 import org.springframework.ai.tool.toolsearch.index.vectorstore.VectorToolIndex;
@@ -91,12 +89,7 @@ public class ChatClientConfig {
     @Bean
     public SessionMemoryAdvisor sessionMemoryAdvisor(SessionService sessionService) {
         return SessionMemoryAdvisor.builder(sessionService)
-            .compactionTrigger(new TurnCountTrigger(4))
             .order(Ordered.HIGHEST_PRECEDENCE + 120)
-            .compactionStrategy(
-                SlidingWindowCompactionStrategy.builder()
-                    .maxEvents(8)
-                    .build())
             .build();
     }
 

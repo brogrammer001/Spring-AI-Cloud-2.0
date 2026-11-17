@@ -5,7 +5,7 @@ import com.mall.common.core.utils.StringUtils;
 /**
  * 分页数据
  * 
- * @author mall
+ * @author ruoyi
  */
 public class PageDomain
 {

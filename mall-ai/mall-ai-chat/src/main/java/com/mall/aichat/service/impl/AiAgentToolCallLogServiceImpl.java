@@ -1,6 +1,6 @@
 package com.mall.aichat.service.impl;
 
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.mall.aichat.domain.AiAgentToolCallLog;
 import com.mall.aichat.mapper.AiAgentToolCallLogMapper;
 import com.mall.aichat.service.IAiAgentToolCallLogService;

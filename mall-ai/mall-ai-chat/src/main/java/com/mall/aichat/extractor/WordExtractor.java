@@ -830,8 +830,11 @@ public class WordExtractor extends AbstractTikaExtractor {
                 XWPFStyle normal = styles.getStyle("Normal");
                 if (normal != null && normal.getCTStyle() != null
                     && normal.getCTStyle().getRPr() != null
-                    && normal.getCTStyle().getRPr().getSz() != null) {
-                    return normal.getCTStyle().getRPr().getSz().getVal().intValue() / 2f;
+                    && normal.getCTStyle().getRPr().sizeOfSzArray() > 0) {
+                    Object sz = normal.getCTStyle().getRPr().getSzArray(0).getVal();
+                    if (sz != null) {
+                        return Integer.parseInt(sz.toString()) / 2f;
+                    }
                 }
             }
         } catch (Exception e) {

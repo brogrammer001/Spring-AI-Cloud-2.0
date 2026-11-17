@@ -1,14 +1,15 @@
 package com.mall.common.core.utils.bean;
 
-import java.util.Set;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 
+import java.util.Set;
+
 /**
  * bean对象属性验证
  * 
- * @author mall
+ * @author ruoyi
  */
 public class BeanValidators
 {

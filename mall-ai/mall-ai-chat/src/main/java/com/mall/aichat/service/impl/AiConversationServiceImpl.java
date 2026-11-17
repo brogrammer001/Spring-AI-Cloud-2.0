@@ -156,7 +156,7 @@ public class AiConversationServiceImpl implements IAiConversationService {
         Long userId = SecurityUtils.getUserId();
         Session session = sessionService.create(
             CreateSessionRequest.builder()
-                .userId(String.valueOf(userId))
+                .metadata("userId", String.valueOf(userId))
                 .build());
         String sessionId = session.id();
 

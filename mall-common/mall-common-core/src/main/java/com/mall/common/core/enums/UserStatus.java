@@ -3,7 +3,7 @@ package com.mall.common.core.enums;
 /**
  * 用户状态
  * 
- * @author mall
+ * @author ruoyi
  */
 public enum UserStatus
 {

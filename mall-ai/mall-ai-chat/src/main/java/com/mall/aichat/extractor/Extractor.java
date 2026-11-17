@@ -1,6 +1,6 @@
 package com.mall.aichat.extractor;
 
-import org.apache.poi.ooxml.extractor.ExtractorFactory;
+import org.apache.poi.extractor.ExtractorFactory;
 import org.springframework.core.io.FileSystemResource;
 
 /**

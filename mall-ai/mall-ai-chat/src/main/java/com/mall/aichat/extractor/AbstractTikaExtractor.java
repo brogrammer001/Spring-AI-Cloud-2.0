@@ -1,6 +1,7 @@
 package com.mall.aichat.extractor;
 
 import org.apache.tika.exception.WriteLimitReachedException;
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
@@ -140,7 +141,7 @@ public abstract class AbstractTikaExtractor implements Extractor {
             Metadata metadata = new Metadata();
             metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY,
                 file.getFileName() != null ? file.getFileName().toString() : "");
-            parser.parse(in, limitHandler, metadata, new ParseContext());
+            parser.parse(TikaInputStream.get(in), limitHandler, metadata, new ParseContext());
             return TikaResult.OK;
         } catch (SAXException e) {
             if (WriteLimitReachedException.isWriteLimitReached(e)) {

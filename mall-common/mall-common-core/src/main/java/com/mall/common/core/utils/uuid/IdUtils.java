@@ -3,7 +3,7 @@ package com.mall.common.core.utils.uuid;
 /**
  * ID生成器工具类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class IdUtils
 {

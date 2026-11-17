@@ -1,7 +1,9 @@
 package com.mall.aichat.extractor;
 
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
+import org.apache.tika.parser.ParseContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.FileSystemResource;
@@ -89,7 +91,7 @@ public class AudioExtractor implements Extractor {
         
         try (InputStream in = new FileInputStream(file)) {
             // 只提取元数据，不需要内容处理
-            parser.parse(in, null, metadata, null);
+            parser.parse(TikaInputStream.get(in), null, metadata, new ParseContext());
         } catch (Exception e) {
             log.warn("Tika parse error for audio: {}, will use metadata only", filename, e);
         }

@@ -3,7 +3,7 @@ package com.mall.common.core.exception;
 /**
  * 工具类异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public class UtilException extends RuntimeException
 {

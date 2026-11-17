@@ -1,12 +1,5 @@
 package com.mall.common.core.web.controller;
 
-import java.beans.PropertyEditorSupport;
-import java.util.Date;
-import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.web.bind.WebDataBinder;
-import org.springframework.web.bind.annotation.InitBinder;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.mall.common.core.constant.HttpStatus;
@@ -18,11 +11,19 @@ import com.mall.common.core.web.domain.AjaxResult;
 import com.mall.common.core.web.page.PageDomain;
 import com.mall.common.core.web.page.TableDataInfo;
 import com.mall.common.core.web.page.TableSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+
+import java.beans.PropertyEditorSupport;
+import java.util.Date;
+import java.util.List;
 
 /**
  * web层通用数据处理
  * 
- * @author mall
+ * @author ruoyi
  */
 public class BaseController
 {

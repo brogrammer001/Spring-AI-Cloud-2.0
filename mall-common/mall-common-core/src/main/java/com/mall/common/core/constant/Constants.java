@@ -3,7 +3,7 @@ package com.mall.common.core.constant;
 /**
  * 通用常量信息
  * 
- * @author mall
+ * @author ruoyi
  */
 public class Constants
 {

@@ -15,7 +15,6 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.session.SessionEvent;
 import org.springframework.ai.session.SessionService;
-import org.springframework.ai.session.advisor.SessionEventResponseIdGenerator;
 import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.Assert;
@@ -24,6 +23,7 @@ import reactor.core.publisher.Flux;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * returnDirect 工具结果专用存储 Advisor
@@ -120,7 +120,7 @@ public class ReturnDirectChatMemoryAdvisor implements BaseChatMemoryAdvisor {
             // 2. appendEvent 进 session：内层 SessionMemoryAdvisor 拦不到 returnDirect 结果，
             //    下一轮 LLM 上下文必须靠这里补齐，续接对话（补字段/确认）才有依据
             sessionService.appendEvent(SessionEvent.builder()
-                .id(SessionEventResponseIdGenerator.random().generate(chatClientResponse, g.getOutput()))
+                .id(UUID.randomUUID().toString())
                 .sessionId(conversationId)
                 .message(g.getOutput())
                 .build());

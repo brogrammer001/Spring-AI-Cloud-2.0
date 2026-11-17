@@ -1,3 +1,4 @@
+com.mall.system.api.config.RemoteFileAutoConfiguration
 com.mall.system.api.factory.RemoteDeptFallbackFactory
 com.mall.system.api.factory.RemoteFileFallbackFactory
 com.mall.system.api.factory.RemoteLogFallbackFactory

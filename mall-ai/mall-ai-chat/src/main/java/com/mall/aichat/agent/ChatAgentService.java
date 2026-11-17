@@ -1,5 +1,6 @@
 package com.mall.aichat.agent;
 
+import com.mall.aichat.advisor.HistoryChatMemoryAdvisor;
 import com.mall.aichat.config.AgentEventSinkManager;
 import com.mall.aichat.config.NacosPromptRegistry;
 import com.mall.aichat.domain.ChatRequest;
@@ -78,7 +79,7 @@ public class ChatAgentService {
             .user(request.getQuestion())
             .advisors(a ->
                 a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, conversationId)
-                    .param(SessionMemoryAdvisor.USER_ID_CONTEXT_KEY, request.getUserId())
+                    .param(HistoryChatMemoryAdvisor.USER_ID_CONTEXT_KEY, request.getUserId())
             )
             .stream()
             .chatResponse()

@@ -5,7 +5,7 @@ import com.mall.common.core.utils.StringUtils;
 /**
  * 转义和反转义工具类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class EscapeUtil
 {

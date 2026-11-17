@@ -1,15 +1,16 @@
 package com.mall.common.core.xss;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.mall.common.core.utils.StringUtils;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import com.mall.common.core.utils.StringUtils;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 自定义xss校验注解实现
  * 
- * @author mall
+ * @author ruoyi
  */
 public class XssValidator implements ConstraintValidator<Xss, String>
 {

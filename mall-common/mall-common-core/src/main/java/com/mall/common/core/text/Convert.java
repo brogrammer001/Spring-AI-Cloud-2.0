@@ -1,5 +1,7 @@
 package com.mall.common.core.text;
 
+import com.mall.common.core.utils.StringUtils;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -7,12 +9,11 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.text.NumberFormat;
 import java.util.Set;
-import com.mall.common.core.utils.StringUtils;
 
 /**
  * 类型转换器
  * 
- * @author mall
+ * @author ruoyi
  */
 public class Convert
 {

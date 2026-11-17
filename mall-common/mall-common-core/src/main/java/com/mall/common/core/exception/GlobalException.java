@@ -3,7 +3,7 @@ package com.mall.common.core.exception;
 /**
  * 全局异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public class GlobalException extends RuntimeException
 {

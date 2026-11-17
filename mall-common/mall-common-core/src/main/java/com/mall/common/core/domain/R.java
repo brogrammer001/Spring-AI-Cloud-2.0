@@ -1,12 +1,13 @@
 package com.mall.common.core.domain;
 
-import java.io.Serializable;
 import com.mall.common.core.constant.Constants;
+
+import java.io.Serializable;
 
 /**
  * 响应信息主体
  *
- * @author mall
+ * @author ruoyi
  */
 public class R<T> implements Serializable
 {

@@ -8,6 +8,7 @@ import com.mall.common.core.utils.DateUtils;
 import com.mall.common.core.utils.StringUtils;
 import com.mall.common.core.utils.file.FileTypeUtils;
 import com.mall.common.core.utils.file.MimeTypeUtils;
+import com.mall.common.core.utils.uuid.Seq;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -93,8 +94,8 @@ public class FileUploadUtils
      */
     public static final String extractFilename(MultipartFile file)
     {
-        return StringUtils.format("{}/{}.{}", DateUtils.datePath(),
-                FilenameUtils.getBaseName(file.getOriginalFilename()), FileTypeUtils.getExtension(file));
+        return StringUtils.format("{}/{}_{}.{}", DateUtils.datePath(),
+                FilenameUtils.getBaseName(file.getOriginalFilename()), Seq.getId(Seq.uploadSeqType), FileTypeUtils.getExtension(file));
     }
 
     private static final File getAbsoluteFile(String uploadDir, String fileName) throws IOException

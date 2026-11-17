@@ -3,7 +3,7 @@ package com.mall.common.core.exception;
 /**
  * 内部认证异常
  * 
- * @author mall
+ * @author ruoyi
  */
 public class InnerAuthException extends RuntimeException
 {

@@ -1,3 +1,4 @@
+com.mall.common.security.utils.poi.DictDataConverter
 com.mall.common.security.config.WebMvcConfig
 com.mall.common.security.service.TokenService
 com.mall.common.security.aspect.PreAuthorizeAspect

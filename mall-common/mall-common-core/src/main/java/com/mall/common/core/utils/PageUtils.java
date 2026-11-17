@@ -8,7 +8,7 @@ import com.mall.common.core.web.page.TableSupport;
 /**
  * 分页工具类
  * 
- * @author mall
+ * @author ruoyi
  */
 public class PageUtils extends PageHelper
 {

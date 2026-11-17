@@ -3,7 +3,7 @@ package com.mall.common.core.constant;
 /**
  * 权限相关通用常量
  * 
- * @author mall
+ * @author ruoyi
  */
 public class SecurityConstants
 {
